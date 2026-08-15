@@ -1,0 +1,217 @@
+/* ==========================================
+   SCHOOL ERP RESPONSIVE FRAMEWORK
+   ========================================== */
+
+/* ---------- GLOBAL ---------- */
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    overflow-x:hidden;
+}
+
+/* ---------- CONTAINERS ---------- */
+/* Global button alignment */
+
+a.erp-btn,
+a.erp-btn-save,
+a.erp-btn-edit,
+a.erp-btn-delete,
+a.erp-btn-print,
+a.erp-btn-export,
+button,
+input[type="submit"] {
+
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+}
+.erp-container{
+    width:100%;
+    max-width:100%;
+    padding:10px;
+}
+
+.erp-card{
+    background:#ffffff;
+    border-radius:8px;
+    padding:15px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ---------- TABLES ---------- */
+
+.erp-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.erp-table th,
+.erp-table td{
+    border:1px solid #d1d5db;
+    padding:6px;
+    font-size:13px;
+}
+
+.erp-table th{
+    background:#dbeafe;
+    font-weight:600;
+}
+
+.table-responsive{
+    overflow-x:auto;
+    width:100%;
+}
+
+/* ---------- FORM ---------- */
+
+.erp-form-row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.erp-input,
+.erp-select{
+    height:34px;
+    padding:4px 8px;
+    border:1px solid #d1d5db;
+    border-radius:4px;
+}
+
+.erp-input{
+    width:100%;
+}
+
+.erp-select{
+    min-width:150px;
+}
+
+/* ---------- BUTTONS ---------- */
+
+.erp-btn{
+    border:none;
+    padding:8px 14px;
+    border-radius:4px;
+    cursor:pointer;
+    font-weight:600;
+        display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px 16px;
+    white-space:nowrap;
+    width:auto;
+    min-width:auto;
+}
+
+.erp-btn-save{
+    background:#16a34a;
+    color:#fff;
+        display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px 16px;
+    white-space:nowrap;
+    width:auto;
+    min-width:auto;
+}
+
+.erp-btn-edit{
+    background:#2563eb;
+    color:#fff;
+}
+
+.erp-btn-delete{
+    background:#dc2626;
+    color:#fff;
+    width:auto;
+}
+
+.erp-btn-print{
+    background:#9333ea;
+    color:#fff;
+}
+
+/* ---------- PAGE TITLE ---------- */
+
+.erp-page-title{
+    font-size:24px;
+    font-weight:bold;
+    margin-bottom:15px;
+    color:#2563eb;
+}
+
+/* ---------- FILTER ROW ---------- */
+
+.filter-row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+/* ---------- MOBILE ---------- */
+
+@media(max-width:768px){
+
+    .erp-page-title{
+        font-size:18px;
+    }
+
+    .erp-form-row{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .filter-row{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .erp-select{
+        width:100%;
+        min-width:100%;
+    }
+
+    .erp-input{
+        width:100%;
+    }
+
+    .erp-btn{
+        width:100%;
+    }
+
+    .erp-table th,
+    .erp-table td{
+        font-size:11px;
+        padding:4px;
+    }
+
+    .mark-input{
+        width:60px;
+    }
+
+}
+
+/* ---------- SMALL MOBILE ---------- */
+
+@media(max-width:480px){
+
+    .erp-page-title{
+        font-size:16px;
+    }
+
+    .erp-table th,
+    .erp-table td{
+        font-size:10px;
+        padding:3px;
+    }
+
+    .mark-input{
+        width:50px;
+    }
+
+}

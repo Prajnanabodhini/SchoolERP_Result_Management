@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ERP COMMON BUTTONS */
+
+/* =====================================
+   ERP BUTTONS
+===================================== */
+
+.erp-btn,
+.erp-btn-save,
+.erp-btn-edit,
+.erp-btn-delete,
+.erp-btn-print,
+.erp-btn-export,
+button[type="submit"] {
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+
+    min-height:36px;
+    padding:8px 16px;
+
+    font-size:14px;
+    font-weight:600;
+    line-height:1;
+
+    text-align:center;
+    vertical-align:middle;
+
+    border-radius:4px;
+    cursor:pointer;
+    text-decoration:none;
+    white-space:nowrap;
+}
+
+/* Save */
+
+.erp-btn-save{
+    background:#16A34A;
+    color:#fff;
+    border:none;
+}
+
+/* Edit */
+
+.erp-btn-edit{
+    background:#2563EB;
+    color:#fff;
+    border:none;
+}
+
+/* Delete */
+
+.erp-btn-delete{
+    background:#DC2626;
+    color:#fff;
+    border:none;
+}
+
+/* Print */
+button,
+input[type=submit]{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+}
+/* =====================================
+   ERP BUTTON STYLE
+===================================== */
+
+.erp-btn,
+.erp-btn-save,
+.erp-btn-edit,
+.erp-btn-delete,
+.erp-btn-print,
+.erp-btn-export {
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+
+    min-height:36px;
+    padding:8px 16px;
+
+    font-size:14px;
+    font-weight:600;
+    line-height:1.2;
+
+    text-align:center;
+    text-decoration:none;
+
+    border-radius:4px;
+    cursor:pointer;
+    white-space:nowrap;
+
+    box-sizing:border-box;
+}
+
+/* Save */
+.erp-btn-save{
+    background:#16A34A;
+    color:#fff;
+    width:auto;
+}
+
+/* Edit */
+.erp-btn-edit{
+    background:#2563EB;
+    color:#fff;
+}
+
+/* Delete */
+.erp-btn-delete{
+    background:#DC2626;
+    color:#fff;
+}
+
+/* Print */
+.erp-btn-print{
+    background:#7C3AED;
+    color:#fff;
+}
+
+/* Export */
+.erp-btn-export{
+    background:#EA580C;
+    color:#fff;
+}
+.erp-btn-print{
+    background:#7C3AED;
+    color:#fff;
+    border:none;
+}
+
+/* Export */
+
+.erp-btn-export{
+    background:#EA580C;
+    color:#fff;
+    border:none;
+}
+
+.erp-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+
+    width:auto !important;
+    min-width:max-content !important;
+
+    padding:8px 16px;
+    white-space:nowrap;
+}
+
+.erp-btn-save{
+background:#16A34A;
+color:white;
+    width:auto;
+    min-width:auto;
+}
+
+.erp-btn-edit{
+background:#D97706;
+color:white;
+}
+
+.erp-btn-delete{
+background:#DC2626;
+color:white;
+}
+
+.erp-btn-cancel{
+background:#6B7280;
+color:white;
+}
+
+.erp-btn-add{
+background:#2563EB;
+color:white;
+}
+
+.erp-btn:hover{
+opacity:0.90;
+}
+/* ERP Common Card */
+
+.erp-card {
+background: #ffffff;
+border-radius: 12px;
+padding: 24px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+border: 1px solid #e5e7eb;
+}
+
+/* ERP Page Container */
+
+.erp-page {
+max-width: 1200px;
+margin: auto;
+padding: 24px 16px;
+}
