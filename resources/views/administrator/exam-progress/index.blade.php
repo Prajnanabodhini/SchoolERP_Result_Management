@@ -2,54 +2,72 @@
 
 <div class="p-3">
 
-    {{-- ============================================================
+    {{-- =========================================================
          PAGE TITLE
-    ============================================================ --}}
-    <div class="mb-2">
+    ========================================================== --}}
+
+    <div class="mb-3">
 
         <h2 style="
             font-size:22px;
             font-weight:600;
             color:#92400E;
-            margin:0;">
-
+            margin:0;
+        ">
             Exam Progress Dashboard
-
         </h2>
 
     </div>
 
 
-    {{-- ============================================================
-         FILTER SECTION
-    ============================================================ --}}
+    {{-- =========================================================
+         FILTER
+    ========================================================== --}}
+
     <div class="bg-white border rounded shadow p-3">
 
-        <form method="GET">
+        <form
+            method="GET"
+            action="{{ route('exam-progress.index') }}"
+            id="examProgressFilterForm"
+        >
 
             <div style="
                 display:flex;
                 align-items:center;
                 gap:10px;
                 flex-wrap:wrap;
-                font-size:14px;">
-
+            ">
 
                 {{-- =================================================
                      EXAM
                 ================================================== --}}
-                <label style="font-weight:600;">
+
+                <label
+                    for="exam_master_id"
+                    style="
+                        font-size:14px;
+                        font-weight:600;
+                        white-space:nowrap;
+                    "
+                >
                     Exam
                 </label>
 
                 <select
                     name="exam_master_id"
-                    class="border rounded"
+                    id="exam_master_id"
                     style="
-                        width:180px;
-                        height:30px;
+                        width:240px;
+                        min-width:240px;
+                        height:34px;
+                        padding:4px 8px;
                         font-size:14px;
-                        padding:2px 6px;">
+                        border:1px solid #D1D5DB;
+                        border-radius:5px;
+                        background:#fff;
+                    "
+                >
 
                     <option value="">
                         All Exams
@@ -59,10 +77,9 @@
 
                         <option
                             value="{{ $exam->id }}"
-                            {{ $examId == $exam->id ? 'selected' : '' }}>
-
+                            {{ (string)$examId === (string)$exam->id ? 'selected' : '' }}
+                        >
                             {{ $exam->exam_name }}
-
                         </option>
 
                     @endforeach
@@ -73,18 +90,32 @@
                 {{-- =================================================
                      STANDARD
                 ================================================== --}}
-                <label style="font-weight:600;">
+
+                <label
+                    for="standard_id"
+                    style="
+                        font-size:14px;
+                        font-weight:600;
+                        white-space:nowrap;
+                    "
+                >
                     Standard
                 </label>
 
                 <select
                     name="standard_id"
-                    class="border rounded"
+                    id="standard_id"
                     style="
-                        width:140px;
-                        height:30px;
+                        width:190px;
+                        min-width:190px;
+                        height:34px;
+                        padding:4px 8px;
                         font-size:14px;
-                        padding:2px 6px;">
+                        border:1px solid #D1D5DB;
+                        border-radius:5px;
+                        background:#fff;
+                    "
+                >
 
                     <option value="">
                         All Standards
@@ -94,10 +125,9 @@
 
                         <option
                             value="{{ $standard->id }}"
-                            {{ $standardId == $standard->id ? 'selected' : '' }}>
-
+                            {{ (string)$standardId === (string)$standard->id ? 'selected' : '' }}
+                        >
                             {{ $standard->standard_name }}
-
                         </option>
 
                     @endforeach
@@ -108,18 +138,32 @@
                 {{-- =================================================
                      DIVISION
                 ================================================== --}}
-                <label style="font-weight:600;">
+
+                <label
+                    for="division_id"
+                    style="
+                        font-size:14px;
+                        font-weight:600;
+                        white-space:nowrap;
+                    "
+                >
                     Division
                 </label>
 
                 <select
                     name="division_id"
-                    class="border rounded"
+                    id="division_id"
                     style="
-                        width:140px;
-                        height:30px;
+                        width:150px;
+                        min-width:150px;
+                        height:34px;
+                        padding:4px 8px;
                         font-size:14px;
-                        padding:2px 6px;">
+                        border:1px solid #D1D5DB;
+                        border-radius:5px;
+                        background:#fff;
+                    "
+                >
 
                     <option value="">
                         All Divisions
@@ -129,10 +173,9 @@
 
                         <option
                             value="{{ $division->id }}"
-                            {{ $divisionId == $division->id ? 'selected' : '' }}>
-
+                            {{ (string)$divisionId === (string)$division->id ? 'selected' : '' }}
+                        >
                             {{ $division->division_name }}
-
                         </option>
 
                     @endforeach
@@ -141,130 +184,198 @@
 
 
                 {{-- =================================================
-                     SEARCH BUTTON
+                     SEARCH
                 ================================================== --}}
+
                 <button
                     type="submit"
                     class="erp-btn erp-btn-save"
                     style="
-                        height:30px;
-                        padding:0 12px;
-                        font-size:14px;">
-
+                        height:34px;
+                        padding:0 15px;
+                        font-size:14px;
+                    "
+                >
                     Search
-
                 </button>
 
 
+                {{-- =================================================
+                     RESET
+                ================================================== --}}
+
+                @if(
+                    ($examId !== null && $examId !== '')
+                    ||
+                    ($standardId !== null && $standardId !== '')
+                    ||
+                    ($divisionId !== null && $divisionId !== '')
+                )
+
+                    <a
+                        href="{{ route('exam-progress.index') }}"
+                        style="
+                            height:34px;
+                            display:inline-flex;
+                            align-items:center;
+                            padding:0 15px;
+                            font-size:14px;
+                            border:1px solid #D1D5DB;
+                            border-radius:5px;
+                            background:#F9FAFB;
+                            color:#374151;
+                            text-decoration:none;
+                        "
+                    >
+                        Reset
+                    </a>
+
+                @endif
 
             </div>
 
         </form>
-<div style="
-    margin-top:12px;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    align-items:center;
-">
 
-    <span style="
-        background:#DCFCE7;
-        color:#166534;
-        padding:6px 12px;
-        border-radius:4px;
-        font-size:14px;
-        font-weight:600;">
-        COMPLETED : {{ $completed }}
-    </span>
 
-    <span style="
-        background:#FCE7F3;
-        color:#9D174D;
-        padding:6px 12px;
-        border-radius:4px;
-        font-size:14px;
-        font-weight:600;">
-        PENDING : {{ $pending }}
-    </span>
+        {{-- =========================================================
+             SUMMARY
+        ========================================================== --}}
 
-    <span style="
-        background:#DBEAFE;
-        color:#1E40AF;
-        padding:6px 12px;
-        border-radius:4px;
-        font-size:14px;
-        font-weight:600;">
-        NOT ALLOCATED : {{ $notAllocated }}
-    </span>
+        <div style="
+            margin-top:12px;
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+        ">
 
-</div>
+            {{-- COMPLETED --}}
 
-    {{-- ============================================================
-         RESULT TABLE
-    ============================================================ --}}
+            <span style="
+                background:#DCFCE7;
+                color:#166534;
+                padding:6px 12px;
+                border-radius:4px;
+                font-size:14px;
+                font-weight:600;
+            ">
+                COMPLETED : {{ $completed }}
+            </span>
+
+
+            {{-- PENDING --}}
+
+            <span style="
+                background:#FEF3C7;
+                color:#92400E;
+                padding:6px 12px;
+                border-radius:4px;
+                font-size:14px;
+                font-weight:600;
+            ">
+                PENDING : {{ $pending }}
+            </span>
+
+
+            {{-- TOTAL --}}
+
+            <span style="
+                background:#DBEAFE;
+                color:#1E40AF;
+                padding:6px 12px;
+                border-radius:4px;
+                font-size:14px;
+                font-weight:600;
+            ">
+                TOTAL : {{ $total }}
+            </span>
+
+        </div>
+
+    </div>
+
+
+    {{-- =========================================================
+         TABLE
+    ========================================================== --}}
+
     <div class="bg-white border rounded shadow p-3 mt-4">
 
         <div style="
+            width:100%;
             overflow-x:auto;
-            width:100%;">
+        ">
 
-            <table
-                class="w-full border border-gray-300"
-                style="
-                    border-collapse:collapse;
-                    width:100%;">
+            <table style="
+                width:100%;
+                border-collapse:collapse;
+                background:#fff;
+                font-size:14px;
+            ">
 
-                <thead class="bg-blue-100">
+                <thead>
 
-                    <tr style="font-size:14px;">
+                    <tr style="
+                        background:#DBEAFE;
+                        font-weight:700;
+                    ">
 
-                        <th
-                            class="border p-2"
-                            style="width:20%;">
-
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:left;
+                            white-space:nowrap;
+                        ">
                             Exam
-
                         </th>
 
-                        <th
-                            class="border p-2"
-                            style="width:13%;">
 
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:left;
+                            white-space:nowrap;
+                        ">
                             Standard
-
                         </th>
 
-                        <th
-                            class="border p-2"
-                            style="width:10%;">
 
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
                             Division
-
                         </th>
 
-                        <th
-                            class="border p-2"
-                            style="width:22%;">
 
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:left;
+                            white-space:nowrap;
+                        ">
                             Subject
-
                         </th>
 
-                        <th
-                            class="border p-2"
-                            style="width:20%;">
 
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:left;
+                            white-space:nowrap;
+                        ">
                             Teacher
-
                         </th>
 
-                        <th
-                            class="border p-2"
-                            style="width:15%;">
 
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
                             Status
-
                         </th>
 
                     </tr>
@@ -274,181 +385,169 @@
 
                 <tbody>
 
-                    @forelse($statuses as $status)
+                @forelse($statuses as $status)
 
-                        <tr
-                            style="font-size:14px;"
-                            class="hover:bg-yellow-50">
+                    @php
 
+                        $currentStatus = strtoupper(
+                            trim(
+                                (string)($status->status ?? '')
+                            )
+                        );
 
-                            {{-- =================================================
-                                 EXAM
-                            ================================================== --}}
-                            <td class="border p-2">
+                        $subjectName = trim(
+                            (string)($status->subject_name ?? '')
+                        );
 
-                                {{ $status->exam?->exam_name ?? '-' }}
+                    @endphp
 
-                            </td>
-
-
-                            {{-- =================================================
-                                 STANDARD
-                            ================================================== --}}
-                            <td class="border p-2">
-
-                                {{ $status->standard?->standard_name ?? '-' }}
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 DIVISION
-                            ================================================== --}}
-                            <td
-                                class="border p-2 text-center">
-
-                                {{ $status->division?->division_name ?? '-' }}
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 SUBJECT
-
-                                 IMPORTANT:
-                                 teacher_marks_statuses.subject_id refers to
-                                 standard_wise_subjects.id
-
-                                 Therefore use:
-                                 standardWiseSubject->subject_name
-                            ================================================== --}}
-                            <td class="border p-2">
-
-    {{ $status->subject?->subject_name ?? '-' }}
-
-</td>
-
-
-                            {{-- =================================================
-                                 TEACHER
-                            ================================================== --}}
-                            <td class="border p-2">
-
-                                {{ $status->teacher?->name ?? '-' }}
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 STATUS
-                            ================================================== --}}
-                            <td class="border p-2 text-center">
-
-                                @php
-
-                                    $currentStatus =
-                                        strtoupper(
-                                            trim(
-                                                $status->status ?? ''
-                                            )
-                                        );
-
-                                @endphp
-
-
-                                {{-- COMPLETED --}}
-                                @if($currentStatus === 'COMPLETED')
-
-                                    <span style="
-                                        background:#DCFCE7;
-                                        color:#166534;
-                                        padding:4px 10px;
-                                        border-radius:4px;
-                                        font-size:14px;
-                                        font-weight:600;
-                                        display:inline-block;">
-
-                                        COMPLETED
-
-                                    </span>
-
-
-                                {{-- PENDING --}}
-                                @elseif($currentStatus === 'PENDING')
-
-                                    <span style="
-                                        background:#FCE7F3;
-                                        color:#9D174D;
-                                        padding:4px 10px;
-                                        border-radius:4px;
-                                        font-size:14px;
-                                        font-weight:600;
-                                        display:inline-block;">
-
-                                        PENDING
-
-                                    </span>
-
-
-                                {{-- NOT ALLOCATED --}}
-                                @elseif($currentStatus === 'NOT_ALLOCATED')
-
-                                    <span style="
-                                        background:#DBEAFE;
-                                        color:#1E40AF;
-                                        padding:4px 10px;
-                                        border-radius:4px;
-                                        font-size:14px;
-                                        font-weight:600;
-                                        display:inline-block;">
-
-                                        NOT ALLOCATED
-
-                                    </span>
-
-
-                                {{-- OTHER STATUS --}}
-                                @else
-
-                                    <span style="
-                                        background:#F3F4F6;
-                                        color:#374151;
-                                        padding:4px 10px;
-                                        border-radius:4px;
-                                        font-size:14px;
-                                        font-weight:600;
-                                        display:inline-block;">
-
-                                        {{ $status->status ?? '-' }}
-
-                                    </span>
-
-                                @endif
-
-                            </td>
-
-                        </tr>
-
-
-                    @empty
+                    <tr>
 
                         {{-- =================================================
-                             NO RECORDS
+                             EXAM
                         ================================================== --}}
-                        <tr>
 
-                            <td
-                                colspan="6"
-                                class="border p-4 text-center"
-                                style="font-size:14px;">
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            white-space:nowrap;
+                        ">
+                            {{ $status->exam_name ?: '-' }}
+                        </td>
 
-                                No records found.
 
-                            </td>
+                        {{-- =================================================
+                             STANDARD
+                        ================================================== --}}
 
-                        </tr>
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            white-space:nowrap;
+                        ">
+                            {{ $status->standard_name ?: '-' }}
+                        </td>
 
-                    @endforelse
+
+                        {{-- =================================================
+                             DIVISION
+                        ================================================== --}}
+
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
+                            {{ $status->division_name ?: '-' }}
+                        </td>
+
+
+                        {{-- =================================================
+                             SUBJECT
+                        ================================================== --}}
+
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            white-space:nowrap;
+                            font-weight:600;
+                        ">
+                            {{ $subjectName !== '' ? $subjectName : '-' }}
+                        </td>
+
+
+                        {{-- =================================================
+                             TEACHER
+                        ================================================== --}}
+
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            white-space:nowrap;
+                        ">
+                            {{ $status->teacher_name ?: '-' }}
+                        </td>
+
+
+                        {{-- =================================================
+                             STATUS
+                        ================================================== --}}
+
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
+
+                            @if($currentStatus === 'COMPLETED')
+
+                                <span style="
+                                    background:#DCFCE7;
+                                    color:#166534;
+                                    padding:4px 10px;
+                                    border-radius:4px;
+                                    font-size:13px;
+                                    font-weight:600;
+                                    display:inline-block;
+                                ">
+                                    COMPLETED
+                                </span>
+
+                            @elseif($currentStatus === 'PENDING')
+
+                                <span style="
+                                    background:#FEF3C7;
+                                    color:#92400E;
+                                    padding:4px 10px;
+                                    border-radius:4px;
+                                    font-size:13px;
+                                    font-weight:600;
+                                    display:inline-block;
+                                ">
+                                    PENDING
+                                </span>
+
+                            @else
+
+                                <span style="
+                                    background:#F3F4F6;
+                                    color:#374151;
+                                    padding:4px 10px;
+                                    border-radius:4px;
+                                    font-size:13px;
+                                    font-weight:600;
+                                    display:inline-block;
+                                ">
+                                    {{ $currentStatus !== '' ? $currentStatus : '-' }}
+                                </span>
+
+                            @endif
+
+                        </td>
+
+                    </tr>
+
+                @empty
+
+                    <tr>
+
+                        <td
+                            colspan="6"
+                            style="
+                                border:1px solid #D1D5DB;
+                                padding:20px;
+                                text-align:center;
+                                color:#6B7280;
+                            "
+                        >
+                            No pending or completed records found.
+                        </td>
+
+                    </tr>
+
+                @endforelse
 
                 </tbody>
 
@@ -457,18 +556,75 @@
         </div>
 
 
-        {{-- ============================================================
+        {{-- =========================================================
              PAGINATION
-        ============================================================ --}}
-        <div class="mt-4 flex justify-center">
+        ========================================================== --}}
 
-            {{ $statuses->onEachSide(5)->links() }}
+        @if($statuses->hasPages())
 
-        </div>
+            <div style="
+                margin-top:15px;
+                display:flex;
+                justify-content:center;
+            ">
+                {{ $statuses->onEachSide(5)->links() }}
+            </div>
+
+        @endif
 
     </div>
 
 </div>
 
-</x-app-layout>
 
+{{-- =========================================================
+     AUTO SEARCH WHEN STANDARD CHANGES
+========================================================== --}}
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const standardSelect =
+        document.getElementById('standard_id');
+
+    const examSelect =
+        document.getElementById('exam_master_id');
+
+    const form =
+        document.getElementById('examProgressFilterForm');
+
+
+    if (
+        !standardSelect ||
+        !examSelect ||
+        !form
+    ) {
+        return;
+    }
+
+
+    standardSelect.addEventListener('change', function () {
+
+        /*
+         * Standard changed:
+         * clear the selected exam so the
+         * result is recalculated for that standard.
+         */
+
+        examSelect.value = '';
+
+
+        /*
+         * Submit immediately.
+         */
+
+        form.submit();
+
+    });
+
+});
+
+</script>
+
+</x-app-layout>

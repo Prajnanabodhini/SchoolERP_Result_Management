@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Administrator;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 use App\Models\ExamMaster;
 use App\Models\Standard;
 use App\Models\Division;
-use App\Models\Subject;
 use App\Models\AcademicYear;
 
 class ResultSheetController extends Controller
@@ -36,31 +36,38 @@ class ResultSheetController extends Controller
                 'academicYears' =>
                     AcademicYear::orderByDesc('id')->get(),
 
-                'results' => collect(),
+                'results' =>
+                    collect(),
 
-                'examSubjects' => collect(),
+                'displayColumns' =>
+                    collect(),
 
-                'academicSubjects' => collect(),
+                'totalMaxMarks' =>
+                    0,
 
-                'coSubjects' => collect(),
+                'passPercentage' =>
+                    40,
 
-                'showSkillColumn' => false,
+                'exam' =>
+                    null,
 
-                'academicYear' => null,
+                'standard' =>
+                    null,
 
-                'exam' => null,
+                'division' =>
+                    null,
 
-                'standard' => null,
+                'academicYear' =>
+                    null,
 
-                'division' => null,
+                'overallGradeAnalysis' =>
+                    [],
 
-                'yearName' => null,
+                'girlsSubjectAnalysis' =>
+                    [],
 
-                'totalMaxMarks' => 0,
-
-                'girlsSubjectAnalysis' => [],
-
-                'boysSubjectAnalysis' => [],
+                'boysSubjectAnalysis' =>
+                    [],
             ]
         );
     }
@@ -74,34 +81,196 @@ class ResultSheetController extends Controller
 
     public function search(Request $request)
     {
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATION
-        |--------------------------------------------------------------------------
-        */
-
         $request->validate([
-            'academic_year_id' => ['required', 'integer'],
-            'exam_master_id'   => ['required', 'integer'],
-            'standard_id'      => ['required', 'integer'],
-            'division_id'      => ['required', 'integer'],
+            'academic_year_id' => [
+                'required',
+                'integer',
+            ],
+
+            'exam_master_id' => [
+                'required',
+                'integer',
+            ],
+
+            'division_id' => [
+                'required',
+                'integer',
+            ],
         ]);
 
 
+        $exam =
+            ExamMaster::find(
+                (int) $request->exam_master_id
+            );
+
+
+        if (!$exam) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Selected Exam was not found.'
+                );
+        }
+
+
         /*
         |--------------------------------------------------------------------------
-        | IDS
+        | STANDARD FROM EXAM
         |--------------------------------------------------------------------------
         */
 
-        $academicYearId = (int) $request->academic_year_id;
+        $standardId =
+            (int) (
+                $exam->standard_id
+                ?? 0
+            );
 
-        $examMasterId = (int) $request->exam_master_id;
 
-        $standardId = (int) $request->standard_id;
+        if ($standardId <= 0) {
 
-        $divisionId = (int) $request->division_id;
+            $standardId =
+                (int) (
+                    DB::table(
+                        'exam_master_subjects'
+                    )
+                    ->where(
+                        'exam_master_id',
+                        $exam->id
+                    )
+                    ->whereNotNull(
+                        'standard_id'
+                    )
+                    ->value(
+                        'standard_id'
+                    )
+                    ?? 0
+                );
+        }
 
+
+        if ($standardId <= 0) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'The selected Exam is not mapped to a Standard.'
+                );
+        }
+
+
+        $data =
+            $this->buildResultSheetData(
+                (int) $request->academic_year_id,
+                (int) $request->exam_master_id,
+                $standardId,
+                (int) $request->division_id
+            );
+
+
+        if (
+            !empty($data['error'])
+        ) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    $data['error']
+                );
+        }
+
+
+        return view(
+            'administrator.result-sheet.index',
+            $data['viewData']
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXAM SUBJECT CONFIG
+    |--------------------------------------------------------------------------
+    */
+
+    private function resolveExamSubjectConfig(
+        int $examMasterId,
+        int $standardId,
+        int $canonicalSubjectId,
+        int $mappingId
+    ) {
+
+        $config =
+            DB::table(
+                'exam_master_subjects'
+            )
+            ->where(
+                'exam_master_id',
+                $examMasterId
+            )
+            ->where(
+                'standard_id',
+                $standardId
+            )
+            ->where(
+                'subject_id',
+                $canonicalSubjectId
+            )
+            ->first();
+
+
+        if ($config) {
+            return $config;
+        }
+
+
+        if ($mappingId > 0) {
+
+            $config =
+                DB::table(
+                    'exam_master_subjects'
+                )
+                ->where(
+                    'exam_master_id',
+                    $examMasterId
+                )
+                ->where(
+                    'standard_id',
+                    $standardId
+                )
+                ->where(
+                    'subject_id',
+                    $mappingId
+                )
+                ->first();
+
+
+            if ($config) {
+                return $config;
+            }
+        }
+
+
+        return null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | BUILD RESULT SHEET DATA
+    |--------------------------------------------------------------------------
+    */
+
+    private function buildResultSheetData(
+        int $academicYearId,
+        int $examMasterId,
+        int $standardId,
+        int $divisionId
+    ): array {
 
         /*
         |--------------------------------------------------------------------------
@@ -123,667 +292,371 @@ class ResultSheetController extends Controller
 
 
         $academicYear =
-            AcademicYear::find($academicYearId);
+            AcademicYear::find(
+                $academicYearId
+            );
 
         $exam =
-            ExamMaster::find($examMasterId);
+            ExamMaster::find(
+                $examMasterId
+            );
 
         $standard =
-            Standard::find($standardId);
+            Standard::find(
+                $standardId
+            );
 
         $division =
-            Division::find($divisionId);
+            Division::find(
+                $divisionId
+            );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK GENERATED RESULT
-        |--------------------------------------------------------------------------
-        */
+        if (
+            !$academicYear ||
+            !$exam ||
+            !$standard ||
+            !$division
+        ) {
 
-        $resultExists =
-            DB::table('student_results')
-                ->where('academic_year_id', $academicYearId)
-                ->where('exam_master_id', $examMasterId)
-                ->where('standard_id', $standardId)
-                ->where('division_id', $divisionId)
-                ->exists();
+            return [
+                'error' =>
+                    'Invalid Academic Year, Exam, Standard or Division selected.',
 
+                'academicYear' =>
+                    $academicYear,
 
-        if (!$resultExists) {
-
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'Result is not generated for selected Academic Year, Exam, Standard and Division.'
-                );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD WISE SUBJECT ORDER
-        |--------------------------------------------------------------------------
-        */
-
-        $standardWiseSubjects =
-            DB::table('standard_wise_subjects')
-                ->where('standard_id', $standardId)
-                ->where('is_active', 1)
-                ->orderBy('sort_order')
-                ->get();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT ORDER MAP
-        |--------------------------------------------------------------------------
-        */
-
-        $subjectOrderMap = [];
-
-        foreach ($standardWiseSubjects as $swSubject) {
-
-            $name =
-                strtoupper(
-                    trim(
-                        $swSubject->subject_name ?? ''
-                    )
-                );
-
-            if ($name === '') {
-                continue;
-            }
-
-            $subjectOrderMap[$name] = [
-                'sort_order' =>
-                    (int) ($swSubject->sort_order ?? 9999),
-
-                'is_optional' =>
-                    (int) ($swSubject->is_optional ?? 0),
+                'viewData' =>
+                    [],
             ];
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | GET ALL GENERATED SUBJECT IDS
-        |--------------------------------------------------------------------------
-        |
-        | This is VERY important.
-        |
-        | We do NOT manually select Marathi / Sanskrit / English etc.
-        |
-        | Every subject actually present in student_result_details is loaded.
-        |
-        */
-
-        $generatedSubjectIds =
-            DB::table('student_result_details as srd')
-                ->join(
-                    'student_results as sr',
-                    'sr.id',
-                    '=',
-                    'srd.student_result_id'
-                )
-                ->where(
-                    'sr.academic_year_id',
-                    $academicYearId
-                )
-                ->where(
-                    'sr.exam_master_id',
-                    $examMasterId
-                )
-                ->where(
-                    'sr.standard_id',
-                    $standardId
-                )
-                ->where(
-                    'sr.division_id',
-                    $divisionId
-                )
-                ->whereNotNull('srd.subject_id')
-                ->select('srd.subject_id')
-                ->distinct()
-                ->pluck('subject_id')
-                ->map(fn($id) => (int) $id)
-                ->values();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD SUBJECT MASTER
+        | PASSING PERCENTAGE
         |--------------------------------------------------------------------------
         */
 
-        $subjects =
-            $generatedSubjectIds->isNotEmpty()
-                ? Subject::whereIn(
-                    'id',
-                    $generatedSubjectIds->toArray()
-                )
-                    ->get()
-                    ->keyBy('id')
-                : collect();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | NORMALIZE SUBJECT NAME
-        |--------------------------------------------------------------------------
-        */
-
-        $normalizeSubjectName = function ($name) {
-
-            return strtoupper(
-                preg_replace(
-                    '/[^A-Z0-9]+/',
-                    '',
-                    trim($name ?? '')
-                )
+        $passPercentage =
+            $this->getOverallPassPercentage(
+                $standard->standard_name
             );
-        };
 
 
         /*
         |--------------------------------------------------------------------------
-        | RAW SUBJECT COLLECTION
+        | STANDARD WISE SUBJECTS
+        |--------------------------------------------------------------------------
+        |
+        | These determine the fixed columns.
         |--------------------------------------------------------------------------
         */
 
-        $rawSubjects = collect();
+        $standardSubjects =
+            DB::table(
+                'standard_wise_subjects as sws'
+            )
+            ->leftJoin(
+                'standards as st',
+                'st.id',
+                '=',
+                'sws.standard_id'
+            )
+            ->leftJoin(
+                'subjects as s',
+                's.id',
+                '=',
+                'sws.subject_id'
+            )
+            ->where(
+                'sws.standard_id',
+                $standardId
+            )
+            ->where(
+                'sws.is_active',
+                1
+            )
+            ->orderBy(
+                'sws.sort_order'
+            )
+            ->orderBy(
+                'sws.id'
+            )
+            ->select([
+                'sws.id as mapping_id',
+                'sws.subject_id as subject_id',
+                'st.standard_name as standard',
+                's.subject_name as subject_name',
+                's.subject_code as subject_code',
+                's.short_name as short_name',
+                's.subject_type_id as subject_type_id',
+                'sws.is_optional as is_optional',
+                'sws.sort_order as sort_order',
+            ])
+            ->get();
 
 
-        foreach ($generatedSubjectIds as $subjectId) {
+        if (
+            $standardSubjects->isEmpty()
+        ) {
 
-            $subjectId = (int) $subjectId;
+            return [
+                'error' =>
+                    'No active Standard Wise Subject Mapping found for '
+                    . $standard->standard_name
+                    . '.',
 
-            $subject =
-                $subjects->get($subjectId);
+                'academicYear' =>
+                    $academicYear,
+
+                'viewData' =>
+                    [],
+            ];
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUILD DISPLAY COLUMNS
+        |--------------------------------------------------------------------------
+        */
+
+        $displayColumns =
+            collect();
+
+
+        foreach (
+            $standardSubjects as $subject
+        ) {
+
+            $subjectId =
+                (int) (
+                    $subject->subject_id
+                    ?? 0
+                );
+
+
+            $mappingId =
+                (int) (
+                    $subject->mapping_id
+                    ?? 0
+                );
 
 
             $subjectName =
                 trim(
-                    $subject->subject_name ?? ''
+                    (string) (
+                        $subject->subject_name
+                        ?? ''
+                    )
                 );
 
 
-            if ($subjectName === '') {
+            if (
+                $subjectId <= 0 ||
+                $subjectName === ''
+            ) {
 
-                $subjectName =
-                    'Subject ' . $subjectId;
+                continue;
             }
 
 
-            $subjectNameUpper =
-                strtoupper($subjectName);
-
-
             /*
             |--------------------------------------------------------------------------
-            | SORT ORDER
-            |--------------------------------------------------------------------------
-            */
-
-            $sortOrder =
-                $subjectOrderMap[$subjectNameUpper]['sort_order']
-                ?? 9999;
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | OPTIONAL
-            |--------------------------------------------------------------------------
-            */
-
-            $isOptional =
-                $subjectOrderMap[$subjectNameUpper]['is_optional']
-                ?? 0;
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SUBJECT TYPE
+            | ACADEMIC ONLY
             |--------------------------------------------------------------------------
             */
 
             $subjectTypeId =
                 (int) (
-                    $subject->subject_type_id ?? 1
+                    $subject->subject_type_id
+                    ?? 1
                 );
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | MAX MARKS
-            |--------------------------------------------------------------------------
-            */
-
-            $maxMarks =
-                DB::table('student_result_details as srd')
-                    ->join(
-                        'student_results as sr',
-                        'sr.id',
-                        '=',
-                        'srd.student_result_id'
-                    )
-                    ->where(
-                        'sr.academic_year_id',
-                        $academicYearId
-                    )
-                    ->where(
-                        'sr.exam_master_id',
-                        $examMasterId
-                    )
-                    ->where(
-                        'sr.standard_id',
-                        $standardId
-                    )
-                    ->where(
-                        'sr.division_id',
-                        $divisionId
-                    )
-                    ->where(
-                        'srd.subject_id',
-                        $subjectId
-                    )
-                    ->max('srd.max_marks');
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | PASSING MARKS
-            |--------------------------------------------------------------------------
-            */
-
-            $passingMarks =
-                DB::table('student_result_details as srd')
-                    ->join(
-                        'student_results as sr',
-                        'sr.id',
-                        '=',
-                        'srd.student_result_id'
-                    )
-                    ->where(
-                        'sr.academic_year_id',
-                        $academicYearId
-                    )
-                    ->where(
-                        'sr.exam_master_id',
-                        $examMasterId
-                    )
-                    ->where(
-                        'sr.standard_id',
-                        $standardId
-                    )
-                    ->where(
-                        'sr.division_id',
-                        $divisionId
-                    )
-                    ->where(
-                        'srd.subject_id',
-                        $subjectId
-                    )
-                    ->max('srd.passing_marks');
-
-
-            $rawSubjects->push(
-                (object) [
-
-                    'id' =>
-                        $subjectId,
-
-                    'subject_name' =>
-                        $subjectName,
-
-                    'short_name' =>
-                        !empty($subject->short_name)
-                            ? $subject->short_name
-                            : $subjectName,
-
-                    'max_marks' =>
-                        (int) ($maxMarks ?? 0),
-
-                    'passing_marks' =>
-                        (int) ($passingMarks ?? 0),
-
-                    'sort_order' =>
-                        $sortOrder,
-
-                    'is_optional' =>
-                        $isOptional,
-
-                    'subject_type_id' =>
-                        $subjectTypeId,
-                ]
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SORT RAW SUBJECTS
-        |--------------------------------------------------------------------------
-        */
-
-        $rawSubjects =
-            $rawSubjects
-                ->sortBy([
-                    [
-                        'sort_order',
-                        'asc'
-                    ],
-                    [
-                        'subject_name',
-                        'asc'
-                    ],
-                ])
-                ->values();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENT GROUPS
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | MAT1 + MAT2
-        | SCI1 + SCI2
-        | HISTORY + GEOGRAPHY
-        | EVS1 + EVS2
-        |
-        */
-
-        $componentGroups = [
-
-            'MATHEMATICS' => [
-                'MAT1',
-                'MAT2',
-                'MATH1',
-                'MATH2',
-                'MATHEMATICS1',
-                'MATHEMATICS2',
-            ],
-
-            'SCIENCE' => [
-                'SCI1',
-                'SCI2',
-                'SCIENCE1',
-                'SCIENCE2',
-            ],
-
-            'SOCIAL SCIENCE' => [
-                'HISTORY',
-                'HIST',
-                'GEOGRAPHY',
-                'GEO',
-            ],
-
-            'EVS' => [
-                'EVS1',
-                'EVS2',
-            ],
-        ];
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENT MAP
-        |--------------------------------------------------------------------------
-        */
-
-        $componentMap = [];
-
-        foreach ($componentGroups as $groupName => $components) {
-
-            foreach ($components as $component) {
-
-                $componentMap[
-                    $normalizeSubjectName($component)
-                ] = $groupName;
-            }
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUILD FINAL EXAM SUBJECTS
-        |--------------------------------------------------------------------------
-        */
-
-        $examSubjects = collect();
-
-        $usedComponentIds = [];
-
-
-        foreach ($rawSubjects as $subject) {
-
-            $normalized =
-                $normalizeSubjectName(
-                    $subject->subject_name
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | IS COMPONENT?
-            |--------------------------------------------------------------------------
-            */
-
-            if (isset($componentMap[$normalized])) {
-
-                $groupName =
-                    $componentMap[$normalized];
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | ALREADY CREATED
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    $examSubjects->contains(
-                        function ($item) use ($groupName) {
-
-                            return strtoupper(
-                                $item->subject_name
-                            ) === strtoupper($groupName);
-                        }
-                    )
-                ) {
-
-                    $usedComponentIds[] =
-                        $subject->id;
-
-                    continue;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | GET GROUP SUBJECTS
-                |--------------------------------------------------------------------------
-                */
-
-                $groupSubjects =
-                    $rawSubjects->filter(
-                        function ($item)
-                        use (
-                            $componentMap,
-                            $groupName,
-                            $normalizeSubjectName
-                        ) {
-
-                            $name =
-                                $normalizeSubjectName(
-                                    $item->subject_name
-                                );
-
-                            return
-                                isset(
-                                    $componentMap[$name]
-                                )
-                                &&
-                                $componentMap[$name]
-                                    === $groupName;
-                        }
-                    )
-                    ->values();
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | ONLY COMBINE IF TWO OR MORE COMPONENTS EXIST
-                |--------------------------------------------------------------------------
-                */
-
-                if ($groupSubjects->count() >= 2) {
-
-                    $componentIds =
-                        $groupSubjects
-                            ->pluck('id')
-                            ->map(fn($id) => (int) $id)
-                            ->values()
-                            ->toArray();
-
-
-                    $combinedMax =
-                        $groupSubjects->sum(
-                            fn($item) =>
-                                (int) $item->max_marks
-                        );
-
-
-                    $combinedPass =
-                        $groupSubjects->sum(
-                            fn($item) =>
-                                (int) $item->passing_marks
-                        );
-
-
-                    foreach ($componentIds as $id) {
-
-                        $usedComponentIds[] = $id;
-                    }
-
-
-                    $groupSort =
-                        $groupSubjects->min(
-                            fn($item) =>
-                                (int) (
-                                    $item->sort_order
-                                    ?? 9999
-                                )
-                        );
-
-
-                    $firstSubject =
-                        $groupSubjects->first();
-
-
-                    $examSubjects->push(
-                        (object) [
-
-                            'id' =>
-                                $componentIds[0],
-
-                            'component_ids' =>
-                                $componentIds,
-
-                            'is_combined' =>
-                                true,
-
-                            'subject_name' =>
-                                $groupName,
-
-                            'short_name' =>
-                                $groupName,
-
-                            'max_marks' =>
-                                (int) $combinedMax,
-
-                            'passing_marks' =>
-                                (int) $combinedPass,
-
-                            'sort_order' =>
-                                $groupSort,
-
-                            'is_optional' =>
-                                $firstSubject->is_optional,
-
-                            'subject_type_id' =>
-                                $firstSubject->subject_type_id,
-                        ]
-                    );
-
-
-                    continue;
-                }
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | NORMAL SUBJECT
-            |--------------------------------------------------------------------------
-            |
-            | Marathi
-            | Sanskrit
-            | English
-            | Hindi
-            | Computer
-            | Robotics
-            | etc.
-            |
-            */
 
             if (
-                in_array(
-                    (int) $subject->id,
-                    $usedComponentIds,
-                    true
-                )
+                $subjectTypeId !== 1
             ) {
+
                 continue;
             }
 
 
-            $examSubjects->push(
+            /*
+            |--------------------------------------------------------------------------
+            | SUBJECT CODE
+            |--------------------------------------------------------------------------
+            */
+
+            $subjectCode =
+                trim(
+                    (string) (
+                        $subject->subject_code
+                        ?? ''
+                    )
+                );
+
+
+            if (
+                $subjectCode === ''
+            ) {
+
+                $short =
+                    trim(
+                        (string) (
+                            $subject->short_name
+                            ?? ''
+                        )
+                    );
+
+
+                if (
+                    $short !== ''
+                ) {
+
+                    $short =
+                        preg_replace(
+                            '/[^A-Za-z0-9]+/',
+                            '',
+                            $short
+                        );
+
+
+                    $subjectCode =
+                        strtoupper(
+                            substr(
+                                $short,
+                                0,
+                                4
+                            )
+                        );
+                }
+            }
+
+
+            if (
+                $subjectCode === ''
+            ) {
+
+                $clean =
+                    preg_replace(
+                        '/[^A-Za-z0-9]+/',
+                        '',
+                        $subjectName
+                    );
+
+
+                $subjectCode =
+                    strtoupper(
+                        substr(
+                            $clean,
+                            0,
+                            4
+                        )
+                    );
+            }
+
+
+            $normalizedName =
+                $this->normalizeSubjectText(
+                    $subjectName
+                );
+
+
+            if (
+                $normalizedName === 'HISTORY'
+            ) {
+
+                $subjectCode =
+                    'HIST';
+            }
+
+
+            if (
+                $normalizedName === 'GEOGRAPHY'
+            ) {
+
+                $subjectCode =
+                    'GEO';
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | EXAM MASTER CONFIGURATION
+            |--------------------------------------------------------------------------
+            */
+
+            $examConfig =
+                $this->resolveExamSubjectConfig(
+                    $examMasterId,
+                    $standardId,
+                    $subjectId,
+                    $mappingId
+                );
+
+
+            $maxMarks =
+                $examConfig
+                    ? (float) (
+                        $examConfig->max_marks
+                        ?? 0
+                    )
+                    : 0;
+
+
+            $passingMarks =
+                $examConfig
+                    ? (float) (
+                        $examConfig->passing_marks
+                        ?? 0
+                    )
+                    : 0;
+
+
+            $displayColumns->push(
                 (object) [
 
-                    'id' =>
-                        (int) $subject->id,
+                    'key' =>
+                        'SUBJECT_' . $subjectId,
 
-                    'component_ids' =>
-                        [(int) $subject->id],
+                    'mapping_id' =>
+                        $mappingId,
 
-                    'is_combined' =>
-                        false,
+                    'subject_id' =>
+                        $subjectId,
+
+                    'standard' =>
+                        $subject->standard,
 
                     'subject_name' =>
-                        $subject->subject_name,
+                        $subjectName,
+
+                    'subject_code' =>
+                        $subjectCode,
 
                     'short_name' =>
-                        $subject->short_name,
+                        $subject->short_name
+                        ?: $subjectName,
 
                     'max_marks' =>
-                        (int) $subject->max_marks,
+                        $maxMarks,
 
                     'passing_marks' =>
-                        (int) $subject->passing_marks,
-
-                    'sort_order' =>
-                        (int) $subject->sort_order,
+                        $passingMarks,
 
                     'is_optional' =>
-                        (int) $subject->is_optional,
+                        (int) (
+                            $subject->is_optional
+                            ?? 0
+                        ),
 
-                    'subject_type_id' =>
-                        (int) $subject->subject_type_id,
+                    'sort_order' =>
+                        (int) (
+                            $subject->sort_order
+                            ?? 9999
+                        ),
                 ]
             );
         }
@@ -791,100 +664,254 @@ class ResultSheetController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | FINAL SORT
+        | SUBJECT ORDER
         |--------------------------------------------------------------------------
         */
 
-        $examSubjects =
-            $examSubjects
-                ->sortBy([
-                    [
-                        'sort_order',
-                        'asc'
-                    ],
-                    [
-                        'subject_name',
-                        'asc'
-                    ],
-                ])
+        $displayColumns =
+            $displayColumns
+                ->sortBy(
+                    function ($subject) {
+
+                        $name =
+                            strtoupper(
+                                trim(
+                                    $subject->subject_name
+                                )
+                            );
+
+                        $code =
+                            strtoupper(
+                                trim(
+                                    $subject->subject_code
+                                )
+                            );
+
+
+                        if (
+                            $name === 'ENGLISH' ||
+                            $code === 'ENG'
+                        ) {
+
+                            return 10;
+                        }
+
+
+                        if (
+                            $name === 'HINDI' ||
+                            $code === 'HIN'
+                        ) {
+
+                            return 20;
+                        }
+
+
+                        if (
+                            $name === 'SANSKRIT' ||
+                            $code === 'SAN'
+                        ) {
+
+                            return 20;
+                        }
+
+
+                        if (
+                            $name === 'MARATHI' ||
+                            $code === 'MAR'
+                        ) {
+
+                            return 30;
+                        }
+
+
+                        return
+                            1000
+                            +
+                            (int) $subject->sort_order;
+                    }
+                )
                 ->values();
 
 
         /*
         |--------------------------------------------------------------------------
-        | SUBJECT TYPES
+        | FIXED TOTAL MAX
         |--------------------------------------------------------------------------
         |
-        | 1 = Academic
-        | 2 = Skill
-        | 3 = Co-Scholastic
-        |
-        */
-
-        $academicSubjects =
-            $examSubjects
-                ->filter(
-                    fn($subject) =>
-                        (int) $subject->subject_type_id === 1
-                )
-                ->values();
-
-
-        $coSubjects =
-            $examSubjects
-                ->filter(
-                    fn($subject) =>
-                        (int) $subject->subject_type_id === 3
-                )
-                ->values();
-
-
-        $showSkillColumn =
-            $examSubjects->contains(
-                fn($subject) =>
-                    (int) $subject->subject_type_id === 2
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | TOTAL MAX MARKS
+        | Header remains the total of all displayed subject max marks.
         |--------------------------------------------------------------------------
         */
 
         $totalMaxMarks =
-            $academicSubjects->sum(
-                fn($subject) =>
-                    (int) ($subject->max_marks ?? 0)
+            (float) (
+                $displayColumns->sum(
+                    fn ($column) =>
+                        (float) (
+                            $column->max_marks
+                            ?? 0
+                        )
+                )
             );
 
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD STUDENT RESULTS
+        | LOAD ALL MARKS
         |--------------------------------------------------------------------------
         */
 
-        $results =
-            DB::table('student_results as sr')
-                ->where(
-                    'sr.academic_year_id',
-                    $academicYearId
+        $allMarks =
+            $this->loadMarks(
+                $academicYearId,
+                $examMasterId,
+                $standardId,
+                $divisionId
+            );
+
+
+        if (
+            $allMarks->isEmpty()
+        ) {
+
+            return [
+                'error' =>
+                    'No student marks found for the selected Academic Year, Exam, Standard and Division.',
+
+                'academicYear' =>
+                    $academicYear,
+
+                'viewData' =>
+                    [],
+            ];
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT MATCH MAP
+        |--------------------------------------------------------------------------
+        */
+
+        $subjectMatchMap =
+            $this->buildSubjectMatchMap(
+                $standardSubjects,
+                $displayColumns
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MARKS BY STUDENT / SUBJECT
+        |--------------------------------------------------------------------------
+        */
+
+        $marksByStudent =
+            [];
+
+
+        foreach (
+            $allMarks as $markRow
+        ) {
+
+            $studentId =
+                (int) (
+                    $markRow->student_id
+                    ?? 0
+                );
+
+
+            if (
+                $studentId <= 0
+            ) {
+
+                continue;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | FIND DISPLAY SUBJECT
+            |--------------------------------------------------------------------------
+            */
+
+            $displaySubjectId =
+                $this->resolveMarkSubjectId(
+                    $markRow,
+                    $subjectMatchMap
+                );
+
+
+            if (
+                $displaySubjectId === null
+            ) {
+
+                continue;
+            }
+
+
+            if (
+                !isset(
+                    $marksByStudent[
+                        $studentId
+                    ]
                 )
-                ->where(
-                    'sr.exam_master_id',
-                    $examMasterId
+            ) {
+
+                $marksByStudent[
+                    $studentId
+                ] = [];
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | KEEP LATEST ROW
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !isset(
+                    $marksByStudent[
+                        $studentId
+                    ][$displaySubjectId]
                 )
-                ->where(
-                    'sr.standard_id',
-                    $standardId
-                )
-                ->where(
-                    'sr.division_id',
-                    $divisionId
-                )
-                ->orderBy('sr.rank')
-                ->get();
+            ) {
+
+                $marksByStudent[
+                    $studentId
+                ][$displaySubjectId] =
+                    $markRow;
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | UNIQUE STUDENT LIST
+        |--------------------------------------------------------------------------
+        */
+
+        $studentIds =
+            array_keys(
+                $marksByStudent
+            );
+
+
+        if (
+            empty($studentIds)
+        ) {
+
+            return [
+                'error' =>
+                    'No valid student marks found for the selected combination.',
+
+                'academicYear' =>
+                    $academicYear,
+
+                'viewData' =>
+                    [],
+            ];
+        }
 
 
         /*
@@ -893,487 +920,571 @@ class ResultSheetController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $studentIds =
-            $results
-                ->pluck('student_id')
-                ->filter()
-                ->map(fn($id) => (int) $id)
-                ->values()
-                ->toArray();
-
-
-        $erpStudents = collect();
-
-
-        if (!empty($studentIds)) {
-
-            $erpStudents =
-                DB::connection('sqlsrv_olderp')
-                    ->table('FeeMstStudent as f')
-                    ->leftJoin(
-                        'SubStudentMst as ss',
-                        'ss.Studentid',
-                        '=',
-                        'f.Studentid'
-                    )
-                    ->whereIn(
-                        'f.Studentid',
-                        $studentIds
-                    )
-                    ->select(
-                        'f.Studentid',
-                        'f.studname',
-                        'f.fathername',
-                        'f.gender',
-                        'ss.rollno'
-                    )
-                    ->get()
-                    ->keyBy('Studentid');
-        }
+        $erpStudents =
+            $this->loadERPStudentsByIds(
+                $studentIds
+            );
 
 
         /*
         |--------------------------------------------------------------------------
-        | PROCESS STUDENTS
+        | BUILD STUDENTS
         |--------------------------------------------------------------------------
         */
 
-        foreach ($results as $student) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | INITIAL VALUES
-            |--------------------------------------------------------------------------
-            */
-
-            $student->academic_total = 0;
-
-            $student->academic_max_marks =
-                $totalMaxMarks;
-
-            $student->calculated_percentage = 0;
-
-            $student->calculated_grade = 'D';
-
-            $student->has_absent = false;
-
-            $student->subject_marks = [];
-
-            $student->details = [];
+        $results =
+            collect();
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | ERP DATA
-            |--------------------------------------------------------------------------
-            */
+        foreach (
+            $studentIds as $studentId
+        ) {
+
+            $studentMarks =
+                $marksByStudent[
+                    $studentId
+                ] ?? [];
+
 
             $erp =
                 $erpStudents[
-                    $student->student_id
+                    $studentId
                 ] ?? null;
 
 
-            $student->gender =
-                $erp->gender ?? '';
+            /*
+            |--------------------------------------------------------------------------
+            | STUDENT DETAILS
+            |--------------------------------------------------------------------------
+            */
 
-
-            $student->roll_no =
-                $erp->rollno ?? '';
-
-
-            $student->full_student_name =
-                $erp
-                    ? trim(
-                        ($erp->studname ?? '') .
-                        ' ' .
-                        ($erp->fathername ?? '')
+            $gender =
+                strtoupper(
+                    trim(
+                        (string) (
+                            $erp->gender
+                            ?? ''
+                        )
                     )
-                    : 'Student ID : ' .
-                        $student->student_id;
+                );
+
+
+            $rollNo =
+                $erp->rollno
+                ?? '';
+
+
+            $studentName =
+                trim(
+                    (string) (
+                        $erp->studname
+                        ?? ''
+                    )
+                );
+
+
+            $fatherName =
+                trim(
+                    (string) (
+                        $erp->fathername
+                        ?? ''
+                    )
+                );
+
+
+            $fullName =
+                trim(
+                    $studentName
+                    . ' '
+                    . $fatherName
+                );
+
+
+            if (
+                $fullName === ''
+            ) {
+
+                $fullName =
+                    'Student ID : '
+                    . $studentId;
+            }
 
 
             /*
             |--------------------------------------------------------------------------
-            | RESULT DETAILS
+            | STUDENT OBJECT
             |--------------------------------------------------------------------------
             */
 
-            $details =
-                DB::table(
-                    'student_result_details'
-                )
-                    ->where(
-                        'student_result_id',
-                        $student->id
-                    )
-                    ->get();
+            $student =
+                (object) [
 
+                    'id' =>
+                        null,
 
-            foreach ($details as $detail) {
+                    'student_id' =>
+                        $studentId,
 
-                $subjectResult =
-                    strtoupper(
-                        trim(
-                            $detail->subject_result ?? ''
-                        )
-                    );
+                    'gender' =>
+                        $gender,
 
+                    'roll_no' =>
+                        $rollNo,
 
-                $isAbsent =
-                    $subjectResult === 'ABSENT'
-                    ||
-                    strtoupper(
-                        trim(
-                            (string) (
-                                $detail->obtained_marks
-                                ?? ''
-                            )
-                        )
-                    ) === 'AB';
+                    'full_student_name' =>
+                        $fullName,
 
+                    'subject_marks' =>
+                        [],
 
-                $student->details[
-                    (int) $detail->subject_id
-                ] = [
+                    'subject_grades' =>
+                        [],
 
-                    'marks' =>
-                        $isAbsent
-                            ? 'AB'
-                            : (
-                                $detail->obtained_marks === null
-                                    ? null
-                                    : (
-                                        is_numeric(
-                                            $detail->obtained_marks
-                                        )
-                                            ? (float)
-                                                $detail->obtained_marks
-                                            : $detail->obtained_marks
-                                    )
-                            ),
+                    'subject_results' =>
+                        [],
 
-                    'max_marks' =>
-                        (int) (
-                            $detail->max_marks ?? 0
-                        ),
+                    'subject_max_used' =>
+                        [],
 
-                    'passing_marks' =>
-                        (int) (
-                            $detail->passing_marks ?? 0
-                        ),
+                    'academic_total' =>
+                        0,
 
-                    'grade' =>
-                        $detail->grade,
+                    'academic_max_used' =>
+                        0,
+
+                    'academic_max_display' =>
+                        $totalMaxMarks,
+
+                    'calculated_percentage' =>
+                        null,
+
+                    'calculated_grade' =>
+                        '-',
 
                     'result' =>
-                        $detail->subject_result,
+                        '-',
 
-                    'is_absent' =>
-                        $isAbsent ? 1 : 0,
+                    'has_absent' =>
+                        false,
                 ];
-            }
 
 
             /*
             |--------------------------------------------------------------------------
-            | BUILD SUBJECT MARKS
+            | PROCESS EVERY FIXED SUBJECT
             |--------------------------------------------------------------------------
             */
 
-            foreach ($examSubjects as $subject) {
+            foreach (
+                $displayColumns as $column
+            ) {
 
-                $componentIds =
-                    $subject->component_ids
-                    ?? [$subject->id];
-
-
-                $totalMarks = 0;
-
-                $hasAnyMark = false;
-
-                $hasAbsent = false;
-
-
-                foreach ($componentIds as $componentId) {
-
-                    $detail =
-                        $student->details[
-                            (int) $componentId
-                        ] ?? null;
-
-
-                    if (!$detail) {
-                        continue;
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ABSENT
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if (
-                        ($detail['is_absent'] ?? 0) == 1
-                    ) {
-
-                        $hasAbsent = true;
-
-                        continue;
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | MARKS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if (
-                        isset($detail['marks'])
-                        &&
-                        is_numeric($detail['marks'])
-                    ) {
-
-                        $totalMarks +=
-                            (float) $detail['marks'];
-
-                        $hasAnyMark = true;
-                    }
-                }
+                $subjectId =
+                    (int) $column->subject_id;
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | DISPLAY VALUE
+                | DEFAULT DISPLAY
                 |--------------------------------------------------------------------------
                 */
 
-                if ($hasAbsent) {
+                $student->subject_marks[
+                    $column->key
+                ] = '-';
 
-                    $student->subject_marks[
-                        $subject->id
-                    ] = 'AB';
 
-                } elseif ($hasAnyMark) {
+                $student->subject_grades[
+                    $column->key
+                ] = '-';
 
-                    $student->subject_marks[
-                        $subject->id
-                    ] = $totalMarks;
 
-                } else {
-
-                    $student->subject_marks[
-                        $subject->id
-                    ] = '-';
-                }
+                $student->subject_results[
+                    $column->key
+                ] = '-';
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | ACADEMIC ABSENT
+                | FIND MARK ROW
+                |--------------------------------------------------------------------------
+                */
+
+                $markRow =
+                    $studentMarks[
+                        $subjectId
+                    ] ?? null;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | NO MARK
                 |--------------------------------------------------------------------------
                 */
 
                 if (
-                    (int) $subject->subject_type_id === 1
-                    &&
-                    $hasAbsent
+                    !$markRow
                 ) {
-
-                    $student->has_absent = true;
-                }
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | ACADEMIC TOTAL
-            |--------------------------------------------------------------------------
-            */
-
-            $student->academic_total = 0;
-
-
-            foreach ($academicSubjects as $subject) {
-
-                $mark =
-                    $student->subject_marks[
-                        $subject->id
-                    ] ?? '-';
-
-
-                if (
-                    strtoupper(
-                        (string) $mark
-                    ) === 'AB'
-                ) {
-
-                    $student->has_absent = true;
 
                     continue;
                 }
 
 
-                if (is_numeric($mark)) {
+                /*
+                |--------------------------------------------------------------------------
+                | ABSENT
+                |--------------------------------------------------------------------------
+                */
 
-                    $student->academic_total +=
-                        (float) $mark;
+                if (
+                    $this->isAbsentMark(
+                        $markRow
+                    )
+                ) {
+
+                    $student->subject_marks[
+                        $column->key
+                    ] = 'AB';
+
+
+                    $student->subject_grades[
+                        $column->key
+                    ] = 'AB';
+
+
+                    $student->subject_results[
+                        $column->key
+                    ] = 'ABSENT';
+
+
+                    $student->has_absent =
+                        true;
+
+
+                    /*
+                    | AB is included in applicable max.
+                    */
+
+                    $student->academic_max_used +=
+                        (float) (
+                            $column->max_marks
+                            ?? 0
+                        );
+
+
+                    $student->subject_max_used[
+                        $column->key
+                    ] =
+                        (float) (
+                            $column->max_marks
+                            ?? 0
+                        );
+
+
+                    continue;
                 }
-            }
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | PERCENTAGE
-            |--------------------------------------------------------------------------
-            */
+                /*
+                |--------------------------------------------------------------------------
+                | OBTAINED MARK
+                |--------------------------------------------------------------------------
+                */
 
-            if ($student->academic_max_marks > 0) {
-
-                $student->calculated_percentage =
-                    round(
-                        (
-                            $student->academic_total /
-                            $student->academic_max_marks
-                        ) * 100
-                    );
-
-            } else {
-
-                $student->calculated_percentage = 0;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | OVERALL GRADE
-            |--------------------------------------------------------------------------
-            */
-
-            $student->calculated_grade =
-                $this->getGradeFromPercentage(
-                    $student->calculated_percentage
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | RESULT
-            |--------------------------------------------------------------------------
-            */
-
-            $student->result = 'PASS';
-
-
-            foreach ($student->details as $detail) {
-
-                $subjectResult =
-                    strtoupper(
-                        trim(
-                            $detail['result'] ?? ''
-                        )
+                $obtained =
+                    $this->extractObtainedMarks(
+                        $markRow
                     );
 
 
                 if (
-                    $subjectResult === 'FAIL'
-                    ||
-                    $subjectResult === 'ABSENT'
-                    ||
-                    ($detail['is_absent'] ?? 0) == 1
+                    $obtained === null
                 ) {
 
-                    $student->result = 'FAIL';
-
-                    break;
+                    continue;
                 }
-            }
 
 
-            if ($student->has_absent) {
+                $maxMarks =
+                    (float) (
+                        $column->max_marks
+                        ?? 0
+                    );
 
-                $student->result = 'FAIL';
+
+                $passingMarks =
+                    (float) (
+                        $column->passing_marks
+                        ?? 0
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | STUDENT MARK
+                |--------------------------------------------------------------------------
+                */
+
+                $student->subject_marks[
+                    $column->key
+                ] =
+                    $this->formatMark(
+                        $obtained
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SUBJECT MAX USED
+                |--------------------------------------------------------------------------
+                */
+
+                $student->academic_max_used +=
+                    $maxMarks;
+
+
+                $student->subject_max_used[
+                    $column->key
+                ] =
+                    $maxMarks;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | TOTAL
+                |--------------------------------------------------------------------------
+                */
+
+                $student->academic_total +=
+                    $obtained;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SUBJECT %
+                |--------------------------------------------------------------------------
+                */
+
+                $subjectPercentage =
+                    $maxMarks > 0
+                        ? (
+                            $obtained /
+                            $maxMarks
+                        ) * 100
+                        : 0;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SUBJECT GRADE
+                |--------------------------------------------------------------------------
+                */
+
+                $student->subject_grades[
+                    $column->key
+                ] =
+                    $this->getGradeFromPercentage(
+                        $subjectPercentage
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SUBJECT RESULT
+                |--------------------------------------------------------------------------
+                */
+
+                $student->subject_results[
+                    $column->key
+                ] =
+                    $obtained >= $passingMarks
+                        ? 'PASS'
+                        : 'FAIL';
             }
 
 
             /*
             |--------------------------------------------------------------------------
-            | SKILL SUBJECT
+            | FORMAT TOTAL
             |--------------------------------------------------------------------------
             */
 
-            $student->skill_subject = '';
+            $student->academic_total =
+                $this->formatMark(
+                    $student->academic_total
+                );
 
-            $student->skill_mark = '';
+
+            $student->academic_max_used =
+                (float) $student->academic_max_used;
 
 
-            if ($showSkillColumn) {
+            /*
+            |--------------------------------------------------------------------------
+            | NO MARKS AT ALL
+            |--------------------------------------------------------------------------
+            */
 
-                $skillSubject =
-                    $examSubjects->first(
-                        fn($subject) =>
-                            (int) $subject->subject_type_id === 2
+            if (
+                $student->academic_max_used <= 0
+            ) {
+
+                $student->calculated_percentage =
+                    null;
+
+                $student->calculated_grade =
+                    '-';
+
+                $student->result =
+                    '-';
+
+            } else {
+
+                /*
+                |--------------------------------------------------------------------------
+                | DYNAMIC PERCENTAGE
+                |--------------------------------------------------------------------------
+                |
+                | Only subjects having marks/AB are included.
+                |--------------------------------------------------------------------------
+                */
+
+                $student->calculated_percentage =
+                    (
+                        (float) $student->academic_total
+                        /
+                        (float) $student->academic_max_used
+                    )
+                    * 100;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | ROUND %
+                |--------------------------------------------------------------------------
+                */
+
+                $student->calculated_percentage =
+                    (int) round(
+                        $student->calculated_percentage
                     );
 
 
-                if ($skillSubject) {
+                /*
+                |--------------------------------------------------------------------------
+                | OVERALL GRADE
+                |--------------------------------------------------------------------------
+                */
 
-                    $student->skill_subject =
-                        $skillSubject->subject_name;
+                $student->calculated_grade =
+                    $this->getGradeFromPercentage(
+                        $student->calculated_percentage
+                    );
 
 
-                    $student->skill_mark =
-                        $student->subject_marks[
-                            $skillSubject->id
-                        ] ?? '';
+                /*
+                |--------------------------------------------------------------------------
+                | CHECK FAILED SUBJECT
+                |--------------------------------------------------------------------------
+                */
+
+                $hasFailedSubject =
+                    false;
+
+
+                foreach (
+                    $displayColumns as $column
+                ) {
+
+                    $subjectResult =
+                        strtoupper(
+                            trim(
+                                (string) (
+                                    $student->subject_results[
+                                        $column->key
+                                    ] ?? '-'
+                                )
+                            )
+                        );
+
+
+                    if (
+                        $subjectResult === 'FAIL'
+                    ) {
+
+                        $hasFailedSubject =
+                            true;
+
+                        break;
+                    }
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | FINAL RESULT
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $student->has_absent
+                ) {
+
+                    $student->result =
+                        'FAIL';
+
+                } elseif (
+                    $hasFailedSubject
+                ) {
+
+                    $student->result =
+                        'FAIL';
+
+                } elseif (
+                    $student->calculated_percentage
+                    >=
+                    $passPercentage
+                ) {
+
+                    $student->result =
+                        'PASS';
+
+                } else {
+
+                    $student->result =
+                        'FAIL';
                 }
             }
+
+
+            $results->push(
+                $student
+            );
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | SORT STUDENTS
+        | SORT BY STUDENT NAME
         |--------------------------------------------------------------------------
         */
 
         $results =
-            collect($results)
+            $results
                 ->sort(
-                    function ($a, $b) {
-
-                        $priorityA =
-                            strtoupper(
-                                $a->gender ?? ''
-                            ) === 'FEMALE'
-                                ? 1
-                                : 2;
-
-
-                        $priorityB =
-                            strtoupper(
-                                $b->gender ?? ''
-                            ) === 'FEMALE'
-                                ? 1
-                                : 2;
-
-
-                        if ($priorityA != $priorityB) {
-
-                            return
-                                $priorityA <=>
-                                $priorityB;
-                        }
-
+                    function (
+                        $a,
+                        $b
+                    ) {
 
                         return strcmp(
                             strtoupper(
-                                $a->full_student_name ?? ''
+                                $a->full_student_name
+                                ?? ''
                             ),
                             strtoupper(
-                                $b->full_student_name ?? ''
+                                $b->full_student_name
+                                ?? ''
                             )
                         );
                     }
@@ -1383,81 +1494,923 @@ class ResultSheetController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | GRADE ANALYSIS
+        | ANALYSIS
         |--------------------------------------------------------------------------
         */
 
-        $grades = [
-            'A1',
-            'A2',
-            'B1',
-            'B2',
-            'C1',
-            'C2',
-            'D',
-        ];
+        $overallGradeAnalysis =
+            $this->buildOverallGradeAnalysis(
+                $results
+            );
 
 
         $girlsSubjectAnalysis =
             $this->buildSubjectAnalysis(
                 $results,
-                $academicSubjects,
-                'FEMALE',
-                $grades
+                $displayColumns,
+                'FEMALE'
             );
 
 
         $boysSubjectAnalysis =
             $this->buildSubjectAnalysis(
                 $results,
-                $academicSubjects,
-                'MALE',
-                $grades
+                $displayColumns,
+                'MALE'
             );
 
 
         /*
         |--------------------------------------------------------------------------
-        | RETURN VIEW
+        | VIEW DATA
         |--------------------------------------------------------------------------
         */
 
-        return view(
-            'administrator.result-sheet.index',
-            compact(
-                'exams',
-                'standards',
-                'divisions',
-                'academicYears',
+        return [
+            'error' =>
+                null,
 
-                'results',
+            'academicYear' =>
+                $academicYear,
 
-                'examSubjects',
+            'viewData' => [
 
-                'academicSubjects',
+                'exams' =>
+                    $exams,
 
-                'coSubjects',
+                'standards' =>
+                    $standards,
 
-                'showSkillColumn',
+                'divisions' =>
+                    $divisions,
 
-                'academicYear',
+                'academicYears' =>
+                    $academicYears,
 
-                'exam',
+                'results' =>
+                    $results,
 
-                'standard',
+                'displayColumns' =>
+                    $displayColumns,
 
-                'division',
+                /*
+                | Header maximum remains all fixed subjects.
+                */
 
-                'totalMaxMarks',
+                'totalMaxMarks' =>
+                    $totalMaxMarks,
 
-                'girlsSubjectAnalysis',
+                'passPercentage' =>
+                    $passPercentage,
 
-                'boysSubjectAnalysis'
+                'exam' =>
+                    $exam,
+
+                'standard' =>
+                    $standard,
+
+                'division' =>
+                    $division,
+
+                'academicYear' =>
+                    $academicYear,
+
+                'overallGradeAnalysis' =>
+                    $overallGradeAnalysis,
+
+                'girlsSubjectAnalysis' =>
+                    $girlsSubjectAnalysis,
+
+                'boysSubjectAnalysis' =>
+                    $boysSubjectAnalysis,
+            ],
+        ];
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD MARKS
+    |--------------------------------------------------------------------------
+    */
+
+    private function loadMarks(
+        int $academicYearId,
+        int $examMasterId,
+        int $standardId,
+        int $divisionId
+    ) {
+
+        $columns =
+            Schema::getColumnListing(
+                'student_marks'
+            );
+
+
+        $query =
+            DB::table(
+                'student_marks'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACADEMIC YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        $yearColumn =
+            $this->findFirstExistingColumn(
+                $columns,
+                [
+                    'academic_year_id',
+                    'year_id',
+                ]
+            );
+
+
+        if ($yearColumn) {
+
+            $query->where(
+                $yearColumn,
+                $academicYearId
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | EXAM
+        |--------------------------------------------------------------------------
+        */
+
+        $examColumn =
+            $this->findFirstExistingColumn(
+                $columns,
+                [
+                    'exam_master_id',
+                    'exam_id',
+                ]
+            );
+
+
+        if ($examColumn) {
+
+            $query->where(
+                $examColumn,
+                $examMasterId
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARD
+        |--------------------------------------------------------------------------
+        */
+
+        $standardColumn =
+            $this->findFirstExistingColumn(
+                $columns,
+                [
+                    'standard_id',
+                ]
+            );
+
+
+        if ($standardColumn) {
+
+            $query->where(
+                $standardColumn,
+                $standardId
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DIVISION
+        |--------------------------------------------------------------------------
+        */
+
+        $divisionColumn =
+            $this->findFirstExistingColumn(
+                $columns,
+                [
+                    'division_id',
+                ]
+            );
+
+
+        if ($divisionColumn) {
+
+            $query->where(
+                $divisionColumn,
+                $divisionId
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | LATEST ROW FIRST
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            in_array(
+                'id',
+                $columns,
+                true
             )
-        )->with(
-            'yearName',
-            $academicYear?->year_name
+        ) {
+
+            $query->orderByDesc(
+                'id'
+            );
+        }
+
+
+        return $query->get();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | BUILD SUBJECT MATCH MAP
+    |--------------------------------------------------------------------------
+    */
+
+    private function buildSubjectMatchMap(
+        $standardSubjects,
+        $displayColumns
+    ): array {
+
+        $map = [
+
+            'canonical' =>
+                [],
+
+            'mapping' =>
+                [],
+
+            'code' =>
+                [],
+
+            'name' =>
+                [],
+        ];
+
+
+        foreach (
+            $displayColumns as $column
+        ) {
+
+            $subjectId =
+                (int) $column->subject_id;
+
+
+            $mappingId =
+                (int) $column->mapping_id;
+
+
+            $code =
+                strtoupper(
+                    trim(
+                        (string) (
+                            $column->subject_code
+                            ?? ''
+                        )
+                    )
+                );
+
+
+            $name =
+                $this->normalizeSubjectText(
+                    $column->subject_name
+                );
+
+
+            if ($subjectId > 0) {
+
+                $map['canonical'][
+                    $subjectId
+                ] =
+                    $subjectId;
+            }
+
+
+            if ($mappingId > 0) {
+
+                $map['mapping'][
+                    $mappingId
+                ] =
+                    $subjectId;
+            }
+
+
+            if ($code !== '') {
+
+                $map['code'][
+                    $code
+                ] =
+                    $subjectId;
+            }
+
+
+            if ($name !== '') {
+
+                $map['name'][
+                    $name
+                ] =
+                    $subjectId;
+            }
+        }
+
+
+        return $map;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESOLVE MARK SUBJECT ID
+    |--------------------------------------------------------------------------
+    */
+
+    private function resolveMarkSubjectId(
+        $markRow,
+        array $subjectMatchMap
+    ): ?int {
+
+        $storedSubjectId =
+            (int) (
+                $markRow->subject_id
+                ?? 0
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 1. EXACT CANONICAL SUBJECT ID
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            isset(
+                $subjectMatchMap['canonical'][
+                    $storedSubjectId
+                ]
+            )
+        ) {
+
+            return
+                $subjectMatchMap['canonical'][
+                    $storedSubjectId
+                ];
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2. LEGACY MAPPING ID
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            isset(
+                $subjectMatchMap['mapping'][
+                    $storedSubjectId
+                ]
+            )
+        ) {
+
+            return
+                $subjectMatchMap['mapping'][
+                    $storedSubjectId
+                ];
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 3. SUBJECT CODE FROM MARK ROW
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (
+            [
+                'subject_code',
+                'code',
+            ] as $field
+        ) {
+
+            if (
+                isset(
+                    $markRow->{$field}
+                )
+            ) {
+
+                $code =
+                    strtoupper(
+                        trim(
+                            (string) $markRow->{$field}
+                        )
+                    );
+
+
+                if (
+                    isset(
+                        $subjectMatchMap['code'][
+                            $code
+                        ]
+                    )
+                ) {
+
+                    return
+                        $subjectMatchMap['code'][
+                            $code
+                        ];
+                }
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 4. SUBJECT NAME FROM MARK ROW
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (
+            [
+                'subject_name',
+                'subject',
+            ] as $field
+        ) {
+
+            if (
+                isset(
+                    $markRow->{$field}
+                )
+            ) {
+
+                $name =
+                    $this->normalizeSubjectText(
+                        $markRow->{$field}
+                    );
+
+
+                if (
+                    isset(
+                        $subjectMatchMap['name'][
+                            $name
+                        ]
+                    )
+                ) {
+
+                    return
+                        $subjectMatchMap['name'][
+                            $name
+                        ];
+                }
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 5. SOME LEGACY DATA STORES SUBJECT ID AS STRING
+        |--------------------------------------------------------------------------
+        */
+
+        $storedSubjectString =
+            trim(
+                (string) (
+                    $markRow->subject_id
+                    ?? ''
+                )
+            );
+
+
+        if (
+            $storedSubjectString !== ''
+        ) {
+
+            foreach (
+                $subjectMatchMap['canonical']
+                as $canonicalId => $targetId
+            ) {
+
+                if (
+                    (string)$canonicalId ===
+                    $storedSubjectString
+                ) {
+
+                    return
+                        $targetId;
+                }
+            }
+
+
+            foreach (
+                $subjectMatchMap['mapping']
+                as $mappingId => $targetId
+            ) {
+
+                if (
+                    (string)$mappingId ===
+                    $storedSubjectString
+                ) {
+
+                    return
+                        $targetId;
+                }
+            }
+        }
+
+
+        return null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE SUBJECT TEXT
+    |--------------------------------------------------------------------------
+    */
+
+    private function normalizeSubjectText(
+        $value
+    ): string {
+
+        $value =
+            strtoupper(
+                trim(
+                    (string)$value
+                )
+            );
+
+
+        $value =
+            preg_replace(
+                '/[^A-Z0-9]+/',
+                '',
+                $value
+            );
+
+
+        return $value;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXTRACT MARK
+    |--------------------------------------------------------------------------
+    */
+
+    private function extractObtainedMarks(
+        $row
+    ): ?float {
+
+        /*
+        |--------------------------------------------------------------------------
+        | DIRECT TOTAL MARK
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (
+            [
+                'obtained_marks',
+                'marks',
+                'total_obtained_marks',
+            ] as $field
+        ) {
+
+            if (
+                isset(
+                    $row->{$field}
+                )
+                &&
+                $row->{$field} !== ''
+                &&
+                $row->{$field} !== null
+                &&
+                is_numeric(
+                    $row->{$field}
+                )
+            ) {
+
+                return
+                    (float)$row->{$field};
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | COMPONENT MARKS
+        |--------------------------------------------------------------------------
+        */
+
+        $found =
+            false;
+
+
+        $total =
+            0;
+
+
+        foreach (
+            [
+                'theory_obtained_marks',
+                'oral_obtained_marks',
+                'practical_obtained_marks',
+            ] as $field
+        ) {
+
+            if (
+                isset(
+                    $row->{$field}
+                )
+                &&
+                $row->{$field} !== ''
+                &&
+                $row->{$field} !== null
+                &&
+                is_numeric(
+                    $row->{$field}
+                )
+            ) {
+
+                $found =
+                    true;
+
+                $total +=
+                    (float)$row->{$field};
+            }
+        }
+
+
+        return
+            $found
+                ? $total
+                : null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ABSENT
+    |--------------------------------------------------------------------------
+    */
+
+    private function isAbsentMark(
+        $row
+    ): bool {
+
+        if (
+            isset(
+                $row->is_absent
+            )
+            &&
+            (int)$row->is_absent === 1
+        ) {
+
+            return true;
+        }
+
+
+        foreach (
+            [
+                'status',
+                'marks_status',
+                'attendance_status',
+            ] as $field
+        ) {
+
+            if (
+                isset(
+                    $row->{$field}
+                )
+                &&
+                strtoupper(
+                    trim(
+                        (string)$row->{$field}
+                    )
+                ) === 'AB'
+            ) {
+
+                return true;
+            }
+        }
+
+
+        foreach (
+            [
+                'obtained_marks',
+                'marks',
+            ] as $field
+        ) {
+
+            if (
+                isset(
+                    $row->{$field}
+                )
+                &&
+                strtoupper(
+                    trim(
+                        (string)$row->{$field}
+                    )
+                ) === 'AB'
+            ) {
+
+                return true;
+            }
+        }
+
+
+        return false;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ERP STUDENTS
+    |--------------------------------------------------------------------------
+    */
+
+    private function loadERPStudentsByIds(
+        array $studentIds
+    ): array {
+
+        $students =
+            [];
+
+
+        if (
+            empty($studentIds)
+        ) {
+
+            return $students;
+        }
+
+
+        try {
+
+            $rows =
+                DB::connection(
+                    'sqlsrv_olderp'
+                )
+                ->table(
+                    'FeeMstStudent as f'
+                )
+                ->leftJoin(
+                    'SubStudentMst as ss',
+                    'ss.Studentid',
+                    '=',
+                    'f.Studentid'
+                )
+                ->whereIn(
+                    'f.Studentid',
+                    array_map(
+                        'intval',
+                        $studentIds
+                    )
+                )
+                ->select(
+                    'f.Studentid',
+                    'f.studname',
+                    'f.fathername',
+                    'f.gender',
+                    'ss.rollno'
+                )
+                ->get();
+
+
+            foreach (
+                $rows as $row
+            ) {
+
+                $students[
+                    (int)$row->Studentid
+                ] =
+                    $row;
+            }
+
+        } catch (
+            \Throwable $e
+        ) {
+            /*
+            | Keep result usable even when ERP connection fails.
+            */
+        }
+
+
+        return $students;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND COLUMN
+    |--------------------------------------------------------------------------
+    */
+
+    private function findFirstExistingColumn(
+        array $columns,
+        array $candidates
+    ): ?string {
+
+        foreach (
+            $candidates as $candidate
+        ) {
+
+            if (
+                in_array(
+                    $candidate,
+                    $columns,
+                    true
+                )
+            ) {
+
+                return $candidate;
+            }
+        }
+
+
+        return null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORMAT MARK
+    |--------------------------------------------------------------------------
+    */
+
+    private function formatMark(
+        $mark
+    ) {
+
+        $mark =
+            (float)$mark;
+
+
+        if (
+            floor($mark) === $mark
+        ) {
+
+            return (int)$mark;
+        }
+
+
+        return round(
+            $mark,
+            2
         );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PASS %
+    |--------------------------------------------------------------------------
+    */
+
+    private function getOverallPassPercentage(
+        string $standardName
+    ): int {
+
+        $name =
+            strtoupper(
+                trim(
+                    $standardName
+                )
+            );
+
+
+        if (
+            in_array(
+                $name,
+                [
+                    'NINTH',
+                    'TENTH',
+                    '9TH',
+                    '10TH',
+                    'IX',
+                    'X',
+                ],
+                true
+            )
+        ) {
+
+            return 35;
+        }
+
+
+        return 40;
     }
 
 
@@ -1467,9 +2420,12 @@ class ResultSheetController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    private function getGradeFromPercentage($percentage)
-    {
-        $percentage = (float) $percentage;
+    private function getGradeFromPercentage(
+        $percentage
+    ): string {
+
+        $percentage =
+            (float)$percentage;
 
 
         if ($percentage >= 91) {
@@ -1500,239 +2456,164 @@ class ResultSheetController extends Controller
             return 'D';
         }
 
-        return 'FAIL';
+        return 'F';
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | PRINT
+    | OVERALL ANALYSIS
     |--------------------------------------------------------------------------
     */
 
-    public function print(Request $request)
-    {
-        $request->validate([
-            'academic_year_id' => ['required', 'integer'],
-            'exam_master_id'   => ['required', 'integer'],
-            'standard_id'      => ['required', 'integer'],
-            'division_id'      => ['required', 'integer'],
-        ]);
+    private function buildOverallGradeAnalysis(
+        $results
+    ): array {
 
+        $analysis = [
 
-        /*
-        |--------------------------------------------------------------------------
-        | Check result
-        |--------------------------------------------------------------------------
-        */
+            'A1' => [
+                'range' => '91-100%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
-        $resultExists =
-            DB::table('student_results')
-                ->where(
-                    'academic_year_id',
-                    (int) $request->academic_year_id
-                )
-                ->where(
-                    'exam_master_id',
-                    (int) $request->exam_master_id
-                )
-                ->where(
-                    'standard_id',
-                    (int) $request->standard_id
-                )
-                ->where(
-                    'division_id',
-                    (int) $request->division_id
-                )
-                ->exists();
+            'A2' => [
+                'range' => '81-90%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
+            'B1' => [
+                'range' => '71-80%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
-        if (!$resultExists) {
+            'B2' => [
+                'range' => '61-70%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
-            return redirect()
-                ->route('result-sheet.index')
-                ->with(
-                    'error',
-                    'Result is not generated for selected Academic Year, Exam, Standard and Division.'
-                );
-        }
+            'C1' => [
+                'range' => '51-60%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
+            'C2' => [
+                'range' => '41-50%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
-        /*
-        |--------------------------------------------------------------------------
-        | Build result
-        |--------------------------------------------------------------------------
-        */
+            'D' => [
+                'range' => '33-40%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
-        $response =
-            $this->search($request);
+            'F' => [
+                'range' => 'Below 33%',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
+            'PASS' => [
+                'range' => 'PASS',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
 
-        if (
-            !$response instanceof
-            \Illuminate\View\View
-        ) {
-
-            return $response;
-        }
-
-
-        $data =
-            $response->getData();
-
-
-        $results =
-            collect(
-                $data['results'] ?? []
-            );
-
-
-        $examSubjects =
-            collect(
-                $data['examSubjects'] ?? []
-            );
-
-
-        $academicSubjects =
-            collect(
-                $data['academicSubjects'] ?? []
-            );
-
-
-        $coSubjects =
-            collect(
-                $data['coSubjects'] ?? []
-            );
-
-
-        $showSkillColumn =
-            $data['showSkillColumn'] ?? false;
-
-
-        $totalMaxMarks =
-            $academicSubjects->sum(
-                fn($subject) =>
-                    (int) (
-                        $subject->max_marks ?? 0
-                    )
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ANALYSIS
-        |--------------------------------------------------------------------------
-        */
-
-        $grades = [
-            'A1',
-            'A2',
-            'B1',
-            'B2',
-            'C1',
-            'C2',
-            'D',
+            'FAIL' => [
+                'range' => 'FAIL',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
         ];
 
 
-        $girlsSubjectAnalysis =
-            $this->buildSubjectAnalysis(
-                $results,
-                $academicSubjects,
-                'FEMALE',
-                $grades
-            );
+        foreach (
+            $results as $student
+        ) {
+
+            if (
+                ($student->result ?? '-') === '-'
+            ) {
+
+                continue;
+            }
 
 
-        $boysSubjectAnalysis =
-            $this->buildSubjectAnalysis(
-                $results,
-                $academicSubjects,
-                'MALE',
-                $grades
-            );
+            $gender =
+                strtoupper(
+                    trim(
+                        $student->gender
+                        ?? ''
+                    )
+                ) === 'FEMALE'
+                    ? 'girls'
+                    : 'boys';
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | MASTER DATA
-        |--------------------------------------------------------------------------
-        */
-
-        $academicYear =
-            AcademicYear::find(
-                (int) $request->academic_year_id
-            );
+            $grade =
+                strtoupper(
+                    trim(
+                        $student->calculated_grade
+                        ?? '-'
+                    )
+                );
 
 
-        $exam =
-            ExamMaster::find(
-                (int) $request->exam_master_id
-            );
+            if (
+                isset(
+                    $analysis[$grade]
+                )
+            ) {
+
+                $analysis[$grade][$gender]++;
+                $analysis[$grade]['total']++;
+            }
 
 
-        $standard =
-            Standard::find(
-                (int) $request->standard_id
-            );
+            $result =
+                strtoupper(
+                    trim(
+                        $student->result
+                        ?? '-'
+                    )
+                );
 
 
-        $division =
-            Division::find(
-                (int) $request->division_id
-            );
+            if (
+                $result === 'PASS'
+            ) {
+
+                $analysis['PASS'][$gender]++;
+                $analysis['PASS']['total']++;
+
+            } elseif (
+                $result === 'FAIL'
+            ) {
+
+                $analysis['FAIL'][$gender]++;
+                $analysis['FAIL']['total']++;
+            }
+        }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | PRINT VIEW
-        |--------------------------------------------------------------------------
-        */
-
-        return view(
-            'administrator.result-sheet.print',
-            [
-
-                'results' =>
-                    $results,
-
-                'examSubjects' =>
-                    $examSubjects,
-
-                'academicSubjects' =>
-                    $academicSubjects,
-
-                'coSubjects' =>
-                    $coSubjects,
-
-                'showSkillColumn' =>
-                    $showSkillColumn,
-
-                'totalMaxMarks' =>
-                    $totalMaxMarks,
-
-                'exam' =>
-                    $exam,
-
-                'standard' =>
-                    $standard,
-
-                'division' =>
-                    $division,
-
-                'academicYear' =>
-                    $academicYear,
-
-                'yearName' =>
-                    $academicYear?->year_name,
-
-                'girlsSubjectAnalysis' =>
-                    $girlsSubjectAnalysis,
-
-                'boysSubjectAnalysis' =>
-                    $boysSubjectAnalysis,
-            ]
-        );
+        return $analysis;
     }
 
 
@@ -1745,122 +2626,87 @@ class ResultSheetController extends Controller
     private function buildSubjectAnalysis(
         $results,
         $subjects,
-        $gender,
-        $grades
-    ) {
+        string $gender
+    ): array {
 
-        $analysis = [];
+        $analysis =
+            [];
 
 
-        foreach ($subjects as $subject) {
+        foreach (
+            $subjects as $subject
+        ) {
 
             $row = [
 
                 'subject' =>
+                    $subject->subject_code,
+
+                'subject_name' =>
                     $subject->subject_name,
 
+                'subject_code' =>
+                    $subject->subject_code,
+
+                'A1' => 0,
+                'A2' => 0,
+                'B1' => 0,
+                'B2' => 0,
+                'C1' => 0,
+                'C2' => 0,
+                'D' => 0,
+
                 'fail' => 0,
-
                 'absent' => 0,
-
                 'total' => 0,
             ];
 
 
-            foreach ($grades as $grade) {
+            foreach (
+                $results as $student
+            ) {
 
-                $row[$grade] = 0;
-            }
-
-
-            foreach ($results as $student) {
-
-                if (
+                $studentGender =
                     strtoupper(
                         trim(
-                            $student->gender ?? ''
+                            $student->gender
+                            ?? ''
                         )
-                    ) !== strtoupper($gender)
+                    );
+
+
+                if (
+                    $studentGender !==
+                    strtoupper($gender)
                 ) {
 
                     continue;
                 }
 
 
-                $componentIds =
-                    $subject->component_ids
-                    ?? [$subject->id];
+                $mark =
+                    $student->subject_marks[
+                        $subject->key
+                    ] ?? '-';
 
 
-                $totalMarks = 0;
-
-                $hasMarks = false;
-
-                $hasAbsent = false;
-
-                $hasFail = false;
-
-                $maxMarks = 0;
+                $grade =
+                    $student->subject_grades[
+                        $subject->key
+                    ] ?? '-';
 
 
-                foreach ($componentIds as $componentId) {
+                /*
+                |--------------------------------------------------------------------------
+                | NO MARK
+                |--------------------------------------------------------------------------
+                */
 
-                    $detail =
-                        $student->details[
-                            (int) $componentId
-                        ] ?? null;
+                if (
+                    $mark === '-'
+                ) {
 
-
-                    if (!$detail) {
-                        continue;
-                    }
-
-
-                    $maxMarks +=
-                        (float) (
-                            $detail['max_marks'] ?? 0
-                        );
-
-
-                    if (
-                        ($detail['is_absent'] ?? 0) == 1
-                        ||
-                        strtoupper(
-                            trim(
-                                $detail['result'] ?? ''
-                            )
-                        ) === 'ABSENT'
-                    ) {
-
-                        $hasAbsent = true;
-
-                        continue;
-                    }
-
-
-                    if (
-                        strtoupper(
-                            trim(
-                                $detail['result'] ?? ''
-                            )
-                        ) === 'FAIL'
-                    ) {
-
-                        $hasFail = true;
-                    }
-
-
-                    if (
-                        isset($detail['marks'])
-                        &&
-                        is_numeric($detail['marks'])
-                    ) {
-
-                        $totalMarks +=
-                            (float) $detail['marks'];
-
-                        $hasMarks = true;
-                    }
+                    continue;
                 }
 
 
@@ -1870,7 +2716,13 @@ class ResultSheetController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                if ($hasAbsent) {
+                if (
+                    strtoupper(
+                        trim(
+                            (string)$mark
+                        )
+                    ) === 'AB'
+                ) {
 
                     $row['absent']++;
 
@@ -1884,21 +2736,15 @@ class ResultSheetController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                if ($hasFail) {
+                if (
+                    strtoupper(
+                        trim(
+                            (string)$grade
+                        )
+                    ) === 'F'
+                ) {
 
                     $row['fail']++;
-
-                    continue;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | NO MARKS
-                |--------------------------------------------------------------------------
-                */
-
-                if (!$hasMarks) {
 
                     continue;
                 }
@@ -1910,24 +2756,11 @@ class ResultSheetController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $percentage =
-                    $maxMarks > 0
-                        ? round(
-                            (
-                                $totalMarks /
-                                $maxMarks
-                            ) * 100
-                        )
-                        : 0;
-
-
-                $grade =
-                    $this->getGradeFromPercentage(
-                        $percentage
-                    );
-
-
-                if (isset($row[$grade])) {
+                if (
+                    isset(
+                        $row[$grade]
+                    )
+                ) {
 
                     $row[$grade]++;
                 }
@@ -1936,26 +2769,153 @@ class ResultSheetController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | TOTAL
+            | ANALYSIS TOTAL
             |--------------------------------------------------------------------------
             */
 
             $row['total'] =
-                ($row['A1'] ?? 0) +
-                ($row['A2'] ?? 0) +
-                ($row['B1'] ?? 0) +
-                ($row['B2'] ?? 0) +
-                ($row['C1'] ?? 0) +
-                ($row['C2'] ?? 0) +
-                ($row['D'] ?? 0) +
-                ($row['fail'] ?? 0) +
-                ($row['absent'] ?? 0);
+                $row['A1']
+                + $row['A2']
+                + $row['B1']
+                + $row['B2']
+                + $row['C1']
+                + $row['C2']
+                + $row['D']
+                + $row['fail']
+                + $row['absent'];
 
 
-            $analysis[] = $row;
+            $analysis[] =
+                $row;
         }
 
 
         return $analysis;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PRINT
+    |--------------------------------------------------------------------------
+    */
+
+    public function print(
+        Request $request
+    ) {
+
+        $request->validate([
+            'academic_year_id' => [
+                'required',
+                'integer',
+            ],
+
+            'exam_master_id' => [
+                'required',
+                'integer',
+            ],
+
+            'division_id' => [
+                'required',
+                'integer',
+            ],
+        ]);
+
+
+        $exam =
+            ExamMaster::find(
+                (int)$request->exam_master_id
+            );
+
+
+        if (!$exam) {
+
+            return redirect()
+                ->route(
+                    'result-sheet.index'
+                )
+                ->with(
+                    'error',
+                    'Selected Exam was not found.'
+                );
+        }
+
+
+        $standardId =
+            (int)(
+                $exam->standard_id
+                ?? 0
+            );
+
+
+        if (
+            $standardId <= 0
+        ) {
+
+            $standardId =
+                (int)(
+                    DB::table(
+                        'exam_master_subjects'
+                    )
+                    ->where(
+                        'exam_master_id',
+                        $exam->id
+                    )
+                    ->whereNotNull(
+                        'standard_id'
+                    )
+                    ->value(
+                        'standard_id'
+                    )
+                    ?? 0
+                );
+        }
+
+
+        if (
+            $standardId <= 0
+        ) {
+
+            return redirect()
+                ->route(
+                    'result-sheet.index'
+                )
+                ->with(
+                    'error',
+                    'The selected Exam is not mapped to a Standard.'
+                );
+        }
+
+
+        $data =
+            $this->buildResultSheetData(
+                (int)$request->academic_year_id,
+                (int)$request->exam_master_id,
+                $standardId,
+                (int)$request->division_id
+            );
+
+
+        if (
+            !empty(
+                $data['error']
+            )
+        ) {
+
+            return redirect()
+                ->route(
+                    'result-sheet.index'
+                )
+                ->with(
+                    'error',
+                    $data['error']
+                );
+        }
+
+
+        return view(
+            'administrator.result-sheet.print',
+            $data['viewData']
+        );
     }
 }

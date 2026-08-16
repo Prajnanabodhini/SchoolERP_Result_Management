@@ -58,7 +58,12 @@ use App\Http\Controllers\ExamPatternDetailController;
 | PUBLIC ROUTES
 |--------------------------------------------------------------------------
 */
-
+Route::get(
+    '/teacher-bulk-allocation/exam-details',
+    [TeacherBulkAllocationController::class, 'getExamDetails']
+)->name(
+    'teacher-bulk-allocation.exam-details'
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -618,6 +623,11 @@ Route::middleware(['auth'])->group(function () {
                 '/marks-correction/update',
                 [AdminMarksController::class, 'update']
             )->name('result-generation.admin-marks.update');
+
+            Route::put(
+    '/marks-correction/update',
+    [AdminMarksController::class, 'update']
+)->name('admin-marks.update');
 
             Route::post(
                 '/marks-correction/reopen',

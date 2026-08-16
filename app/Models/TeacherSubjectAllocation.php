@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\TeacherClassAllocation;
+use App\Models\ExamMaster;
+use App\Models\StandardWiseSubject;
 
 class TeacherSubjectAllocation extends Model
 {
@@ -11,6 +14,14 @@ class TeacherSubjectAllocation extends Model
         'subject_id',
         'exam_master_id'
     ];
+
+    public function subjectMapping()
+    {
+        return $this->belongsTo(
+            StandardWiseSubject::class,
+            'subject_id'
+        );
+    }
 
     public function subject()
     {

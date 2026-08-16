@@ -1,2863 +1,1637 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
 
-<meta charset="UTF-8">
-
-<title>Examination Result Sheet</title>
-
-<style>
-
-@page {
-    size: A4 landscape;
-    margin: 5mm;
-}
-
-* {
-    box-sizing: border-box;
-}
-
-html,
-body {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 9px;
-    color: #111827;
-    background: #fff;
-}
-
-/* =========================================================
-   PRINT
-========================================================= */
-
-@media print {
-
-    html,
-    body {
-        width: 100%;
-        margin: 0;
-        padding: 0;
-    }
-
-    .no-print {
-        display: none !important;
-    }
-
-    thead {
-        display: table-header-group;
-    }
-
-    tfoot {
-        display: table-footer-group;
-    }
-
-    .result-sheet-table {
-        page-break-inside: auto !important;
-    }
-
-    .result-sheet-table tr {
-        page-break-inside: avoid !important;
-        page-break-after: auto !important;
-    }
-
-}
-
-/* =========================================================
-   COMMON
-========================================================= */
-
-table,
-table th,
-table td {
-    font-family: Arial, Helvetica, sans-serif !important;
-    color: #111827 !important;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-/* =========================================================
-   SCHOOL HEADER
-========================================================= */
-
-.school-header {
-    width: 100%;
-    border: none !important;
-    margin: 0 auto 2px auto;
-    table-layout: fixed;
-}
-
-.school-header td {
-    border: none !important;
-    padding: 1px 2px;
-    vertical-align: middle;
-}
-
-.school-logo-cell {
-    width: 80px;
-    text-align: center;
-}
-
-.school-logo {
-    width: 60px;
-    height: 60px;
-    object-fit: contain;
-}
-
-.school-title-cell {
-    text-align: center !important;
-}
-
-.school-name {
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 20px;
-    text-align: center !important;
-}
-
-.school-location {
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 18px;
-    text-align: center !important;
-}
-
-.academic-year {
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 16px;
-    text-align: center !important;
-}
-
-/* =========================================================
-   EXAM INFORMATION
-========================================================= */
-
-.exam-info {
-    width: 100%;
-    border: none !important;
-    margin-bottom: 4px;
-    table-layout: fixed;
-}
-
-.exam-info td {
-    border: none !important;
-    font-size: 12px;
-    text-align: left;
-    padding: 2px 4px;
-}
-
-/* =========================================================
-   RESULT TABLE
-========================================================= */
-
-.result-sheet-table {
-    width: 100%;
-    border-collapse: collapse !important;
-    border-spacing: 0 !important;
-    table-layout: fixed;
-    font-size: 9px;
-}
-
-.result-sheet-table th,
-.result-sheet-table td {
-    border: 0.2px solid #000 !important;
-    color: #03070f !important;
-    text-align: center;
-    vertical-align: middle;
-}
-
-.result-sheet-table th {
-    background: #dbeafe;
-    font-weight: 700;
-    font-size: 8.5px;
-    padding: 1px;
-    line-height: 9px;
-    white-space: normal;
-}
-
-.result-sheet-table td {
-    font-size: 8.5px;
-    font-weight: 500;
-    padding: 3px 2px;
-    line-height: 10px;
-    white-space: nowrap;
-}
-
-/* =========================================================
-   FIXED COLUMNS
-========================================================= */
-
-.result-sheet-table th.roll-column,
-.result-sheet-table td.roll-column {
-    width: 38px;
-    font-size: 8.5px;
-}
-
-.result-sheet-table th.student-name-header,
-.result-sheet-table td.student-name {
-    width: 145px;
-    min-width: 145px;
-    max-width: 145px;
-    text-align: left !important;
-}
-
-.result-sheet-table td.student-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* =========================================================
-   NORMAL SUBJECT
-========================================================= */
-
-.normal-mark-column {
-    width: 30px;
-}
-
-.normal-grade-column {
-    width: 30px;
-}
-
-/* =========================================================
-   COMPONENT
-========================================================= */
-
-.component-column {
-    width: 32px;
-}
-
-/* =========================================================
-   SKILL
-========================================================= */
-
-.skill-column {
-    width: 70px;
-}
-
-/* =========================================================
-   TOTAL / % / GRADE / RESULT
-========================================================= */
-
-.total-column {
-    width: 50px;
-}
-
-.percentage-column {
-    width: 43px;
-}
-
-.grade-column {
-    width: 42px;
-}
-
-.result-column {
-    width: 48px;
-}
-
-/* =========================================================
-   SUBJECT HEADER
-========================================================= */
-
-.subject-max {
-    display: block;
-    font-size: 6.5px;
-    font-weight: 500;
-    line-height: 7px;
-}
-
-.component-max {
-    display: block;
-    font-size: 6.5px;
-    font-weight: 500;
-    line-height: 7px;
-}
-
-.component-name {
-    font-size: 7.5px;
-    font-weight: 700;
-    line-height: 8px;
-}
-
-.group-header {
-    font-weight: 700;
-    font-size: 8px;
-}
-
-/* =========================================================
-   MARKS
-========================================================= */
-
-.absent-mark {
-    font-weight: 700;
-    color: #991b1b !important;
-}
-
-.fail-result {
-    font-weight: 700;
-    color: #991b1b !important;
-}
-
-.pass-result {
-    font-weight: 700;
-    color: #166534 !important;
-}
-
-/* =========================================================
-   ANALYSIS
-========================================================= */
-
-.analysis-title {
-    margin-top: 15px;
-    margin-bottom: 4px;
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.analysis-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    font-size: 10px;
-}
-
-.analysis-table th,
-.analysis-table td {
-    border: 1px solid #111827 !important;
-    font-family: Arial, Helvetica, sans-serif !important;
-    font-size: 10px;
-    padding: 3px;
-    text-align: center;
-    vertical-align: middle;
-}
-
-.analysis-table th {
-    background: #dbeafe;
-    font-weight: 700;
-}
-
-.analysis-table td {
-    font-weight: 600;
-}
-
-.analysis-subject {
-    text-align: left !important;
-    width: 110px;
-}
-
-.analysis-subject-name {
-    width: 110px;
-    text-align: left !important;
-    white-space: nowrap;
-}
-
-/* =========================================================
-   COMBINED ANALYSIS
-========================================================= */
-
-.combined-analysis-table {
-    width: 100%;
-    table-layout: fixed;
-    font-size: 10px;
-}
-
-.combined-analysis-table th,
-.combined-analysis-table td {
-    text-align: center;
-    padding: 2px 3px;
-    font-size: 10px;
-    color: #000 !important;
-    border: 1px solid #111827 !important;
-}
-
-.combined-analysis-table .analysis-subject-column {
-    width: 105px;
-}
-
-.combined-analysis-table .analysis-subject-name {
-    width: 105px;
-    text-align: left !important;
-    white-space: nowrap;
-    font-weight: 600;
-}
-
-.gender-header {
-    font-size: 10px;
-    font-weight: 700;
-}
-
-/* =========================================================
-   SIGNATURE
-========================================================= */
-
-.signature-area {
-    margin-top: 22px;
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-}
-
-.signature-box {
-    width: 180px;
-    text-align: center;
-    font-size: 14px;
-}
-
-/* =========================================================
-   PRINT BUTTON
-========================================================= */
-
-.no-print {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 9999;
-}
-
-</style>
+    <meta charset="UTF-8">
+
+    <title>
+        Examination Result Sheet
+    </title>
+
+    <style>
+
+        @page {
+            size: A4 landscape;
+            margin: 5mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10px;
+            color: #111827;
+            background: #ffffff;
+        }
+
+
+        /* =========================================================
+           PRINT
+        ========================================================== */
+
+        @media print {
+
+            html,
+            body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .print-page {
+                width: 100%;
+            }
+
+            thead {
+                display: table-header-group;
+            }
+
+            tfoot {
+                display: table-footer-group;
+            }
+
+            tr {
+                page-break-inside: avoid !important;
+            }
+
+            .analysis-block {
+                page-break-inside: avoid;
+            }
+        }
+
+
+        /* =========================================================
+           PRINT BUTTON
+        ========================================================== */
+
+        .print-controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 99999;
+        }
+
+        .print-button {
+            border: 1px solid #374151;
+            background: #1d4ed8;
+            color: #ffffff;
+            border-radius: 4px;
+            padding: 7px 15px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+
+        /* =========================================================
+           SCHOOL HEADER
+        ========================================================== */
+
+        .school-header {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 3px;
+        }
+
+        .school-header td {
+            border: none !important;
+            padding: 1px 3px;
+            vertical-align: middle;
+        }
+
+        .school-logo-cell {
+            width: 75px;
+            text-align: center !important;
+        }
+
+        .school-logo {
+            width: 55px;
+            height: 55px;
+            object-fit: contain;
+        }
+
+        .school-title-cell {
+            text-align: center !important;
+        }
+
+        .school-name {
+            font-size: 18px;
+            line-height: 21px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .school-location {
+            font-size: 11px;
+            line-height: 14px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .school-year {
+            font-size: 12px;
+            line-height: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+
+        /* =========================================================
+           EXAM INFORMATION
+        ========================================================== */
+
+        .exam-info {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 5px;
+        }
+
+        .exam-info td {
+            border: none !important;
+            font-size: 10.5px;
+            padding: 2px 4px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+
+        /* =========================================================
+           MAIN RESULT TABLE
+        ========================================================== */
+
+        .result-sheet-wrapper {
+            width: 100%;
+            overflow: visible;
+        }
+
+        .result-sheet-table {
+            width: 100%;
+            max-width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+            table-layout: fixed;
+
+            border: 1px solid #333;
+
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9.5px;
+        }
+
+        .result-sheet-table th,
+        .result-sheet-table td {
+            border: 1px solid #333 !important;
+            border-style: solid !important;
+            border-width: 1px !important;
+
+            color: #111827 !important;
+
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .result-sheet-table th {
+            background: #dbeafe;
+            font-size: 9px;
+            font-weight: 700;
+
+            padding: 3px 1px;
+
+            line-height: 1.05;
+
+            white-space: normal;
+            overflow-wrap: break-word;
+            word-break: normal;
+        }
+
+        .result-sheet-table td {
+            font-size: 9px;
+            font-weight: 500;
+
+            padding: 3px 1px;
+
+            line-height: 1.05;
+
+            white-space: nowrap;
+        }
+
+
+        /* =========================================================
+           SUBJECT HEADER
+        ========================================================== */
+
+        .subject-code {
+            display: block;
+            font-size: 8.5px;
+            font-weight: 700;
+            line-height: 9px;
+        }
+
+        .subject-name {
+            display: block;
+            font-size: 7.5px;
+            font-weight: 600;
+            line-height: 8px;
+        }
+
+        .subject-max {
+            display: block;
+            font-size: 6.8px;
+            font-weight: 400;
+            line-height: 7.2px;
+        }
+
+
+        /* =========================================================
+           STUDENT NAME
+        ========================================================== */
+
+        .student-name-cell {
+            text-align: left !important;
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+
+        /* =========================================================
+           RESULT VALUES
+        ========================================================== */
+
+        .absent-mark {
+            color: #991b1b !important;
+            font-weight: 700;
+        }
+
+        .fail-result {
+            color: #991b1b !important;
+            font-weight: 700;
+        }
+
+        .pass-result {
+            color: #166534 !important;
+            font-weight: 700;
+        }
+
+
+        /* =========================================================
+           ANALYSIS
+        ========================================================== */
+
+        .analysis-block {
+            margin-top: 10px;
+        }
+
+        .analysis-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1d4ed8;
+            margin: 9px 0 4px 0;
+        }
+
+        .analysis-table-wrapper {
+            width: 100%;
+            overflow: visible;
+        }
+
+        .analysis-table {
+            width: 100%;
+            max-width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+
+            border: 1px solid #333;
+
+            font-size: 8.5px;
+        }
+
+        .analysis-table th,
+        .analysis-table td {
+            border: 1px solid #333 !important;
+            border-style: solid !important;
+            border-width: 1px !important;
+
+            text-align: center;
+            vertical-align: middle;
+
+            padding: 3px 2px;
+
+            color: #111827 !important;
+        }
+
+        .analysis-table th {
+            background: #dbeafe;
+            font-weight: 700;
+        }
+
+        .analysis-table td:first-child {
+            text-align: left !important;
+            font-weight: 600;
+        }
+
+
+        /* =========================================================
+           SUBJECT WISE ANALYSIS
+        ========================================================== */
+
+        .subject-wise-analysis-wrapper {
+            width: 100%;
+            overflow: visible;
+        }
+
+        .subject-wise-analysis-table {
+            width: 100%;
+            max-width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+            table-layout: fixed;
+
+            border: 1px solid #333;
+
+            font-size: 8.5px;
+        }
+
+        .subject-wise-analysis-table th,
+        .subject-wise-analysis-table td {
+            border: 1px solid #333 !important;
+            border-style: solid !important;
+            border-width: 1px !important;
+
+            padding: 3px 2px;
+
+            text-align: center;
+            vertical-align: middle;
+
+            color: #111827 !important;
+        }
+
+        .subject-wise-analysis-table th {
+            background: #dbeafe;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .subject-wise-analysis-table .subject-analysis-name {
+            width: 155px;
+            min-width: 155px;
+            max-width: 155px;
+
+            text-align: left !important;
+            font-weight: 700;
+
+            white-space: normal !important;
+            word-break: normal;
+            overflow-wrap: break-word;
+        }
+
+        .subject-wise-analysis-table .analysis-number-column {
+            width: 33px;
+            min-width: 33px;
+            max-width: 33px;
+        }
+
+        .subject-wise-analysis-table .analysis-total-column {
+            width: 40px;
+            min-width: 40px;
+            max-width: 40px;
+
+            font-weight: 700;
+        }
+
+
+        /* =========================================================
+           SIGNATURES
+        ========================================================== */
+
+        .signature-area {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 18px;
+        }
+
+        .signature-box {
+            width: 180px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+    </style>
 
 </head>
 
+
 <body>
 
-<div class="no-print">
 
-    <button type="button"
+<div class="print-page">
+
+
+    {{-- =========================================================
+         PRINT BUTTON
+    ========================================================== --}}
+
+    <div class="print-controls no-print">
+
+        <button
+            type="button"
+            class="print-button"
             onclick="window.print()"
-            style="
-                padding:6px 14px;
-                cursor:pointer;
-                font-weight:bold;
-            ">
-        Print
-    </button>
+        >
+            Print
+        </button>
 
-</div>
+    </div>
 
 
-{{-- =========================================================
-     SCHOOL HEADER
-========================================================= --}}
+    {{-- =========================================================
+         SCHOOL HEADER
+    ========================================================== --}}
 
-<table class="school-header">
+    <table class="school-header">
 
-    <tr>
+        <tr>
 
-        <td class="school-logo-cell">
+            <td class="school-logo-cell">
 
-            <img src="{{ asset('images/school-logo.png') }}"
-                 class="school-logo">
+                <img
+                    src="{{ asset('images/school-logo.png') }}"
+                    class="school-logo"
+                    alt="School Logo"
+                >
 
-        </td>
+            </td>
 
-        <td class="school-title-cell">
 
-            <div class="school-name">
-                PRAJNANABODHINI ENGLISH MEDIUM SCHOOL &amp; JR. COLLEGE
-            </div>
+            <td class="school-title-cell">
 
-            <div class="school-location">
-                SHIRGAON / CHIKHALI
-            </div>
+                <div class="school-name">
+                    PRAJNANABODHINI ENGLISH MEDIUM SCHOOL &amp; JR. COLLEGE
+                </div>
 
-            <div class="academic-year">
-                Academic Year : {{ $yearName ?? '' }}
-            </div>
+                <div class="school-location">
+                    SHIRGAON / CHIKHALI
+                </div>
 
-        </td>
+                <div class="school-year">
+                    Academic Year :
+                    {{ $academicYear->year_name ?? ($yearName ?? '') }}
+                </div>
 
-        <td style="width:80px;border:none !important;"></td>
+            </td>
 
-    </tr>
 
-</table>
+            <td style="width:75px;border:none !important;"></td>
 
+        </tr>
 
-{{-- =========================================================
-     EXAM INFORMATION
-========================================================= --}}
+    </table>
 
-<table class="exam-info">
 
-    <tr>
+    {{-- =========================================================
+         EXAM INFORMATION
+    ========================================================== --}}
 
-        <td>
-            <strong>Academic Year :</strong>
-            {{ $yearName ?? '' }}
-        </td>
+    <table class="exam-info">
 
-        <td>
-            <strong>Exam :</strong>
-            {{ $exam->exam_name ?? '' }}
-        </td>
+        <tr>
 
-        <td>
-            <strong>Standard :</strong>
-            {{ $standard->standard_name ?? '' }}
-        </td>
+            <td>
+                <strong>Academic Year :</strong>
+                {{ $academicYear->year_name ?? ($yearName ?? '') }}
+            </td>
 
-        <td>
-            <strong>Division :</strong>
-            {{ $division->division_name ?? '' }}
-        </td>
+            <td>
+                <strong>Exam :</strong>
+                {{ $exam->display_exam_name ?? ($exam->exam_name ?? '') }}
+            </td>
 
-        <td>
-            <strong>Total Students :</strong>
-            {{ $results->count() }}
-        </td>
+            <td>
+                <strong>Standard :</strong>
+                {{ $standard->standard_name ?? '' }}
+            </td>
 
-    </tr>
+            <td>
+                <strong>Division :</strong>
+                {{ $division->division_name ?? '' }}
+            </td>
 
-</table>
+            <td>
+                <strong>Total Students :</strong>
+                {{ $results->count() }}
+            </td>
 
+        </tr>
 
-{{-- =========================================================
-     SUBJECT PREPARATION
-========================================================= --}}
+    </table>
 
-@php
 
-$academicSubjects = collect($academicSubjects ?? []);
-$examSubjects     = collect($examSubjects ?? []);
-$coSubjects       = collect($coSubjects ?? []);
+    {{-- =========================================================
+         SUBJECT DISPLAY DATA
+    ========================================================== --}}
 
+    @php
 
-/*
-|--------------------------------------------------------------------------
-| NORMALIZE SUBJECT NAME
-|--------------------------------------------------------------------------
-*/
-
-$subjectNameUpper = function ($subject) {
-
-    return strtoupper(
-        trim(
-            $subject->subject_name ?? ''
-        )
-    );
-
-};
-
-
-/*
-|--------------------------------------------------------------------------
-| FIND COMPONENT SUBJECTS
-|--------------------------------------------------------------------------
-*/
-
-$math1Subject = $academicSubjects->first(
-    function ($subject) use ($subjectNameUpper) {
-
-        return in_array(
-            $subjectNameUpper($subject),
-            [
-                'MATHEMATICS I',
-                'MATHEMATICS 1',
-                'MATH I',
-                'MATH 1'
-            ],
-            true
-        );
-
-    }
-);
-
-$math2Subject = $academicSubjects->first(
-    function ($subject) use ($subjectNameUpper) {
+        /*
+        |--------------------------------------------------------------------------
+        | SAME SUBJECT LIST AS INDEX
+        |--------------------------------------------------------------------------
+        */
 
-        return in_array(
-            $subjectNameUpper($subject),
-            [
-                'MATHEMATICS II',
-                'MATHEMATICS 2',
-                'MATH II',
-                'MATH 2'
-            ],
-            true
-        );
+        $academicDisplayColumns =
+            collect(
+                $displayColumns ?? []
+            )->values();
 
-    }
-);
 
-$sci1Subject = $academicSubjects->first(
-    function ($subject) use ($subjectNameUpper) {
+        $subjectCount =
+            $academicDisplayColumns->count();
 
-        return in_array(
-            $subjectNameUpper($subject),
-            [
-                'SCIENCE I',
-                'SCIENCE 1',
-                'SCI I',
-                'SCI 1'
-            ],
-            true
-        );
 
-    }
-);
+        /*
+        |--------------------------------------------------------------------------
+        | SAME WIDTH LOGIC AS INDEX
+        |--------------------------------------------------------------------------
+        */
 
-$sci2Subject = $academicSubjects->first(
-    function ($subject) use ($subjectNameUpper) {
+        $subjectArea =
+            61;
 
-        return in_array(
-            $subjectNameUpper($subject),
-            [
-                'SCIENCE II',
-                'SCIENCE 2',
-                'SCI II',
-                'SCI 2'
-            ],
-            true
-        );
 
-    }
-);
+        $eachSubjectWidth =
+            $subjectCount > 0
+                ? $subjectArea / $subjectCount
+                : 5;
 
-$historySubject = $academicSubjects->first(
-    function ($subject) use ($subjectNameUpper) {
 
-        return $subjectNameUpper($subject) === 'HISTORY';
+        $eachSubColumnWidth =
+            $eachSubjectWidth / 2;
 
-    }
-);
 
-$geographySubject = $academicSubjects->first(
-    function ($subject) use ($subjectNameUpper) {
+        /*
+        |--------------------------------------------------------------------------
+        | FIXED TOTAL MAX
+        |--------------------------------------------------------------------------
+        */
 
-        return $subjectNameUpper($subject) === 'GEOGRAPHY';
+        $displayTotalMaxMarks =
+            (float)(
+                $totalMaxMarks ?? 0
+            );
 
-    }
-);
+    @endphp
 
 
-/*
-|--------------------------------------------------------------------------
-| COMPONENT IDS
-|--------------------------------------------------------------------------
-*/
+    {{-- =========================================================
+         MAIN RESULT TABLE
+    ========================================================== --}}
 
-$math1Id = $math1Subject->id ?? null;
-$math2Id = $math2Subject->id ?? null;
+    <div class="result-sheet-wrapper">
 
-$sci1Id = $sci1Subject->id ?? null;
-$sci2Id = $sci2Subject->id ?? null;
+        <table class="result-sheet-table">
 
-$historyId = $historySubject->id ?? null;
-$geographyId = $geographySubject->id ?? null;
+            <colgroup>
 
+                {{-- ROLL --}}
 
-/*
-|--------------------------------------------------------------------------
-| MAX MARKS
-|--------------------------------------------------------------------------
-*/
+                <col style="width:5%;">
 
-$math1Max = (int)($math1Subject->max_marks ?? 0);
-$math2Max = (int)($math2Subject->max_marks ?? 0);
 
-$sci1Max = (int)($sci1Subject->max_marks ?? 0);
-$sci2Max = (int)($sci2Subject->max_marks ?? 0);
+                {{-- STUDENT NAME --}}
 
-$historyMax = (int)($historySubject->max_marks ?? 0);
-$geographyMax = (int)($geographySubject->max_marks ?? 0);
+                <col style="width:15%;">
 
 
-/*
-|--------------------------------------------------------------------------
-| FALLBACK MAX MARKS
-|--------------------------------------------------------------------------
-*/
+                {{-- SUBJECTS --}}
 
-if ($math1Id && $math1Max === 0) {
+                @foreach(
+                    $academicDisplayColumns as $column
+                )
 
-    $math1Max = (int)DB::table('exam_master_subjects')
-        ->where('exam_master_id', $exam->id ?? 0)
-        ->where('subject_id', $math1Id)
-        ->value('max_marks');
+                    <col
+                        style="
+                            width:{{ $eachSubColumnWidth }}%;
+                        "
+                    >
 
-}
+                    <col
+                        style="
+                            width:{{ $eachSubColumnWidth }}%;
+                        "
+                    >
 
-if ($math2Id && $math2Max === 0) {
+                @endforeach
 
-    $math2Max = (int)DB::table('exam_master_subjects')
-        ->where('exam_master_id', $exam->id ?? 0)
-        ->where('subject_id', $math2Id)
-        ->value('max_marks');
 
-}
+                {{-- TOTAL --}}
 
-if ($sci1Id && $sci1Max === 0) {
+                <col style="width:6%;">
 
-    $sci1Max = (int)DB::table('exam_master_subjects')
-        ->where('exam_master_id', $exam->id ?? 0)
-        ->where('subject_id', $sci1Id)
-        ->value('max_marks');
 
-}
+                {{-- PERCENTAGE --}}
 
-if ($sci2Id && $sci2Max === 0) {
+                <col style="width:4%;">
 
-    $sci2Max = (int)DB::table('exam_master_subjects')
-        ->where('exam_master_id', $exam->id ?? 0)
-        ->where('subject_id', $sci2Id)
-        ->value('max_marks');
 
-}
+                {{-- GRADE --}}
 
-if ($historyId && $historyMax === 0) {
+                <col style="width:4%;">
 
-    $historyMax = (int)DB::table('exam_master_subjects')
-        ->where('exam_master_id', $exam->id ?? 0)
-        ->where('subject_id', $historyId)
-        ->value('max_marks');
 
-}
+                {{-- RESULT --}}
 
-if ($geographyId && $geographyMax === 0) {
+                <col style="width:5%;">
 
-    $geographyMax = (int)DB::table('exam_master_subjects')
-        ->where('exam_master_id', $exam->id ?? 0)
-        ->where('subject_id', $geographyId)
-        ->value('max_marks');
+            </colgroup>
 
-}
 
+            <thead>
 
-/*
-|--------------------------------------------------------------------------
-| COMPONENT IDS
-|--------------------------------------------------------------------------
-*/
+                <tr>
 
-$componentIds = array_filter([
-    $math1Id,
-    $math2Id,
-    $sci1Id,
-    $sci2Id,
-    $historyId,
-    $geographyId
-]);
+                    <th rowspan="2">
+                        Roll No
+                    </th>
 
+                    <th rowspan="2">
+                        Student Name
+                    </th>
 
-/*
-|--------------------------------------------------------------------------
-| NORMAL SUBJECTS
-|--------------------------------------------------------------------------
-*/
 
-$normalSubjects = $academicSubjects
-    ->filter(function ($subject) use ($componentIds) {
+                    @foreach(
+                        $academicDisplayColumns as $column
+                    )
 
-        return !in_array(
-            $subject->id,
-            $componentIds,
-            true
-        );
+                        <th colspan="2">
 
-    })
-    ->values();
+                            <span class="subject-code">
+                                {{ $column->subject_code ?? '' }}
+                            </span>
 
+                            <span class="subject-name">
+                                {{ $column->subject_name ?? '-' }}
+                            </span>
 
-/*
-|--------------------------------------------------------------------------
-| SUBJECT ORDER
-|--------------------------------------------------------------------------
-*/
+                            <span class="subject-max">
+                                Max =
+                                {{ (int)(
+                                    $column->max_marks ?? 0
+                                ) }}
+                            </span>
 
-$subjectOrder = [
+                        </th>
 
-    'ENG'       => 1,
-    'ENGLISH'   => 1,
+                    @endforeach
 
-    'SAN'       => 2,
-    'SANSKRIT'  => 2,
 
-    'MAR'       => 3,
-    'MARATHI'   => 3,
+                    <th rowspan="2">
 
-];
+                        Total
 
+                        <span class="subject-max">
+                            Max =
+                            {{ (int)$displayTotalMaxMarks }}
+                        </span>
 
-/*
-|--------------------------------------------------------------------------
-| SORT NORMAL SUBJECTS
-|--------------------------------------------------------------------------
-*/
+                    </th>
 
-$normalSubjects = $normalSubjects
-    ->sortBy(function ($subject) use ($subjectOrder) {
 
-        $code = strtoupper(
-            trim(
-                $subject->short_name
-                ?? $subject->subject_name
-                ?? ''
+                    <th rowspan="2">
+                        %
+                    </th>
+
+
+                    <th rowspan="2">
+                        Grade
+                    </th>
+
+
+                    <th rowspan="2">
+                        Result
+                    </th>
+
+                </tr>
+
+
+                <tr>
+
+                    @foreach(
+                        $academicDisplayColumns as $column
+                    )
+
+                        <th>
+                            Marks
+                        </th>
+
+                        <th>
+                            Grade
+                        </th>
+
+                    @endforeach
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+            @foreach(
+                $results as $student
             )
-        );
 
-        return $subjectOrder[$code] ?? 999;
+                <tr>
 
-    })
-    ->values();
+                    {{-- ROLL --}}
 
+                    <td>
+                        {{ $student->roll_no ?: '-' }}
+                    </td>
 
-/*
-|--------------------------------------------------------------------------
-| GROUP FLAGS
-|--------------------------------------------------------------------------
-*/
 
-$showMathGroup =
-    $math1Id !== null ||
-    $math2Id !== null;
+                    {{-- STUDENT NAME --}}
 
-$showScienceGroup =
-    $sci1Id !== null ||
-    $sci2Id !== null;
+                    <td
+                        class="student-name-cell"
+                        title="{{ $student->full_student_name ?? '' }}"
+                    >
+                        {{ $student->full_student_name ?? '-' }}
+                    </td>
 
-$showSocialGroup =
-    $historyId !== null ||
-    $geographyId !== null;
 
+                    {{-- SUBJECTS --}}
 
-/*
-|--------------------------------------------------------------------------
-| TOTAL MAX MARKS
-|--------------------------------------------------------------------------
-*/
+                    @foreach(
+                        $academicDisplayColumns as $column
+                    )
 
-$totalMaxMarks = (int)($totalMaxMarks ?? 0);
+                        @php
 
+                            $subjectKey =
+                                $column->key;
 
-/*
-|--------------------------------------------------------------------------
-| OVERALL GRADE FUNCTION
-|--------------------------------------------------------------------------
-|
-| IMPORTANT:
-| Grade is calculated from attempted subjects only.
-|
-*/
+                            $mark =
+                                $student->subject_marks[
+                                    $subjectKey
+                                ] ?? '-';
 
-$calculateOverallGrade = function ($percentage) {
+                            $grade =
+                                $student->subject_grades[
+                                    $subjectKey
+                                ] ?? '-';
 
-    if ($percentage === null) {
-        return '-';
-    }
+                        @endphp
 
-    $percentage = (float)$percentage;
 
-    if ($percentage >= 91) {
-        return 'A1';
-    }
+                        {{-- MARK --}}
 
-    if ($percentage >= 81) {
-        return 'A2';
-    }
+                        <td>
 
-    if ($percentage >= 71) {
-        return 'B1';
-    }
+                            @if(
+                                strtoupper(
+                                    trim(
+                                        (string)$mark
+                                    )
+                                ) === 'AB'
+                            )
 
-    if ($percentage >= 61) {
-        return 'B2';
-    }
+                                <span class="absent-mark">
+                                    AB
+                                </span>
 
-    if ($percentage >= 51) {
-        return 'C1';
-    }
+                            @elseif(
+                                $mark === '-'
+                                ||
+                                $mark === null
+                                ||
+                                $mark === ''
+                            )
 
-    if ($percentage >= 41) {
-        return 'C2';
-    }
+                                -
 
-    return 'D';
-};
+                            @elseif(
+                                is_numeric($mark)
+                            )
 
+                                {{ (int)$mark }}
 
-/*
-|--------------------------------------------------------------------------
-| GET DETAIL MARK
-|--------------------------------------------------------------------------
-*/
+                            @else
 
-$getDetailMark = function ($detail) {
+                                {{ $mark }}
 
-    if (!$detail) {
-        return null;
-    }
+                            @endif
 
-    $mark = $detail['marks'] ?? null;
+                        </td>
 
-    if ($mark === null || $mark === '') {
-        return null;
-    }
 
-    if (strtoupper(trim((string)$mark)) === 'AB') {
-        return null;
-    }
+                        {{-- GRADE --}}
 
-    if (!is_numeric($mark)) {
-        return null;
-    }
+                        <td>
 
-    return (float)$mark;
-};
+                            @if(
+                                strtoupper(
+                                    trim(
+                                        (string)$grade
+                                    )
+                                ) === 'AB'
+                            )
 
+                                <span class="absent-mark">
+                                    AB
+                                </span>
 
-/*
-|--------------------------------------------------------------------------
-| IS ABSENT DETAIL
-|--------------------------------------------------------------------------
-*/
-
-$isDetailAbsent = function ($detail) {
-
-    if (!$detail) {
-        return true;
-    }
-
-    $mark = $detail['marks'] ?? null;
-
-    return
-        ($detail['is_absent'] ?? 0) == 1
-        ||
-        strtoupper(trim((string)$mark)) === 'AB'
-        ||
-        strtoupper(trim((string)($detail['result'] ?? ''))) === 'ABSENT';
-
-};
-
-
-/*
-|--------------------------------------------------------------------------
-| IS DETAIL FAILED
-|--------------------------------------------------------------------------
-*/
-
-$isDetailFailed = function ($detail) use ($isDetailAbsent) {
-
-    if (!$detail) {
-        return false;
-    }
-
-    if ($isDetailAbsent($detail)) {
-        return false;
-    }
-
-    $result = strtoupper(
-        trim(
-            (string)($detail['result'] ?? '')
-        )
-    );
-
-    $grade = strtoupper(
-        trim(
-            (string)($detail['grade'] ?? '')
-        )
-    );
-
-    /*
-     * Existing generated result has priority.
-     */
-
-    if ($result === 'FAIL') {
-        return true;
-    }
-
-    /*
-     * Grade F is also treated as failed.
-     */
-
-    if ($grade === 'F') {
-        return true;
-    }
-
-    /*
-     * If there is no result/grade, use pass_mark when available.
-     */
-
-    $mark = $getMark = $detail['marks'] ?? null;
-
-    if (
-        is_numeric($mark)
-        &&
-        isset($detail['pass_marks'])
-        &&
-        is_numeric($detail['pass_marks'])
-    ) {
-
-        return
-            (float)$mark <
-            (float)$detail['pass_marks'];
+                            @elseif(
+                                strtoupper(
+                                    trim(
+                                        (string)$grade
+                                    )
+                                ) === 'F'
+                            )
 
-    }
+                                <span class="fail-result">
+                                    F
+                                </span>
 
-    return false;
-
-};
+                            @elseif(
+                                $grade === '-'
+                                ||
+                                $grade === null
+                                ||
+                                $grade === ''
+                            )
 
+                                -
 
-/*
-|--------------------------------------------------------------------------
-| CALCULATE STUDENT OVERALL RESULT
-|--------------------------------------------------------------------------
-|
-| RULE:
-|
-| 1. AB is ignored for total and percentage.
-| 2. Only present subjects contribute to total.
-| 3. Maximum marks is only for attempted subjects.
-| 4. All subjects AB => ABSENT.
-| 5. If at least one subject is present:
-|       percentage = obtained / attempted_max * 100
-| 6. If any attempted subject is failed => FAIL.
-| 7. Otherwise => PASS.
-|
-*/
-
-$calculateStudentOverall = function (
-    $student
-) use (
-    $normalSubjects,
-    $math1Id,
-    $math2Id,
-    $sci1Id,
-    $sci2Id,
-    $historyId,
-    $geographyId,
-    $math1Max,
-    $math2Max,
-    $sci1Max,
-    $sci2Max,
-    $historyMax,
-    $geographyMax,
-    $isDetailAbsent,
-    $isDetailFailed,
-    $calculateOverallGrade
-) {
+                            @else
 
-    $details = $student->details ?? [];
+                                {{ $grade }}
 
-    $totalObtained = 0;
-    $attemptedMax = 0;
-    $presentCount = 0;
-    $failedCount = 0;
+                            @endif
 
+                        </td>
 
-    /*
-     * --------------------------------------------------------
-     * NORMAL SUBJECTS
-     * --------------------------------------------------------
-     */
+                    @endforeach
 
-    foreach ($normalSubjects as $subject) {
 
-        $detail =
-            $details[$subject->id] ?? null;
+                    {{-- TOTAL --}}
 
-        if (!$detail) {
-            continue;
-        }
+                    <td>
+                        {{ (int)round(
+                            $student->academic_total ?? 0
+                        ) }}
+                    </td>
 
-        if ($isDetailAbsent($detail)) {
-            continue;
-        }
 
-        $mark = $detail['marks'] ?? null;
+                    {{-- PERCENTAGE --}}
 
-        if (!is_numeric($mark)) {
-            continue;
-        }
-
-        $maxMark = (int)($subject->max_marks ?? 0);
-
-        if ($maxMark <= 0) {
-            continue;
-        }
-
-        $totalObtained += (float)$mark;
-
-        $attemptedMax += $maxMark;
-
-        $presentCount++;
-
-
-        if ($isDetailFailed($detail)) {
-            $failedCount++;
-        }
-
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * COMPONENT SUBJECTS
-     * --------------------------------------------------------
-     */
-
-    $componentSubjects = [
-
-        [
-            'id'  => $math1Id,
-            'max' => $math1Max
-        ],
-
-        [
-            'id'  => $math2Id,
-            'max' => $math2Max
-        ],
-
-        [
-            'id'  => $sci1Id,
-            'max' => $sci1Max
-        ],
-
-        [
-            'id'  => $sci2Id,
-            'max' => $sci2Max
-        ],
-
-        [
-            'id'  => $historyId,
-            'max' => $historyMax
-        ],
-
-        [
-            'id'  => $geographyId,
-            'max' => $geographyMax
-        ]
-
-    ];
-
-
-    foreach ($componentSubjects as $component) {
-
-        $subjectId = $component['id'];
-        $maxMark   = (int)$component['max'];
-
-        if (!$subjectId || $maxMark <= 0) {
-            continue;
-        }
-
-        $detail =
-            $details[$subjectId] ?? null;
-
-        if (!$detail) {
-            continue;
-        }
-
-        if ($isDetailAbsent($detail)) {
-            continue;
-        }
-
-        $mark = $detail['marks'] ?? null;
-
-        if (!is_numeric($mark)) {
-            continue;
-        }
-
-        $totalObtained += (float)$mark;
-
-        $attemptedMax += $maxMark;
-
-        $presentCount++;
-
-
-        if ($isDetailFailed($detail)) {
-            $failedCount++;
-        }
-
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * ALL SUBJECTS ABSENT
-     * --------------------------------------------------------
-     */
-
-    if ($presentCount === 0 || $attemptedMax <= 0) {
-
-        return [
-
-            'total'          => 0,
-
-            'attempted_max'  => 0,
-
-            'percentage'     => null,
-
-            'grade'          => '-',
-
-            'result'         => 'ABSENT',
-
-            'present_count'  => 0,
-
-            'failed_count'   => 0
-
-        ];
-
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * CALCULATE PERCENTAGE
-     * --------------------------------------------------------
-     */
-
-    $percentage =
-        ($totalObtained / $attemptedMax) * 100;
-
-
-    /*
-     * --------------------------------------------------------
-     * CALCULATE GRADE
-     * --------------------------------------------------------
-     */
-
-    $grade =
-        $calculateOverallGrade($percentage);
-
-
-    /*
-     * --------------------------------------------------------
-     * CALCULATE RESULT
-     * --------------------------------------------------------
-     *
-     * If at least one attempted subject failed,
-     * overall result is FAIL.
-     *
-     * Otherwise PASS.
-     *
-     */
-
-    $result =
-        $failedCount > 0
-            ? 'FAIL'
-            : 'PASS';
-
-
-    return [
-
-        'total' =>
-            $totalObtained,
-
-        'attempted_max' =>
-            $attemptedMax,
-
-        'percentage' =>
-            $percentage,
-
-        'grade' =>
-            $grade,
-
-        'result' =>
-            $result,
-
-        'present_count' =>
-            $presentCount,
-
-        'failed_count' =>
-            $failedCount
-
-    ];
-
-};
-
-@endphp
-
-
-{{-- =========================================================
-     RESULT TABLE
-========================================================= --}}
-
-<table class="result-sheet-table">
-
-    <colgroup>
-
-        <col style="width:38px;">
-
-        <col style="width:145px;">
-
-
-        @foreach($normalSubjects as $subject)
-
-            <col style="width:30px;">
-            <col style="width:30px;">
-
-        @endforeach
-
-
-        @if($showMathGroup)
-
-            <col style="width:32px;">
-            <col style="width:32px;">
-
-            <col style="width:32px;">
-            <col style="width:32px;">
-
-        @endif
-
-
-        @if($showScienceGroup)
-
-            <col style="width:32px;">
-            <col style="width:32px;">
-
-            <col style="width:32px;">
-            <col style="width:32px;">
-
-        @endif
-
-
-        @if($showSocialGroup)
-
-            <col style="width:32px;">
-            <col style="width:32px;">
-
-            <col style="width:32px;">
-            <col style="width:32px;">
-
-        @endif
-
-
-        @if($showSkillColumn)
-
-            <col style="width:70px;">
-
-        @endif
-
-
-        <col style="width:50px;">
-
-        <col style="width:43px;">
-
-        <col style="width:42px;">
-
-        <col style="width:48px;">
-
-    </colgroup>
-
-
-    <thead>
-
-        <tr>
-
-            <th rowspan="2"
-                class="roll-column">
-                Roll No
-            </th>
-
-
-            <th rowspan="2"
-                class="student-name-header">
-                Student Name
-            </th>
-
-
-            @foreach($normalSubjects as $subject)
-
-                <th colspan="2"
-                    class="group-header">
-
-                    {{ $subject->subject_name ?? '-' }}
-
-                    <span class="subject-max">
-                        Max Mark = {{ (int)($subject->max_marks ?? 0) }}
-                    </span>
-
-                </th>
-
-            @endforeach
-
-
-            @if($showMathGroup)
-
-                <th colspan="4"
-                    class="group-header">
-
-                    MATHEMATICS
-
-                    <span class="subject-max">
-                        Math Total =
-                        ({{ $math1Max + $math2Max }})
-                    </span>
-
-                </th>
-
-            @endif
-
-
-            @if($showScienceGroup)
-
-                <th colspan="4"
-                    class="group-header">
-
-                    SCIENCE
-
-                    <span class="subject-max">
-                        Science Total =
-                        ({{ $sci1Max + $sci2Max }})
-                    </span>
-
-                </th>
-
-            @endif
-
-
-            @if($showSocialGroup)
-
-                <th colspan="4"
-                    class="group-header">
-
-                    SOCIAL SCIENCE
-
-                    <span class="subject-max">
-                        Social Sci Total =
-                        ({{ $historyMax + $geographyMax }})
-                    </span>
-
-                </th>
-
-            @endif
-
-
-            @if($showSkillColumn)
-
-                <th rowspan="2"
-                    class="skill-column">
-
-                    Skill
-
-                </th>
-
-            @endif
-
-
-            <th rowspan="2"
-                class="total-column">
-
-                Total Marks
-
-                <span class="subject-max">
-                    Attempted Max
-                </span>
-
-            </th>
-
-
-            <th rowspan="2"
-                class="percentage-column">
-
-                Percentage
-                <br>
-                (%)
-
-            </th>
-
-
-            <th rowspan="2"
-                class="grade-column">
-
-                Grade
-
-            </th>
-
-
-            <th rowspan="2"
-                class="result-column">
-
-                Result
-
-            </th>
-
-        </tr>
-
-
-        <tr>
-
-            @foreach($normalSubjects as $subject)
-
-                <th class="normal-mark-column">
-                    Mark
-                </th>
-
-                <th class="normal-grade-column">
-                    Grade
-                </th>
-
-            @endforeach
-
-
-            @if($showMathGroup)
-
-                <th class="component-column">
-
-                    <span class="component-name">
-                        MAT1
-                    </span>
-
-                    <span class="component-max">
-                        ({{ $math1Max }})
-                    </span>
-
-                </th>
-
-                <th class="component-column">
-                    Grade
-                </th>
-
-
-                <th class="component-column">
-
-                    <span class="component-name">
-                        MAT2
-                    </span>
-
-                    <span class="component-max">
-                        ({{ $math2Max }})
-                    </span>
-
-                </th>
-
-                <th class="component-column">
-                    Grade
-                </th>
-
-            @endif
-
-
-            @if($showScienceGroup)
-
-                <th class="component-column">
-
-                    <span class="component-name">
-                        SCI1
-                    </span>
-
-                    <span class="component-max">
-                        ({{ $sci1Max }})
-                    </span>
-
-                </th>
-
-                <th class="component-column">
-                    Grade
-                </th>
-
-
-                <th class="component-column">
-
-                    <span class="component-name">
-                        SCI2
-                    </span>
-
-                    <span class="component-max">
-                        ({{ $sci2Max }})
-                    </span>
-
-                </th>
-
-                <th class="component-column">
-                    Grade
-                </th>
-
-            @endif
-
-
-            @if($showSocialGroup)
-
-                <th class="component-column">
-
-                    <span class="component-name">
-                        HIS
-                    </span>
-
-                    <span class="component-max">
-                        ({{ $historyMax }})
-                    </span>
-
-                </th>
-
-                <th class="component-column">
-                    Grade
-                </th>
-
-
-                <th class="component-column">
-
-                    <span class="component-name">
-                        GEO
-                    </span>
-
-                    <span class="component-max">
-                        ({{ $geographyMax }})
-                    </span>
-
-                </th>
-
-                <th class="component-column">
-                    Grade
-                </th>
-
-            @endif
-
-        </tr>
-
-    </thead>
-
-
-    <tbody>
-
-    @foreach($results as $row)
-
-        @php
-
-        /*
-        |--------------------------------------------------------------------------
-        | NEW OVERALL CALCULATION
-        |--------------------------------------------------------------------------
-        */
-
-        $overall =
-            $calculateStudentOverall($row);
-
-
-        $details =
-            $row->details ?? [];
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENT DETAILS
-        |--------------------------------------------------------------------------
-        */
-
-        $mat1Detail =
-            $math1Id !== null
-                ? ($details[$math1Id] ?? null)
-                : null;
-
-        $mat2Detail =
-            $math2Id !== null
-                ? ($details[$math2Id] ?? null)
-                : null;
-
-        $sci1Detail =
-            $sci1Id !== null
-                ? ($details[$sci1Id] ?? null)
-                : null;
-
-        $sci2Detail =
-            $sci2Id !== null
-                ? ($details[$sci2Id] ?? null)
-                : null;
-
-        $historyDetail =
-            $historyId !== null
-                ? ($details[$historyId] ?? null)
-                : null;
-
-        $geographyDetail =
-            $geographyId !== null
-                ? ($details[$geographyId] ?? null)
-                : null;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENT MARKS
-        |--------------------------------------------------------------------------
-        */
-
-        $mat1Mark =
-            $mat1Detail['marks'] ?? null;
-
-        $mat2Mark =
-            $mat2Detail['marks'] ?? null;
-
-        $sci1Mark =
-            $sci1Detail['marks'] ?? null;
-
-        $sci2Mark =
-            $sci2Detail['marks'] ?? null;
-
-        $historyMark =
-            $historyDetail['marks'] ?? null;
-
-        $geographyMark =
-            $geographyDetail['marks'] ?? null;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENT GRADES
-        |--------------------------------------------------------------------------
-        */
-
-        $mat1Grade =
-            $mat1Detail['grade'] ?? '';
-
-        $mat2Grade =
-            $mat2Detail['grade'] ?? '';
-
-        $sci1Grade =
-            $sci1Detail['grade'] ?? '';
-
-        $sci2Grade =
-            $sci2Detail['grade'] ?? '';
-
-        $historyGrade =
-            $historyDetail['grade'] ?? '';
-
-        $geographyGrade =
-            $geographyDetail['grade'] ?? '';
-
-        @endphp
-
-
-        <tr>
-
-
-            {{-- =================================================
-                 ROLL NO
-            ================================================== --}}
-
-            <td class="roll-column">
-
-                {{ $row->roll_no ?? '-' }}
-
-            </td>
-
-
-            {{-- =================================================
-                 STUDENT NAME
-            ================================================== --}}
-
-            <td class="student-name">
-
-                {{ $row->full_student_name ?? '-' }}
-
-            </td>
-
-
-            {{-- =================================================
-                 NORMAL SUBJECTS
-            ================================================== --}}
-
-            @foreach($normalSubjects as $subject)
-
-                @php
-
-                    $detail =
-                        $details[$subject->id] ?? null;
-
-                    $mark =
-                        $detail['marks'] ?? null;
-
-                    $grade =
-                        $detail['grade'] ?? '';
-
-                    $isAbsent =
-                        $isDetailAbsent($detail);
-
-                @endphp
-
-
-                <td class="normal-mark-column">
-
-                    @if($isAbsent)
-
-                        <span class="absent-mark">
-                            AB
-                        </span>
-
-                    @elseif($mark !== null && $mark !== '')
-
-                        {{ is_numeric($mark) ? (int)$mark : $mark }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="normal-grade-column">
-
-                    @if($isAbsent)
-
-                        AB
-
-                    @elseif($grade !== '' && $grade !== null)
-
-                        {{ $grade }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-            @endforeach
-
-
-            {{-- =================================================
-                 MATHEMATICS
-            ================================================== --}}
-
-            @if($showMathGroup)
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($mat1Detail))
-
-                        <span class="absent-mark">
-                            AB
-                        </span>
-
-                    @elseif($mat1Mark !== null && $mat1Mark !== '')
-
-                        {{ is_numeric($mat1Mark) ? (int)$mat1Mark : $mat1Mark }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($mat1Detail))
-
-                        AB
-
-                    @elseif($mat1Grade !== '')
-
-                        {{ $mat1Grade }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($mat2Detail))
-
-                        <span class="absent-mark">
-                            AB
-                        </span>
-
-                    @elseif($mat2Mark !== null && $mat2Mark !== '')
-
-                        {{ is_numeric($mat2Mark) ? (int)$mat2Mark : $mat2Mark }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($mat2Detail))
-
-                        AB
-
-                    @elseif($mat2Grade !== '')
-
-                        {{ $mat2Grade }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-            @endif
-
-
-            {{-- =================================================
-                 SCIENCE
-            ================================================== --}}
-
-            @if($showScienceGroup)
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($sci1Detail))
-
-                        <span class="absent-mark">
-                            AB
-                        </span>
-
-                    @elseif($sci1Mark !== null && $sci1Mark !== '')
-
-                        {{ is_numeric($sci1Mark) ? (int)$sci1Mark : $sci1Mark }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($sci1Detail))
-
-                        AB
-
-                    @elseif($sci1Grade !== '')
-
-                        {{ $sci1Grade }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($sci2Detail))
-
-                        <span class="absent-mark">
-                            AB
-                        </span>
-
-                    @elseif($sci2Mark !== null && $sci2Mark !== '')
-
-                        {{ is_numeric($sci2Mark) ? (int)$sci2Mark : $sci2Mark }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($sci2Detail))
-
-                        AB
-
-                    @elseif($sci2Grade !== '')
-
-                        {{ $sci2Grade }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-            @endif
-
-
-            {{-- =================================================
-                 SOCIAL SCIENCE
-            ================================================== --}}
-
-            @if($showSocialGroup)
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($historyDetail))
-
-                        <span class="absent-mark">
-                            AB
-                        </span>
-
-                    @elseif($historyMark !== null && $historyMark !== '')
-
-                        {{ is_numeric($historyMark) ? (int)$historyMark : $historyMark }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($historyDetail))
-
-                        AB
-
-                    @elseif($historyGrade !== '')
-
-                        {{ $historyGrade }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($geographyDetail))
-
-                        <span class="absent-mark">
-                            AB
-                        </span>
-
-                    @elseif($geographyMark !== null && $geographyMark !== '')
-
-                        {{ is_numeric($geographyMark) ? (int)$geographyMark : $geographyMark }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-
-                <td class="component-column">
-
-                    @if($isDetailAbsent($geographyDetail))
-
-                        AB
-
-                    @elseif($geographyGrade !== '')
-
-                        {{ $geographyGrade }}
-
-                    @else
-
-                        -
-
-                    @endif
-
-                </td>
-
-            @endif
-
-
-            {{-- =================================================
-                 SKILL
-            ================================================== --}}
-
-            @if($showSkillColumn)
-
-                <td class="skill-column">
-
-                    @if(!empty($row->skill_subject))
-
-                        {{ $row->skill_subject }}
+                    <td>
 
                         @if(
-                            $row->skill_mark !== ''
-                            &&
-                            $row->skill_mark !== null
+                            $student->calculated_percentage === null
                         )
 
-                            (
-                            {{
-                                is_numeric($row->skill_mark)
-                                    ? (int)$row->skill_mark
-                                    : $row->skill_mark
-                            }}
-                            )
+                            -
+
+                        @else
+
+                            {{ (int)(
+                                $student->calculated_percentage
+                            ) }}%
 
                         @endif
 
-                    @else
+                    </td>
 
-                        -
+
+                    {{-- OVERALL GRADE --}}
+
+                    <td>
+
+                        @php
+
+                            $overallGrade =
+                                strtoupper(
+                                    trim(
+                                        (string)(
+                                            $student->calculated_grade
+                                            ?? '-'
+                                        )
+                                    )
+                                );
+
+                        @endphp
+
+
+                        @if(
+                            $overallGrade === 'F'
+                        )
+
+                            <span class="fail-result">
+                                F
+                            </span>
+
+                        @elseif(
+                            $overallGrade === 'AB'
+                        )
+
+                            <span class="absent-mark">
+                                AB
+                            </span>
+
+                        @elseif(
+                            $overallGrade === '-'
+                        )
+
+                            -
+
+                        @else
+
+                            {{ $overallGrade }}
+
+                        @endif
+
+                    </td>
+
+
+                    {{-- RESULT --}}
+
+                    <td>
+
+                        @php
+
+                            $studentResult =
+                                strtoupper(
+                                    trim(
+                                        (string)(
+                                            $student->result
+                                            ?? '-'
+                                        )
+                                    )
+                                );
+
+                        @endphp
+
+
+                        @if(
+                            $studentResult === 'PASS'
+                        )
+
+                            <span class="pass-result">
+                                PASS
+                            </span>
+
+                        @elseif(
+                            $studentResult === 'FAIL'
+                        )
+
+                            <span class="fail-result">
+                                FAIL
+                            </span>
+
+                        @elseif(
+                            $studentResult === 'AB'
+                        )
+
+                            <span class="absent-mark">
+                                AB
+                            </span>
+
+                        @else
+
+                            -
+
+                        @endif
+
+                    </td>
+
+                </tr>
+
+            @endforeach
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    {{-- =========================================================
+         OVERALL GRADE / RESULT ANALYSIS
+         PENDING REMOVED
+    ========================================================== --}}
+
+    <div class="analysis-block">
+
+        <div class="analysis-title">
+            Overall Grade / Result Analysis
+        </div>
+
+
+        <table class="analysis-table">
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Grade / Result
+                    </th>
+
+                    <th>
+                        Range
+                    </th>
+
+                    <th>
+                        Girls
+                    </th>
+
+                    <th>
+                        Boys
+                    </th>
+
+                    <th>
+                        Total
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+            @if(
+                !empty(
+                    $overallGradeAnalysis ?? []
+                )
+            )
+
+                @foreach(
+                    $overallGradeAnalysis as $grade => $row
+                )
+
+                    @php
+
+                        $normalizedGrade =
+                            strtoupper(
+                                trim(
+                                    (string)$grade
+                                )
+                            );
+
+                    @endphp
+
+
+                    @if(
+                        $normalizedGrade !== 'PENDING'
+                    )
+
+                        <tr>
+
+                            <td>
+                                {{ $grade }}
+                            </td>
+
+                            <td>
+                                {{ $row['range'] ?? '-' }}
+                            </td>
+
+                            <td>
+                                {{ $row['girls'] ?? 0 }}
+                            </td>
+
+                            <td>
+                                {{ $row['boys'] ?? 0 }}
+                            </td>
+
+                            <td>
+                                {{ $row['total'] ?? 0 }}
+                            </td>
+
+                        </tr>
 
                     @endif
 
-                </td>
+                @endforeach
+
+            @else
+
+                <tr>
+
+                    <td colspan="5">
+                        No overall analysis available.
+                    </td>
+
+                </tr>
 
             @endif
 
+            </tbody>
 
-            {{-- =================================================
-                 TOTAL
-            ================================================== --}}
+        </table>
 
-            <td class="total-column">
+    </div>
 
-                @if($overall['result'] === 'ABSENT')
 
-                    0
+    {{-- =========================================================
+         SUBJECT WISE ANALYSIS
+         PENDING REMOVED
+    ========================================================== --}}
 
-                @else
+    <div class="analysis-block">
 
-                    {{ (int)round($overall['total']) }}
+        <div class="analysis-title">
+            Subject Wise Analysis
+        </div>
 
-                @endif
-
-            </td>
-
-
-            {{-- =================================================
-                 PERCENTAGE
-            ================================================== --}}
-
-            <td class="percentage-column">
-
-                @if($overall['percentage'] === null)
-
-                    -
-
-                @else
-
-                    {{ number_format($overall['percentage'], 2) }}
-
-                @endif
-
-            </td>
-
-
-            {{-- =================================================
-                 OVERALL GRADE
-            ================================================== --}}
-
-            <td class="grade-column">
-
-                {{ $overall['grade'] }}
-
-            </td>
-
-
-            {{-- =================================================
-                 OVERALL RESULT
-            ================================================== --}}
-
-            <td class="result-column">
-
-                @if($overall['result'] === 'PASS')
-
-                    <span class="pass-result">
-                        PASS
-                    </span>
-
-                @elseif($overall['result'] === 'ABSENT')
-
-                    <span class="absent-mark">
-                        ABSENT
-                    </span>
-
-                @else
-
-                    <span class="fail-result">
-                        FAIL
-                    </span>
-
-                @endif
-
-            </td>
-
-        </tr>
-
-    @endforeach
-
-    </tbody>
-
-</table>
-
-
-{{-- =========================================================
-     OVERALL GRADE ANALYSIS
-========================================================= --}}
-
-@php
-
-$analysis = [
-
-    'A1' => [
-        'range' => '91-100',
-        'girls' => 0,
-        'boys' => 0
-    ],
-
-    'A2' => [
-        'range' => '81-90',
-        'girls' => 0,
-        'boys' => 0
-    ],
-
-    'B1' => [
-        'range' => '71-80',
-        'girls' => 0,
-        'boys' => 0
-    ],
-
-    'B2' => [
-        'range' => '61-70',
-        'girls' => 0,
-        'boys' => 0
-    ],
-
-    'C1' => [
-        'range' => '51-60',
-        'girls' => 0,
-        'boys' => 0
-    ],
-
-    'C2' => [
-        'range' => '41-50',
-        'girls' => 0,
-        'boys' => 0
-    ],
-
-    'D' => [
-        'range' => 'Below 41',
-        'girls' => 0,
-        'boys' => 0
-    ]
-
-];
-
-
-$absent = [
-    'girls' => 0,
-    'boys' => 0
-];
-
-
-$left = [
-    'girls' => 0,
-    'boys' => 0
-];
-
-
-foreach($results as $student) {
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | GENDER
-    |--------------------------------------------------------------------------
-    */
-
-    $gender =
-        strtoupper($student->gender ?? '') === 'FEMALE'
-            ? 'girls'
-            : 'boys';
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | LEFT STUDENT
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        strtoupper(
-            trim(
-                (string)($student->result ?? '')
-            )
-        ) === 'LEFT'
-    ) {
-
-        $left[$gender]++;
-
-        continue;
-
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CALCULATE SAME OVERALL RESULT
-    |--------------------------------------------------------------------------
-    */
-
-    $overall =
-        $calculateStudentOverall($student);
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ALL SUBJECTS ABSENT
-    |--------------------------------------------------------------------------
-    */
-
-    if ($overall['result'] === 'ABSENT') {
-
-        $absent[$gender]++;
-
-        continue;
-
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | OVERALL GRADE
-    |--------------------------------------------------------------------------
-    */
-
-    $grade =
-        $overall['grade'];
-
-
-    if (isset($analysis[$grade])) {
-
-        $analysis[$grade][$gender]++;
-
-    }
-
-}
-
-@endphp
-
-
-<div class="analysis-title">
-    Overall Grade Analysis
-</div>
-
-
-<table class="analysis-table">
-
-    <thead>
-
-        <tr>
-
-            <th>Percentage</th>
-            <th>Grade</th>
-            <th>Girls</th>
-            <th>Boys</th>
-            <th>Total</th>
-
-        </tr>
-
-    </thead>
-
-
-    <tbody>
-
-    @foreach($analysis as $grade => $data)
-
-        <tr>
-
-            <td>
-                {{ $data['range'] }}
-            </td>
-
-            <td>
-                {{ $grade }}
-            </td>
-
-            <td>
-                {{ $data['girls'] }}
-            </td>
-
-            <td>
-                {{ $data['boys'] }}
-            </td>
-
-            <td>
-                {{ $data['girls'] + $data['boys'] }}
-            </td>
-
-        </tr>
-
-    @endforeach
-
-
-    <tr>
-
-        <td>-</td>
-
-        <td>ABSENT</td>
-
-        <td>
-            {{ $absent['girls'] }}
-        </td>
-
-        <td>
-            {{ $absent['boys'] }}
-        </td>
-
-        <td>
-            {{ $absent['girls'] + $absent['boys'] }}
-        </td>
-
-    </tr>
-
-
-    <tr>
-
-        <td>-</td>
-
-        <td>LEFT</td>
-
-        <td>
-            {{ $left['girls'] }}
-        </td>
-
-        <td>
-            {{ $left['boys'] }}
-        </td>
-
-        <td>
-            {{ $left['girls'] + $left['boys'] }}
-        </td>
-
-    </tr>
-
-
-    <tr style="font-weight:700;background:#e5e7eb;">
-
-        <th colspan="2">
-            TOTAL
-        </th>
-
-        <th>
-            {{
-                collect($analysis)->sum('girls')
-                + $absent['girls']
-                + $left['girls']
-            }}
-        </th>
-
-        <th>
-            {{
-                collect($analysis)->sum('boys')
-                + $absent['boys']
-                + $left['boys']
-            }}
-        </th>
-
-        <th>
-            {{
-                collect($analysis)->sum('girls')
-                +
-                collect($analysis)->sum('boys')
-                +
-                $absent['girls']
-                +
-                $absent['boys']
-                +
-                $left['girls']
-                +
-                $left['boys']
-            }}
-        </th>
-
-    </tr>
-
-    </tbody>
-
-</table>
-
-
-{{-- =========================================================
-     SUBJECT-WISE ANALYSIS
-========================================================= --}}
-
-@if(
-    !empty($girlsSubjectAnalysis)
-    ||
-    !empty($boysSubjectAnalysis)
-)
-
-<div class="analysis-title">
-    Subject-wise Analysis
-</div>
-
-
-@php
-
-$girlsBySubject =
-    collect($girlsSubjectAnalysis ?? [])
-        ->keyBy('subject');
-
-$boysBySubject =
-    collect($boysSubjectAnalysis ?? [])
-        ->keyBy('subject');
-
-
-$analysisSubjects =
-    collect(
-        array_unique(
-            array_merge(
-                $girlsBySubject->keys()->toArray(),
-                $boysBySubject->keys()->toArray()
-            )
-        )
-    );
-
-
-$subjectOrder = [
-
-    'ENGLISH' => 1,
-    'SANSKRIT' => 2,
-    'MARATHI' => 3,
-    'MATHEMATICS' => 4,
-    'SCIENCE' => 5,
-    'SOCIAL SCIENCE' => 6,
-
-];
-
-
-$analysisSubjects =
-    $analysisSubjects
-        ->sortBy(function ($subject) use ($subjectOrder) {
-
-            return
-                $subjectOrder[
-                    strtoupper(trim($subject))
-                ] ?? 999;
-
-        })
-        ->values();
-
-
-$analysisCategories = [
-
-    'A1',
-    'A2',
-    'B1',
-    'B2',
-    'C1',
-    'C2',
-    'D',
-    'FAIL',
-    'ABSENT'
-
-];
-
-
-$totals = [
-
-    'A1_girls'=>0,
-    'A1_boys'=>0,
-
-    'A2_girls'=>0,
-    'A2_boys'=>0,
-
-    'B1_girls'=>0,
-    'B1_boys'=>0,
-
-    'B2_girls'=>0,
-    'B2_boys'=>0,
-
-    'C1_girls'=>0,
-    'C1_boys'=>0,
-
-    'C2_girls'=>0,
-    'C2_boys'=>0,
-
-    'D_girls'=>0,
-    'D_boys'=>0,
-
-    'FAIL_girls'=>0,
-    'FAIL_boys'=>0,
-
-    'ABSENT_girls'=>0,
-    'ABSENT_boys'=>0,
-
-];
-
-
-foreach($analysisSubjects as $subjectName) {
-
-    $girls =
-        $girlsBySubject->get(
-            $subjectName,
-            []
-        );
-
-    $boys =
-        $boysBySubject->get(
-            $subjectName,
-            []
-        );
-
-
-    foreach($analysisCategories as $category) {
-
-        $key = $category;
-
-        if($category === 'FAIL') {
-            $key = 'fail';
-        }
-
-        if($category === 'ABSENT') {
-            $key = 'absent';
-        }
-
-
-        $totals[$category . '_girls'] +=
-            $girls[$key] ?? 0;
-
-        $totals[$category . '_boys'] +=
-            $boys[$key] ?? 0;
-
-    }
-
-}
-
-
-$grandTotal =
-    array_sum($totals);
-
-@endphp
-
-
-<table class="analysis-table combined-analysis-table">
-
-    <thead>
-
-        <tr>
-
-            <th rowspan="2"
-                class="analysis-subject-column">
-                Subject
-            </th>
-
-
-            @foreach($analysisCategories as $category)
-
-                <th colspan="2">
-                    {{ $category }}
-                </th>
-
-            @endforeach
-
-
-            <th rowspan="2">
-                TOTAL
-            </th>
-
-        </tr>
-
-
-        <tr>
-
-            @foreach($analysisCategories as $category)
-
-                <th class="gender-header">
-                    Girls
-                </th>
-
-                <th class="gender-header">
-                    Boys
-                </th>
-
-            @endforeach
-
-        </tr>
-
-    </thead>
-
-
-    <tbody>
-
-
-    @foreach($analysisSubjects as $subjectName)
 
         @php
 
-        $girls =
-            $girlsBySubject->get(
-                $subjectName,
-                []
-            );
-
-        $boys =
-            $boysBySubject->get(
-                $subjectName,
-                []
-            );
+            $girlsBySubject =
+                collect(
+                    $girlsSubjectAnalysis ?? []
+                )->keyBy(
+                    'subject_code'
+                );
 
 
-        $rowTotal =
+            $boysBySubject =
+                collect(
+                    $boysSubjectAnalysis ?? []
+                )->keyBy(
+                    'subject_code'
+                );
 
-            ($girls['A1'] ?? 0) +
-            ($boys['A1'] ?? 0) +
 
-            ($girls['A2'] ?? 0) +
-            ($boys['A2'] ?? 0) +
+            /*
+            |--------------------------------------------------------------------------
+            | SAME SUBJECT ORDER AS MAIN TABLE
+            |--------------------------------------------------------------------------
+            */
 
-            ($girls['B1'] ?? 0) +
-            ($boys['B1'] ?? 0) +
+            $analysisSubjects =
+                $academicDisplayColumns
+                    ->values();
 
-            ($girls['B2'] ?? 0) +
-            ($boys['B2'] ?? 0) +
 
-            ($girls['C1'] ?? 0) +
-            ($boys['C1'] ?? 0) +
+            /*
+            |--------------------------------------------------------------------------
+            | NO PENDING
+            |--------------------------------------------------------------------------
+            */
 
-            ($girls['C2'] ?? 0) +
-            ($boys['C2'] ?? 0) +
+            $analysisCategories = [
 
-            ($girls['D'] ?? 0) +
-            ($boys['D'] ?? 0) +
+                'A1',
+                'A2',
+                'B1',
+                'B2',
+                'C1',
+                'C2',
+                'D',
+                'FAIL',
+                'ABSENT',
 
-            ($girls['fail'] ?? 0) +
-            ($boys['fail'] ?? 0) +
-
-            ($girls['absent'] ?? 0) +
-            ($boys['absent'] ?? 0);
+            ];
 
         @endphp
 
 
-        <tr>
+        <div class="subject-wise-analysis-wrapper">
 
-            <td class="analysis-subject-name">
-                {{ $subjectName }}
-            </td>
+            <table class="subject-wise-analysis-table">
 
+                <colgroup>
 
-            <td>{{ $girls['A1'] ?? 0 }}</td>
-            <td>{{ $boys['A1'] ?? 0 }}</td>
+                    {{-- SUBJECT --}}
 
-            <td>{{ $girls['A2'] ?? 0 }}</td>
-            <td>{{ $boys['A2'] ?? 0 }}</td>
-
-            <td>{{ $girls['B1'] ?? 0 }}</td>
-            <td>{{ $boys['B1'] ?? 0 }}</td>
-
-            <td>{{ $girls['B2'] ?? 0 }}</td>
-            <td>{{ $boys['B2'] ?? 0 }}</td>
-
-            <td>{{ $girls['C1'] ?? 0 }}</td>
-            <td>{{ $boys['C1'] ?? 0 }}</td>
-
-            <td>{{ $girls['C2'] ?? 0 }}</td>
-            <td>{{ $boys['C2'] ?? 0 }}</td>
-
-            <td>{{ $girls['D'] ?? 0 }}</td>
-            <td>{{ $boys['D'] ?? 0 }}</td>
-
-            <td>{{ $girls['fail'] ?? 0 }}</td>
-            <td>{{ $boys['fail'] ?? 0 }}</td>
-
-            <td>{{ $girls['absent'] ?? 0 }}</td>
-            <td>{{ $boys['absent'] ?? 0 }}</td>
-
-            <td>{{ $rowTotal }}</td>
-
-        </tr>
-
-    @endforeach
+                    <col style="width:155px;">
 
 
-    <tr style="font-weight:700;background:#e5e7eb;">
+                    {{-- NUMERIC COLUMNS --}}
 
-        <td class="analysis-subject-name">
-            TOTAL
-        </td>
+                    @foreach(
+                        $analysisCategories as $category
+                    )
 
-        <td>{{ $totals['A1_girls'] }}</td>
-        <td>{{ $totals['A1_boys'] }}</td>
+                        <col style="width:33px;">
+                        <col style="width:33px;">
 
-        <td>{{ $totals['A2_girls'] }}</td>
-        <td>{{ $totals['A2_boys'] }}</td>
-
-        <td>{{ $totals['B1_girls'] }}</td>
-        <td>{{ $totals['B1_boys'] }}</td>
-
-        <td>{{ $totals['B2_girls'] }}</td>
-        <td>{{ $totals['B2_boys'] }}</td>
-
-        <td>{{ $totals['C1_girls'] }}</td>
-        <td>{{ $totals['C1_boys'] }}</td>
-
-        <td>{{ $totals['C2_girls'] }}</td>
-        <td>{{ $totals['C2_boys'] }}</td>
-
-        <td>{{ $totals['D_girls'] }}</td>
-        <td>{{ $totals['D_boys'] }}</td>
-
-        <td>{{ $totals['FAIL_girls'] }}</td>
-        <td>{{ $totals['FAIL_boys'] }}</td>
-
-        <td>{{ $totals['ABSENT_girls'] }}</td>
-        <td>{{ $totals['ABSENT_boys'] }}</td>
-
-        <td>{{ $grandTotal }}</td>
-
-    </tr>
-
-    </tbody>
-
-</table>
-
-@endif
+                    @endforeach
 
 
-{{-- =========================================================
-     SIGNATURES
-========================================================= --}}
+                    {{-- TOTAL --}}
 
-<div class="signature-area">
+                    <col style="width:40px;">
 
-    <div class="signature-box">
+                </colgroup>
 
-        _______________________
 
-        <br><br>
+                <thead>
 
-        Class Teacher
+                    <tr>
+
+                        <th rowspan="2">
+                            Subject
+                        </th>
+
+
+                        @foreach(
+                            $analysisCategories as $category
+                        )
+
+                            <th colspan="2">
+                                {{ $category }}
+                            </th>
+
+                        @endforeach
+
+
+                        <th rowspan="2">
+                            Total
+                        </th>
+
+                    </tr>
+
+
+                    <tr>
+
+                        @foreach(
+                            $analysisCategories as $category
+                        )
+
+                            <th>
+                                Girls
+                            </th>
+
+                            <th>
+                                Boys
+                            </th>
+
+                        @endforeach
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                @foreach(
+                    $analysisSubjects as $analysisSubject
+                )
+
+                    @php
+
+                        $subjectCode =
+                            trim(
+                                (string)(
+                                    $analysisSubject->subject_code
+                                    ?? ''
+                                )
+                            );
+
+
+                        $subjectFullName =
+                            trim(
+                                (string)(
+                                    $analysisSubject->subject_name
+                                    ?? ''
+                                )
+                            );
+
+
+                        if (
+                            $subjectFullName === ''
+                        ) {
+
+                            $subjectFullName =
+                                $subjectCode ?: '-';
+                        }
+
+
+                        $defaultAnalysis = [
+
+                            'A1' => 0,
+                            'A2' => 0,
+                            'B1' => 0,
+                            'B2' => 0,
+                            'C1' => 0,
+                            'C2' => 0,
+                            'D'  => 0,
+
+                            'fail' =>
+                                0,
+
+                            'absent' =>
+                                0,
+
+                            'total' =>
+                                0,
+                        ];
+
+
+                        $girls =
+                            array_merge(
+                                $defaultAnalysis,
+                                $girlsBySubject->get(
+                                    $subjectCode,
+                                    []
+                                )
+                            );
+
+
+                        $boys =
+                            array_merge(
+                                $defaultAnalysis,
+                                $boysBySubject->get(
+                                    $subjectCode,
+                                    []
+                                )
+                            );
+
+
+                        $rowTotal =
+                            (int)$girls['total']
+                            +
+                            (int)$boys['total'];
+
+                    @endphp
+
+
+                    <tr>
+
+                        {{-- SUBJECT NAME --}}
+
+                        <td
+                            class="subject-analysis-name"
+                            title="{{ $subjectFullName }}"
+                        >
+                            {{ $subjectFullName }}
+                        </td>
+
+
+                        {{-- A1 --}}
+
+                        <td>
+                            {{ $girls['A1'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['A1'] }}
+                        </td>
+
+
+                        {{-- A2 --}}
+
+                        <td>
+                            {{ $girls['A2'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['A2'] }}
+                        </td>
+
+
+                        {{-- B1 --}}
+
+                        <td>
+                            {{ $girls['B1'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['B1'] }}
+                        </td>
+
+
+                        {{-- B2 --}}
+
+                        <td>
+                            {{ $girls['B2'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['B2'] }}
+                        </td>
+
+
+                        {{-- C1 --}}
+
+                        <td>
+                            {{ $girls['C1'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['C1'] }}
+                        </td>
+
+
+                        {{-- C2 --}}
+
+                        <td>
+                            {{ $girls['C2'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['C2'] }}
+                        </td>
+
+
+                        {{-- D --}}
+
+                        <td>
+                            {{ $girls['D'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['D'] }}
+                        </td>
+
+
+                        {{-- FAIL --}}
+
+                        <td>
+                            {{ $girls['fail'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['fail'] }}
+                        </td>
+
+
+                        {{-- ABSENT --}}
+
+                        <td>
+                            {{ $girls['absent'] }}
+                        </td>
+
+                        <td>
+                            {{ $boys['absent'] }}
+                        </td>
+
+
+                        {{-- TOTAL --}}
+
+                        <td class="analysis-total-column">
+                            {{ $rowTotal }}
+                        </td>
+
+                    </tr>
+
+                @endforeach
+
+
+                {{-- =====================================================
+                     GRAND TOTAL
+                ====================================================== --}}
+
+                <tr
+                    style="
+                        font-weight:700;
+                        background:#e5e7eb;
+                    "
+                >
+
+                    <td class="subject-analysis-name">
+                        TOTAL
+                    </td>
+
+
+                    @foreach(
+                        $analysisCategories as $category
+                    )
+
+                        @php
+
+                            $analysisKey =
+                                $category === 'FAIL'
+                                    ? 'fail'
+                                    : (
+                                        $category === 'ABSENT'
+                                            ? 'absent'
+                                            : $category
+                                    );
+
+
+                            $girlsTotal =
+                                $girlsBySubject->sum(
+                                    fn($row) =>
+                                        (int)(
+                                            $row[
+                                                $analysisKey
+                                            ]
+                                            ?? 0
+                                        )
+                                );
+
+
+                            $boysTotal =
+                                $boysBySubject->sum(
+                                    fn($row) =>
+                                        (int)(
+                                            $row[
+                                                $analysisKey
+                                            ]
+                                            ?? 0
+                                        )
+                                );
+
+                        @endphp
+
+
+                        <td>
+                            {{ $girlsTotal }}
+                        </td>
+
+                        <td>
+                            {{ $boysTotal }}
+                        </td>
+
+                    @endforeach
+
+
+                    <td class="analysis-total-column">
+
+                        {{
+                            $girlsBySubject->sum(
+                                fn($row) =>
+                                    (int)(
+                                        $row['total']
+                                        ?? 0
+                                    )
+                            )
+                            +
+                            $boysBySubject->sum(
+                                fn($row) =>
+                                    (int)(
+                                        $row['total']
+                                        ?? 0
+                                    )
+                            )
+                        }}
+
+                    </td>
+
+                </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
 
     </div>
 
 
-    <div class="signature-box">
+    {{-- =========================================================
+         SIGNATURES
+    ========================================================== --}}
 
-        _______________________
+    <div class="signature-area">
 
-        <br><br>
+        <div class="signature-box">
 
-        Principal
+            _______________________
+
+            <br><br>
+
+            Class Teacher
+
+        </div>
+
+
+        <div class="signature-box">
+
+            _______________________
+
+            <br><br>
+
+            Principal
+
+        </div>
 
     </div>
+
 
 </div>
 
 
 </body>
+
 </html>

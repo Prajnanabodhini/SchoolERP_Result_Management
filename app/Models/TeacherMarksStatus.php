@@ -13,7 +13,13 @@ class TeacherMarksStatus extends Model
     protected $fillable = [ 'academic_year_id', 'exam_master_id', 'teacher_subject_allocation_id', 'standard_id', 'division_id', 'subject_id', 'teacher_id', 'status', ];
 
     // public function standardWiseSubject() { return $this->belongsTo( StandardWiseSubject::class, 'subject_id' ); }
-
+public function subjectMapping()
+{
+    return $this->belongsTo(
+        StandardWiseSubject::class,
+        'subject_id'
+    );
+}
     
     public function teacherSubjectAllocation()
     {

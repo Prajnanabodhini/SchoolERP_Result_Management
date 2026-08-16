@@ -14,7 +14,7 @@ class ResultGenerationController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | Result Generation Index
+    | RESULT GENERATION INDEX
     |--------------------------------------------------------------------------
     */
 
@@ -42,25 +42,26 @@ class ResultGenerationController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Generate Results
+    | GENERATE RESULTS
     |--------------------------------------------------------------------------
     */
 
     public function generate(Request $request)
     {
-        $academicYearId = $request->academic_year_id;
-        $examMasterId   = $request->exam_master_id;
-        $standardId     = $request->standard_id;
-        $divisionId     = $request->division_id;
+        $academicYearId = (int) $request->academic_year_id;
+        $examMasterId   = (int) $request->exam_master_id;
+        $standardId     = (int) $request->standard_id;
+        $divisionId     = (int) $request->division_id;
 
 
         /*
         |--------------------------------------------------------------------------
-        | Validation
+        | VALIDATION
         |--------------------------------------------------------------------------
         */
 
         if (!$academicYearId) {
+
             return back()
                 ->withInput()
                 ->with(
@@ -75,6 +76,7 @@ class ResultGenerationController extends Controller
             !$standardId ||
             !$divisionId
         ) {
+
             return back()
                 ->withInput()
                 ->with(
@@ -96,14 +98,18 @@ class ResultGenerationController extends Controller
                 /*
                 |--------------------------------------------------------------------------
                 | STEP 1
-                | Check Locked Marks
+                | GET ALL LOCKED MARKS
                 |--------------------------------------------------------------------------
                 |
-                | Only finally submitted / locked marks are used.
+                | IMPORTANT:
+                |
+                | student_marks.subject_id
+                | =
+                | standard_wise_subjects.id
                 |
                 */
 
-                $lockedMarksQuery = DB::table('student_marks')
+                $lockedMarks = DB::table('student_marks')
                     ->where(
                         'academic_year_id',
                         $academicYearId
@@ -123,10 +129,12 @@ class ResultGenerationController extends Controller
                     ->where(
                         'is_locked',
                         1
-                    );
+                    )
+                    ->orderByDesc('id')
+                    ->get();
 
 
-                if (!$lockedMarksQuery->exists()) {
+                if ($lockedMarks->isEmpty()) {
 
                     throw new \Exception(
                         'No finally submitted marks found for the selected Exam, Standard and Division.'
@@ -137,14 +145,111 @@ class ResultGenerationController extends Controller
                 /*
                 |--------------------------------------------------------------------------
                 | STEP 2
-                | Delete Previously Generated Results
+                | VALIDATE SUBJECT MAPPINGS
+                |--------------------------------------------------------------------------
+                */
+
+                $mappingIds = $lockedMarks
+                    ->pluck('subject_id')
+                    ->filter()
+                    ->map(
+                        fn ($id) => (int) $id
+                    )
+                    ->unique()
+                    ->values();
+
+
+                if ($mappingIds->isEmpty()) {
+
+                    throw new \Exception(
+                        'No valid subject mappings found in locked marks.'
+                    );
+                }
+
+
+                $subjectMappings = DB::table(
+                    'standard_wise_subjects'
+                )
+                    ->whereIn(
+                        'id',
+                        $mappingIds->toArray()
+                    )
+                    ->get()
+                    ->keyBy('id');
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Check invalid mapping IDs
+                |--------------------------------------------------------------------------
+                */
+
+                $invalidMappingIds = $mappingIds
+                    ->filter(
+                        function ($id) use ($subjectMappings) {
+                            return !$subjectMappings->has(
+                                (int) $id
+                            );
+                        }
+                    )
+                    ->values();
+
+
+                if ($invalidMappingIds->isNotEmpty()) {
+
+                    throw new \Exception(
+                        'Invalid subject mapping IDs found in locked marks: '
+                        . $invalidMappingIds->implode(', ')
+                    );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 3
+                | KEEP ONLY LATEST MARK PER STUDENT + SUBJECT
                 |--------------------------------------------------------------------------
                 |
-                | Results are regenerated from the latest locked marks.
+                | This prevents duplicate mark rows from producing duplicate
+                | result details.
                 |
                 */
 
-                $existingResultIds = DB::table('student_results')
+                $uniqueMarks = collect();
+
+
+                foreach ($lockedMarks as $mark) {
+
+                    $key =
+                        (int) $mark->student_id
+                        . '_'
+                        . (int) $mark->subject_id;
+
+
+                    if (!$uniqueMarks->has($key)) {
+
+                        $uniqueMarks->put(
+                            $key,
+                            $mark
+                        );
+                    }
+                }
+
+
+                $uniqueMarks =
+                    $uniqueMarks->values();
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 4
+                | DELETE OLD GENERATED RESULTS
+                |--------------------------------------------------------------------------
+                */
+
+                $existingResultIds = DB::table(
+                    'student_results'
+                )
                     ->where(
                         'academic_year_id',
                         $academicYearId
@@ -164,9 +269,13 @@ class ResultGenerationController extends Controller
                     ->pluck('id');
 
 
-                if ($existingResultIds->isNotEmpty()) {
+                if (
+                    $existingResultIds->isNotEmpty()
+                ) {
 
-                    DB::table('student_result_details')
+                    DB::table(
+                        'student_result_details'
+                    )
                         ->whereIn(
                             'student_result_id',
                             $existingResultIds
@@ -174,7 +283,9 @@ class ResultGenerationController extends Controller
                         ->delete();
 
 
-                    DB::table('student_results')
+                    DB::table(
+                        'student_results'
+                    )
                         ->whereIn(
                             'id',
                             $existingResultIds
@@ -185,80 +296,52 @@ class ResultGenerationController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 3
-                | Get Students Having Locked Marks
+                | STEP 5
+                | GET STUDENT IDS
                 |--------------------------------------------------------------------------
                 */
 
-                $students = DB::table('student_marks')
-                    ->where(
-                        'academic_year_id',
-                        $academicYearId
+                $studentIds = $uniqueMarks
+                    ->pluck('student_id')
+                    ->filter()
+                    ->map(
+                        fn ($id) => (int) $id
                     )
-                    ->where(
-                        'exam_master_id',
-                        $examMasterId
-                    )
-                    ->where(
-                        'standard_id',
-                        $standardId
-                    )
-                    ->where(
-                        'division_id',
-                        $divisionId
-                    )
-                    ->where(
-                        'is_locked',
-                        1
-                    )
-                    ->select('student_id')
-                    ->distinct()
-                    ->get();
+                    ->unique()
+                    ->values();
 
 
-                if ($students->isEmpty()) {
+                if ($studentIds->isEmpty()) {
 
                     throw new \Exception(
-                        'No locked marks found for selected Exam, Standard and Division.'
+                        'No students found in locked marks.'
                     );
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 4
-                | Generate Result Student by Student
+                | STEP 6
+                | GENERATE RESULT STUDENT BY STUDENT
                 |--------------------------------------------------------------------------
                 */
 
-                foreach ($students as $student) {
+                foreach ($studentIds as $studentId) {
 
-                    $marks = DB::table('student_marks')
-                        ->where(
-                            'academic_year_id',
-                            $academicYearId
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Get marks for this student
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $marks = $uniqueMarks
+                        ->filter(
+                            fn ($mark) =>
+                                (int) $mark->student_id
+                                ===
+                                (int) $studentId
                         )
-                        ->where(
-                            'exam_master_id',
-                            $examMasterId
-                        )
-                        ->where(
-                            'standard_id',
-                            $standardId
-                        )
-                        ->where(
-                            'division_id',
-                            $divisionId
-                        )
-                        ->where(
-                            'student_id',
-                            $student->student_id
-                        )
-                        ->where(
-                            'is_locked',
-                            1
-                        )
-                        ->get();
+                        ->values();
 
 
                     if ($marks->isEmpty()) {
@@ -268,191 +351,249 @@ class ResultGenerationController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | STEP 5
-                    | Calculate Total Maximum Marks
+                    | TOTAL MAX MARKS
                     |--------------------------------------------------------------------------
-                    |
-                    | These values were saved when marks were entered.
-                    |
                     */
 
-                    $totalMax = $marks->sum(function ($mark) {
+                    $totalMax = 0;
 
-                        return
-                            (float) ($mark->theory_max_marks ?? 0)
+
+                    foreach ($marks as $mark) {
+
+                        $subjectMax =
+                            (float) (
+                                $mark->theory_max_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->oral_max_marks ?? 0)
+                            (float) (
+                                $mark->oral_max_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->practical_max_marks ?? 0);
-                    });
+                            (float) (
+                                $mark->practical_max_marks
+                                ?? 0
+                            );
+
+
+                        $totalMax +=
+                            $subjectMax;
+                    }
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | STEP 6
-                    | Calculate Total Obtained Marks
+                    | TOTAL OBTAINED
                     |--------------------------------------------------------------------------
-                    |
-                    | ABSENT student receives 0 obtained marks.
-                    |
                     */
 
-                    $totalObtained = $marks->sum(function ($mark) {
+                    $totalObtained = 0;
 
-                        if ((int) $mark->is_absent === 1) {
-                            return 0;
+
+                    foreach ($marks as $mark) {
+
+                        if (
+                            (int) $mark->is_absent
+                            === 1
+                        ) {
+                            continue;
                         }
 
 
-                        return
-                            (float) ($mark->theory_obtained_marks ?? 0)
+                        $totalObtained +=
+                            (float) (
+                                $mark->theory_obtained_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->oral_obtained_marks ?? 0)
+                            (float) (
+                                $mark->oral_obtained_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->practical_obtained_marks ?? 0);
-                    });
+                            (float) (
+                                $mark->practical_obtained_marks
+                                ?? 0
+                            );
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | PERCENTAGE
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $percentage =
+                        $totalMax > 0
+                            ? round(
+                                (
+                                    $totalObtained
+                                    /
+                                    $totalMax
+                                ) * 100,
+                                2
+                            )
+                            : 0;
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | FAILED SUBJECT COUNT
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $failedSubjects = 0;
+
+
+                    foreach ($marks as $mark) {
+
+                        /*
+                        |--------------------------------------------------------------
+                        | ABSENT = FAIL
+                        |--------------------------------------------------------------
+                        */
+
+                        if (
+                            (int) $mark->is_absent
+                            === 1
+                        ) {
+
+                            $failedSubjects++;
+
+                            continue;
+                        }
+
+
+                        $obtained =
+                            (float) (
+                                $mark->theory_obtained_marks
+                                ?? 0
+                            )
+                            +
+                            (float) (
+                                $mark->oral_obtained_marks
+                                ?? 0
+                            )
+                            +
+                            (float) (
+                                $mark->practical_obtained_marks
+                                ?? 0
+                            );
+
+
+                        $passing =
+                            (float) (
+                                $mark->theory_passing_marks
+                                ?? 0
+                            )
+                            +
+                            (float) (
+                                $mark->oral_passing_marks
+                                ?? 0
+                            )
+                            +
+                            (float) (
+                                $mark->practical_passing_marks
+                                ?? 0
+                            );
+
+
+                        if (
+                            $obtained < $passing
+                        ) {
+
+                            $failedSubjects++;
+                        }
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | RESULT
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $result =
+                        $failedSubjects > 0
+                            ? 'FAIL'
+                            : 'PASS';
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | OVERALL GRADE
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $grade =
+                        $this->calculateOverallGrade(
+                            $percentage
+                        );
 
 
                     /*
                     |--------------------------------------------------------------------------
                     | STEP 7
-                    | Calculate Percentage
+                    | INSERT STUDENT RESULT
                     |--------------------------------------------------------------------------
                     */
 
-                    $percentage = $totalMax > 0
-                        ? round(
-                            ($totalObtained / $totalMax) * 100,
-                            2
+                    $resultId =
+                        DB::table(
+                            'student_results'
                         )
-                        : 0;
+                            ->insertGetId([
+
+                                'academic_year_id' =>
+                                    $academicYearId,
+
+                                'exam_master_id' =>
+                                    $examMasterId,
+
+                                'standard_id' =>
+                                    $standardId,
+
+                                'division_id' =>
+                                    $divisionId,
+
+                                'student_id' =>
+                                    $studentId,
+
+                                'total_max_marks' =>
+                                    $totalMax,
+
+                                'total_obtained_marks' =>
+                                    $totalObtained,
+
+                                'percentage' =>
+                                    $percentage,
+
+                                'grade' =>
+                                    $grade,
+
+                                'result' =>
+                                    $result,
+
+                                'rank' =>
+                                    null,
+
+                                'generated_at' =>
+                                    now(),
+
+                                'created_at' =>
+                                    now(),
+
+                                'updated_at' =>
+                                    now(),
+                            ]);
 
 
                     /*
                     |--------------------------------------------------------------------------
                     | STEP 8
-                    | Count Failed / Absent Subjects
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $failedSubjects = $marks
-                        ->filter(function ($mark) {
-
-                            /*
-                            |----------------------------------------------------------
-                            | ABSENT = FAIL
-                            |----------------------------------------------------------
-                            */
-
-                            if ((int) $mark->is_absent === 1) {
-                                return true;
-                            }
-
-
-                            $obtained =
-                                (float) ($mark->theory_obtained_marks ?? 0)
-                                +
-                                (float) ($mark->oral_obtained_marks ?? 0)
-                                +
-                                (float) ($mark->practical_obtained_marks ?? 0);
-
-
-                            $passing =
-                                (float) ($mark->theory_passing_marks ?? 0)
-                                +
-                                (float) ($mark->oral_passing_marks ?? 0)
-                                +
-                                (float) ($mark->practical_passing_marks ?? 0);
-
-
-                            return $obtained < $passing;
-
-                        })
-                        ->count();
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STEP 9
-                    | Overall Result
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $result = $failedSubjects > 0
-                        ? 'FAIL'
-                        : 'PASS';
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STEP 10
-                    | Overall Grade
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $grade = $this->calculateOverallGrade(
-                        $percentage
-                    );
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STEP 11
-                    | Insert Student Result
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $resultId = DB::table('student_results')
-                        ->insertGetId([
-
-                            'academic_year_id' =>
-                                $academicYearId,
-
-                            'exam_master_id' =>
-                                $examMasterId,
-
-                            'standard_id' =>
-                                $standardId,
-
-                            'division_id' =>
-                                $divisionId,
-
-                            'student_id' =>
-                                $student->student_id,
-
-                            'total_max_marks' =>
-                                $totalMax,
-
-                            'total_obtained_marks' =>
-                                $totalObtained,
-
-                            'percentage' =>
-                                $percentage,
-
-                            'grade' =>
-                                $grade,
-
-                            'result' =>
-                                $result,
-
-                            'rank' =>
-                                null,
-
-                            'generated_at' =>
-                                now(),
-
-                            'created_at' =>
-                                now(),
-
-                            'updated_at' =>
-                                now(),
-                        ]);
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STEP 12
-                    | Generate Subject-Wise Result
+                    | INSERT SUBJECT RESULT DETAILS
                     |--------------------------------------------------------------------------
                     */
 
@@ -460,30 +601,48 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Subject Maximum Marks
+                        | Subject Maximum
                         |--------------------------------------------------------------------------
                         */
 
                         $maxMarks =
-                            (float) ($mark->theory_max_marks ?? 0)
+                            (float) (
+                                $mark->theory_max_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->oral_max_marks ?? 0)
+                            (float) (
+                                $mark->oral_max_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->practical_max_marks ?? 0);
+                            (float) (
+                                $mark->practical_max_marks
+                                ?? 0
+                            );
 
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Subject Passing Marks
+                        | Subject Passing
                         |--------------------------------------------------------------------------
                         */
 
                         $passingMarks =
-                            (float) ($mark->theory_passing_marks ?? 0)
+                            (float) (
+                                $mark->theory_passing_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->oral_passing_marks ?? 0)
+                            (float) (
+                                $mark->oral_passing_marks
+                                ?? 0
+                            )
                             +
-                            (float) ($mark->practical_passing_marks ?? 0);
+                            (float) (
+                                $mark->practical_passing_marks
+                                ?? 0
+                            );
 
 
                         /*
@@ -492,33 +651,47 @@ class ResultGenerationController extends Controller
                         |--------------------------------------------------------------------------
                         */
 
-                        if ((int) $mark->is_absent === 1) {
+                        if (
+                            (int) $mark->is_absent
+                            === 1
+                        ) {
 
                             $obtained = 0;
 
-                            $subjectResult = 'ABSENT';
+                            $subjectResult =
+                                'ABSENT';
 
-                            $subjectGrade = 'AB';
+                            $subjectGrade =
+                                'AB';
 
                         } else {
 
                             /*
                             |--------------------------------------------------------------------------
-                            | Obtained Marks
+                            | OBTAINED
                             |--------------------------------------------------------------------------
                             */
 
                             $obtained =
-                                (float) ($mark->theory_obtained_marks ?? 0)
+                                (float) (
+                                    $mark->theory_obtained_marks
+                                    ?? 0
+                                )
                                 +
-                                (float) ($mark->oral_obtained_marks ?? 0)
+                                (float) (
+                                    $mark->oral_obtained_marks
+                                    ?? 0
+                                )
                                 +
-                                (float) ($mark->practical_obtained_marks ?? 0);
+                                (float) (
+                                    $mark->practical_obtained_marks
+                                    ?? 0
+                                );
 
 
                             /*
                             |--------------------------------------------------------------------------
-                            | Subject Pass / Fail
+                            | PASS / FAIL
                             |--------------------------------------------------------------------------
                             */
 
@@ -530,7 +703,7 @@ class ResultGenerationController extends Controller
 
                             /*
                             |--------------------------------------------------------------------------
-                            | Subject Grade
+                            | GRADE
                             |--------------------------------------------------------------------------
                             */
 
@@ -545,18 +718,24 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Insert Subject Result
+                        | IMPORTANT:
+                        |
+                        | Store student_marks.subject_id AS-IS.
+                        |
+                        | This is the standard_wise_subjects.id.
                         |--------------------------------------------------------------------------
                         */
 
-                        DB::table('student_result_details')
+                        DB::table(
+                            'student_result_details'
+                        )
                             ->insert([
 
                                 'student_result_id' =>
                                     $resultId,
 
                                 'subject_id' =>
-                                    $mark->subject_id,
+                                    (int) $mark->subject_id,
 
                                 'max_marks' =>
                                     $maxMarks,
@@ -585,78 +764,86 @@ class ResultGenerationController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 13
-                | Calculate Rank
+                | STEP 9
+                | CALCULATE RANK
                 |--------------------------------------------------------------------------
-                |
-                | Only PASS students receive rank.
-                |
-                | Example:
-                |
-                | 1
-                | 2
-                | 2
-                | 4
-                |
                 */
 
-                $passStudents = DB::table('student_results')
-                    ->where(
-                        'academic_year_id',
-                        $academicYearId
+                $passStudents =
+                    DB::table(
+                        'student_results'
                     )
-                    ->where(
-                        'exam_master_id',
-                        $examMasterId
-                    )
-                    ->where(
-                        'standard_id',
-                        $standardId
-                    )
-                    ->where(
-                        'division_id',
-                        $divisionId
-                    )
-                    ->where(
-                        'result',
-                        'PASS'
-                    )
-                    ->orderByDesc('percentage')
-                    ->orderByDesc('total_obtained_marks')
-                    ->get();
+                        ->where(
+                            'academic_year_id',
+                            $academicYearId
+                        )
+                        ->where(
+                            'exam_master_id',
+                            $examMasterId
+                        )
+                        ->where(
+                            'standard_id',
+                            $standardId
+                        )
+                        ->where(
+                            'division_id',
+                            $divisionId
+                        )
+                        ->where(
+                            'result',
+                            'PASS'
+                        )
+                        ->orderByDesc(
+                            'percentage'
+                        )
+                        ->orderByDesc(
+                            'total_obtained_marks'
+                        )
+                        ->get();
 
 
                 $rank = 0;
+
                 $position = 0;
 
                 $previousPercentage = null;
+
                 $previousObtained = null;
 
 
-                foreach ($passStudents as $studentResult) {
+                foreach (
+                    $passStudents
+                    as $studentResult
+                ) {
 
                     $position++;
 
 
                     if (
-                        $previousPercentage !==
+                        $previousPercentage
+                            !==
                             $studentResult->percentage
                         ||
-                        $previousObtained !==
+                        $previousObtained
+                            !==
                             $studentResult->total_obtained_marks
                     ) {
 
-                        $rank = $position;
+                        $rank =
+                            $position;
                     }
 
 
-                    DB::table('student_results')
+                    DB::table(
+                        'student_results'
+                    )
                         ->where(
                             'id',
                             $studentResult->id
                         )
                         ->update([
-                            'rank' => $rank
+                            'rank' =>
+                                $rank
                         ]);
 
 
@@ -664,18 +851,21 @@ class ResultGenerationController extends Controller
                         $studentResult->percentage;
 
                     $previousObtained =
-                        $studentResult->total_obtained_marks;
+                        $studentResult
+                            ->total_obtained_marks;
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 14
-                | Failed Students Have No Rank
+                | STEP 10
+                | FAILED STUDENTS NO RANK
                 |--------------------------------------------------------------------------
                 */
 
-                DB::table('student_results')
+                DB::table(
+                    'student_results'
+                )
                     ->where(
                         'academic_year_id',
                         $academicYearId
@@ -697,14 +887,15 @@ class ResultGenerationController extends Controller
                         'FAIL'
                     )
                     ->update([
-                        'rank' => null
+                        'rank' =>
+                            null
                     ]);
             });
 
 
             /*
             |--------------------------------------------------------------------------
-            | Success
+            | SUCCESS
             |--------------------------------------------------------------------------
             */
 
@@ -732,7 +923,7 @@ class ResultGenerationController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Subject Grade
+    | SUBJECT GRADE
     |--------------------------------------------------------------------------
     */
 
@@ -742,59 +933,69 @@ class ResultGenerationController extends Controller
         $subjectResult = 'PASS'
     ) {
 
-        if ($subjectResult === 'ABSENT') {
+        if (
+            $subjectResult === 'ABSENT'
+        ) {
+
             return 'AB';
         }
 
 
-        if ($subjectResult === 'LEFT') {
+        if (
+            $subjectResult === 'LEFT'
+        ) {
+
             return 'LEFT';
         }
 
 
-        if ($subjectResult === 'FAIL') {
+        if (
+            $subjectResult === 'FAIL'
+        ) {
+
             return 'F';
         }
 
 
-        if ($maxMarks <= 0) {
+        if (
+            $maxMarks <= 0
+        ) {
+
             return '';
         }
 
 
         $percentage =
-            ($obtainedMarks / $maxMarks) * 100;
+            (
+                $obtainedMarks
+                /
+                $maxMarks
+            ) * 100;
 
 
         if ($percentage >= 91) {
             return 'A1';
         }
 
-
         if ($percentage >= 81) {
             return 'A2';
         }
-
 
         if ($percentage >= 71) {
             return 'B1';
         }
 
-
         if ($percentage >= 61) {
             return 'B2';
         }
-
 
         if ($percentage >= 51) {
             return 'C1';
         }
 
-
         if ($percentage >= 41) {
             return 'C2';
         }
-
 
         return 'D';
     }
@@ -802,43 +1003,42 @@ class ResultGenerationController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Overall Grade
+    | OVERALL GRADE
     |--------------------------------------------------------------------------
     */
 
-    private function calculateOverallGrade($percentage)
-    {
+    private function calculateOverallGrade(
+        $percentage
+    ) {
+
         if ($percentage >= 91) {
             return 'A1';
         }
-
 
         if ($percentage >= 81) {
             return 'A2';
         }
 
-
         if ($percentage >= 71) {
             return 'B1';
         }
-
 
         if ($percentage >= 61) {
             return 'B2';
         }
 
-
         if ($percentage >= 51) {
             return 'C1';
         }
-
 
         if ($percentage >= 41) {
             return 'C2';
         }
 
+        if ($percentage >= 33) {
+            return 'D';
+        }
 
-        return 'D';
+        return 'FAIL';
     }
 }
-

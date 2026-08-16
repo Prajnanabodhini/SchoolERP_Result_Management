@@ -369,11 +369,13 @@ class ExamMasterController extends Controller
                     ExamMasterSubject::create([
     'exam_master_id' => $examMaster->id,
     'standard_id'    => $request->standard_id,
-    'subject_id'     => $row['subject_id'], // standard_wise_subjects.id
-    'subject_name'   => $row['subject_name'] ?? '',
+    'subject_id'     => $subject->id,
+    'subject_name'   => $subject->subject_name,
     'max_marks'      => $maxMarks,
     'passing_marks'  => $passingMarks,
-    'display_order'  => $row['display_order'] ?? 0,
+    'display_order'  => $row['display_order']
+        ?? $resolved['sws']->sort_order
+        ?? 0,
 ]);
                 }
             }
@@ -688,11 +690,13 @@ class ExamMasterController extends Controller
                     ExamMasterSubject::create([
     'exam_master_id' => $examMaster->id,
     'standard_id'    => $request->standard_id,
-    'subject_id'     => $row['subject_id'], // standard_wise_subjects.id
-    'subject_name'   => $row['subject_name'] ?? '',
+    'subject_id'     => $subject->id,
+    'subject_name'   => $subject->subject_name,
     'max_marks'      => $maxMarks,
     'passing_marks'  => $passingMarks,
-    'display_order'  => $row['display_order'] ?? 0,
+    'display_order'  => $row['display_order']
+        ?? $resolved['sws']->sort_order
+        ?? 0,
 ]);
                 }
             }
