@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-
+use App\Models\Subject;
 use App\Models\User;
 use App\Models\Standard;
 use App\Models\Division;
@@ -2235,122 +2235,285 @@ class AdminMarksController extends Controller
     |
     */
 
-    public function update(
-        Request $request
-    ) {
+    public function update(Request $request)
+{
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION
+    |--------------------------------------------------------------------------
+    */
 
-        $request->validate([
+    $request->validate([
+        'teacher_subject_allocation_id' =>
+            'required|integer|exists:teacher_subject_allocations,id',
 
-            'teacher_subject_allocation_id' =>
-                'required|integer',
+        'exam_master_id' =>
+            'required|integer|exists:exam_masters,id',
 
-            'exam_master_id' =>
-                'required|exists:exam_masters,id',
-
-            'student_ids' =>
-                'required|array|min:1',
-
-        ]);
-
-
-        $tsaId =
-            (int)
-            $request
-                ->teacher_subject_allocation_id;
+        'student_ids' =>
+            'required|array|min:1',
+    ]);
 
 
-        $examId =
-            (int)
-            $request->exam_master_id;
+    /*
+    |--------------------------------------------------------------------------
+    | BASIC IDS
+    |--------------------------------------------------------------------------
+    */
+
+    $tsaId =
+        (int) $request->teacher_subject_allocation_id;
+
+    $examId =
+        (int) $request->exam_master_id;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TMS IS THE SOURCE OF THE SELECTED ASSIGNMENT
-        |--------------------------------------------------------------------------
-        */
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD TEACHER SUBJECT ALLOCATION
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | TSA is the authoritative source for the selected subject.
+    |
+    | DO NOT use TeacherMarksStatus.subject_id to determine the subject.
+    |
+    */
 
-        $status =
-            TeacherMarksStatus::where(
-                'teacher_subject_allocation_id',
-                $tsaId
-            )
-            ->where(
-                'exam_master_id',
-                $examId
-            )
-            ->orderByDesc(
-                'id'
-            )
-            ->first();
-
-
-        if (!$status) {
-
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'teacher_subject_allocation_id' =>
-                        'The selected teaching assignment could not be found.',
-                ]);
-        }
+    $teacherSubjectAllocation =
+        TeacherSubjectAllocation::where(
+            'id',
+            $tsaId
+        )
+        ->where(
+            'exam_master_id',
+            $examId
+        )
+        ->first();
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD / DIVISION
-        |--------------------------------------------------------------------------
-        */
+    if (!$teacherSubjectAllocation) {
 
-        $standardId =
-            (int)
-            $status->standard_id;
-
-
-        $divisionId =
-            (int)
-            $status->division_id;
+        return back()
+            ->withInput()
+            ->withErrors([
+                'teacher_subject_allocation_id' =>
+                    'The selected teaching assignment does not belong to the selected exam.',
+            ]);
+    }
 
 
-        $academicYearId =
-            (int)
-            $status->academic_year_id;
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD CLASS ALLOCATION
+    |--------------------------------------------------------------------------
+    */
+
+    $classAllocation =
+        TeacherClassAllocation::find(
+            $teacherSubjectAllocation
+                ->teacher_class_allocation_id
+        );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | AUTHORITATIVE SUBJECT
-        |--------------------------------------------------------------------------
-        */
+    if (!$classAllocation) {
 
-        $actualSubjectId =
-            $this->resolveActualSubjectId(
-                $status->subject_id,
-                $standardId
-            );
+        return back()
+            ->withInput()
+            ->withErrors([
+                'teacher_subject_allocation_id' =>
+                    'The teacher class allocation was not found.',
+            ]);
+    }
 
 
-        if (!$actualSubjectId) {
+    /*
+    |--------------------------------------------------------------------------
+    | STANDARD / DIVISION / ACADEMIC YEAR
+    |--------------------------------------------------------------------------
+    */
 
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'subject_id' =>
-                        'The selected subject is not mapped in standard_wise_subjects for this standard.',
-                ]);
-        }
+    $standardId =
+        (int) $classAllocation->standard_id;
+
+    $divisionId =
+        (int) $classAllocation->division_id;
+
+    $academicYearId =
+        (int) $classAllocation->academic_year_id;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
+    /*
+    |--------------------------------------------------------------------------
+    | RESOLVE ACTUAL SUBJECT FROM TSA
+    |--------------------------------------------------------------------------
+    |
+    | TSA.subject_id can be:
+    |
+    | 1. actual subjects.id
+    | 2. legacy standard_wise_subjects.id
+    |
+    | resolveActualSubjectId() handles both.
+    |
+    */
 
-        $subjectConfig =
-            ExamMasterSubject::where(
-                'exam_master_id',
-                $examId
+    $actualSubjectId =
+        $this->resolveActualSubjectId(
+            $teacherSubjectAllocation->subject_id,
+            $standardId
+        );
+
+
+    if (!$actualSubjectId) {
+
+        return back()
+            ->withInput()
+            ->withErrors([
+                'subject_id' =>
+                    'The subject assigned to this teaching allocation is not mapped to the selected Standard.',
+            ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY SUBJECT BELONGS TO STANDARD
+    |--------------------------------------------------------------------------
+    |
+    | This is an additional safety check.
+    |
+    */
+
+    $validStandardMapping =
+        DB::table(
+            'standard_wise_subjects'
+        )
+        ->where(
+            'standard_id',
+            $standardId
+        )
+        ->where(
+            'subject_id',
+            $actualSubjectId
+        )
+        ->where(
+            'is_active',
+            1
+        )
+        ->exists();
+
+
+    if (!$validStandardMapping) {
+
+        return back()
+            ->withInput()
+            ->withErrors([
+                'subject_id' =>
+                    'The assigned subject is not mapped to the selected Standard.',
+            ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD SUBJECT MASTER
+    |--------------------------------------------------------------------------
+    */
+
+    $subject =
+        Subject::where(
+            'id',
+            $actualSubjectId
+        )
+        ->where(
+            'is_active',
+            1
+        )
+        ->first();
+
+
+    if (!$subject) {
+
+        return back()
+            ->withInput()
+            ->withErrors([
+                'subject_id' =>
+                    'The resolved subject was not found in Subject Master.',
+            ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD EXAM
+    |--------------------------------------------------------------------------
+    */
+
+    $exam =
+        ExamMaster::where(
+            'id',
+            $examId
+        )
+        ->where(
+            'is_active',
+            1
+        )
+        ->first();
+
+
+    if (!$exam) {
+
+        return back()
+            ->withInput()
+            ->withErrors([
+                'exam_master_id' =>
+                    'The selected exam was not found.',
+            ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD EXAM SUBJECT CONFIGURATION
+    |--------------------------------------------------------------------------
+    |
+    | CURRENT FORMAT:
+    |
+    | exam_master_subjects.subject_id = subjects.id
+    |
+    */
+
+    $subjectConfig =
+        ExamMasterSubject::where(
+            'exam_master_id',
+            $examId
+        )
+        ->where(
+            'standard_id',
+            $standardId
+        )
+        ->where(
+            'subject_id',
+            $actualSubjectId
+        )
+        ->first();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LEGACY FALLBACK
+    |--------------------------------------------------------------------------
+    |
+    | Keep only for old records.
+    |
+    */
+
+    if (!$subjectConfig) {
+
+        $mapping =
+            DB::table(
+                'standard_wise_subjects'
             )
             ->where(
                 'standard_id',
@@ -2360,20 +2523,19 @@ class AdminMarksController extends Controller
                 'subject_id',
                 $actualSubjectId
             )
+            ->where(
+                'is_active',
+                1
+            )
             ->first();
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | LEGACY EXAM CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
+        if ($mapping) {
 
-        if (!$subjectConfig) {
-
-            $mapping =
-                DB::table(
-                    'standard_wise_subjects'
+            $subjectConfig =
+                ExamMasterSubject::where(
+                    'exam_master_id',
+                    $examId
                 )
                 ->where(
                     'standard_id',
@@ -2381,389 +2543,574 @@ class AdminMarksController extends Controller
                 )
                 ->where(
                     'subject_id',
-                    $actualSubjectId
-                )
-                ->where(
-                    'is_active',
-                    1
+                    $mapping->id
                 )
                 ->first();
+        }
+    }
 
 
-            if ($mapping) {
+    if (!$subjectConfig) {
 
-                $subjectConfig =
-                    ExamMasterSubject::where(
+        return back()
+            ->withInput()
+            ->withErrors([
+                'subject_id' =>
+                    'Marks configuration was not found for '
+                    . $subject->subject_name
+                    . ' in '
+                    . $exam->exam_name
+                    . '.',
+            ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | THEORY MAX
+    |--------------------------------------------------------------------------
+    */
+
+    $theoryMax =
+        (float) (
+            $subjectConfig->max_marks
+            ?? 0
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPONENT VISIBILITY
+    |--------------------------------------------------------------------------
+    */
+
+    $showOral =
+        (bool) (
+            $exam->has_oral
+            ?? false
+        );
+
+
+    $showPractical =
+        (bool) (
+            $exam->has_practical
+            ?? false
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | UNIT TEST 1
+    |--------------------------------------------------------------------------
+    |
+    | Oral and Practical are not used for Unit Test 1.
+    |
+    */
+
+    $examName =
+        strtoupper(
+            trim(
+                (string)
+                $exam->exam_name
+            )
+        );
+
+
+    if (
+        str_contains(
+            $examName,
+            'UNIT TEST 1'
+        )
+    ) {
+
+        $showOral =
+            false;
+
+        $showPractical =
+            false;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ORAL MAX
+    |--------------------------------------------------------------------------
+    */
+
+    $oralMax =
+        $showOral
+            ? (float) (
+                $exam->oral_max_marks
+                ?? 0
+            )
+            : 0;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PRACTICAL MAX
+    |--------------------------------------------------------------------------
+    */
+
+    $practicalMax =
+        $showPractical
+            ? (float) (
+                $exam->practical_max_marks
+                ?? 0
+            )
+            : 0;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD TMS STATUS
+    |--------------------------------------------------------------------------
+    |
+    | TMS is NOT the subject source.
+    |
+    | We load it only so its subject_id can be repaired/normalized.
+    |
+    */
+
+    $status =
+        TeacherMarksStatus::where(
+            'teacher_subject_allocation_id',
+            $tsaId
+        )
+        ->where(
+            'exam_master_id',
+            $examId
+        )
+        ->orderByDesc(
+            'id'
+        )
+        ->first();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE EXISTING TMS SUBJECT
+    |--------------------------------------------------------------------------
+    |
+    | This automatically fixes old values such as:
+    |
+    | TMS subject_id = 27
+    |
+    | when TSA actually says:
+    |
+    | subject_id = 10
+    |
+    */
+
+    if ($status) {
+
+        if (
+            (int) $status->subject_id !==
+            (int) $actualSubjectId
+        ) {
+
+            $status->update([
+                'subject_id' =>
+                    $actualSubjectId,
+            ]);
+        }
+
+    } else {
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE TMS RECORD WHEN MISSING
+        |--------------------------------------------------------------------------
+        */
+
+        $status =
+            TeacherMarksStatus::create([
+
+                'teacher_subject_allocation_id' =>
+                    $tsaId,
+
+                'exam_master_id' =>
+                    $examId,
+
+                'teacher_id' =>
+                    Auth::id(),
+
+                'standard_id' =>
+                    $standardId,
+
+                'division_id' =>
+                    $divisionId,
+
+                'academic_year_id' =>
+                    $academicYearId,
+
+                'subject_id' =>
+                    $actualSubjectId,
+
+                'status' =>
+                    'PENDING',
+            ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | TRANSACTION
+    |--------------------------------------------------------------------------
+    */
+
+    DB::transaction(
+        function () use (
+            $request,
+            $tsaId,
+            $examId,
+            $standardId,
+            $divisionId,
+            $academicYearId,
+            $actualSubjectId,
+            $theoryMax,
+            $oralMax,
+            $practicalMax,
+            $showOral,
+            $showPractical
+        ) {
+
+            foreach (
+                $request->student_ids as $studentId
+            ) {
+
+                $studentId =
+                    (string) $studentId;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | EXISTING MARK
+                |--------------------------------------------------------------------------
+                */
+
+                $mark =
+                    StudentMark::where(
                         'exam_master_id',
                         $examId
                     )
                     ->where(
-                        'standard_id',
-                        $standardId
+                        'teacher_subject_allocation_id',
+                        $tsaId
                     )
                     ->where(
-                        'subject_id',
-                        $mapping->id
+                        'student_id',
+                        $studentId
                     )
                     ->first();
-            }
-        }
 
 
-        if (!$subjectConfig) {
+                /*
+                |--------------------------------------------------------------------------
+                | OLD VALUES
+                |--------------------------------------------------------------------------
+                */
 
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'subject_id' =>
-                        'Marks configuration was not found for the selected subject and exam.',
-                ]);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | MARK LIMITS
-        |--------------------------------------------------------------------------
-        */
-
-        $theoryMax =
-            (float)
-            (
-                $subjectConfig->max_marks
-                ?? 0
-            );
+                $oldTheory =
+                    $mark
+                        ? $mark->theory_obtained_marks
+                        : null;
 
 
-        $exam =
-            ExamMaster::find(
-                $examId
-            );
+                $oldOral =
+                    $mark
+                        ? $mark->oral_obtained_marks
+                        : null;
 
 
-        $showOral =
-            $exam
-                ? (bool)
-                    $exam->has_oral
-                : false;
+                $oldPractical =
+                    $mark
+                        ? $mark->practical_obtained_marks
+                        : null;
 
 
-        $showPractical =
-            $exam
-                ? (bool)
-                    $exam->has_practical
-                : false;
+                /*
+                |--------------------------------------------------------------------------
+                | ABSENT
+                |--------------------------------------------------------------------------
+                */
 
-
-        $examName =
-            strtoupper(
-                trim(
-                    (string)
+                $isAbsent =
                     (
-                        $exam->exam_name
-                        ?? ''
-                    )
-                )
-            );
+                        (int)
+                        (
+                            $request
+                                ->is_absent[$studentId]
+                                ?? 0
+                        )
+                    ) === 1
+                        ? 1
+                        : 0;
 
 
-        if (
-            str_contains(
-                $examName,
-                'UNIT TEST 1'
-            )
-        ) {
+                /*
+                |--------------------------------------------------------------------------
+                | REQUESTED MARKS
+                |--------------------------------------------------------------------------
+                */
 
-            $showOral =
-                false;
-
-
-            $showPractical =
-                false;
-        }
+                $theory =
+                    $request
+                        ->theory_marks[$studentId]
+                        ?? null;
 
 
-        $oralMax =
-            $showOral
-                ? (float)
-                    (
-                        $exam->oral_max_marks
-                        ?? 0
-                    )
-                : 0;
+                $oral =
+                    $request
+                        ->oral_marks[$studentId]
+                        ?? null;
 
 
-        $practicalMax =
-            $showPractical
-                ? (float)
-                    (
-                        $exam->practical_max_marks
-                        ?? 0
-                    )
-                : 0;
+                $practical =
+                    $request
+                        ->practical_marks[$studentId]
+                        ?? null;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK WHETHER TSA RECORD ACTUALLY EXISTS
-        |--------------------------------------------------------------------------
-        |
-        | Important for orphaned TSA references.
-        |
-        */
+                /*
+                |--------------------------------------------------------------------------
+                | ABSENT = ZERO
+                |--------------------------------------------------------------------------
+                */
 
-        $tsaExists =
-            TeacherSubjectAllocation::where(
-                'id',
-                $tsaId
-            )
-            ->where(
-                'exam_master_id',
-                $examId
-            )
-            ->exists();
+                if ($isAbsent) {
+
+                    $theory =
+                        0;
+
+                    $oral =
+                        0;
+
+                    $practical =
+                        0;
+
+                } else {
+
+                    if (!$showOral) {
+
+                        $oral =
+                            null;
+                    }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TRANSACTION
-        |--------------------------------------------------------------------------
-        */
+                    if (!$showPractical) {
 
-        DB::transaction(
-            function () use (
-                $request,
-                $tsaId,
-                $examId,
-                $standardId,
-                $divisionId,
-                $academicYearId,
-                $actualSubjectId,
-                $theoryMax,
-                $oralMax,
-                $practicalMax,
-                $showOral,
-                $showPractical,
-                $tsaExists
-            ) {
+                        $practical =
+                            null;
+                    }
+                }
 
-                foreach (
-                    $request->student_ids as $studentId
+
+                /*
+                |--------------------------------------------------------------------------
+                | THEORY VALIDATION
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $theory !== null &&
+                    $theory !== ''
                 ) {
 
-                    $studentId =
-                        (string)
-                        $studentId;
+                    $theory =
+                        (float) $theory;
 
+
+                    if (
+                        $theory < 0 ||
+                        $theory > $theoryMax
+                    ) {
+
+                        throw new \RuntimeException(
+                            'Invalid theory marks for student ID '
+                            . $studentId
+                            . '. Maximum allowed marks: '
+                            . $theoryMax
+                        );
+                    }
+
+                } else {
+
+                    /*
+                    |--------------------------------------------------------------
+                    | If present and theory is enabled, marks must be provided.
+                    |--------------------------------------------------------------
+                    */
+
+                    if (
+                        !$isAbsent &&
+                        $theoryMax > 0
+                    ) {
+
+                        throw new \RuntimeException(
+                            'Theory marks are required for student ID '
+                            . $studentId
+                        );
+                    }
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | ORAL VALIDATION
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $showOral &&
+                    $oral !== null &&
+                    $oral !== ''
+                ) {
+
+                    $oral =
+                        (float) $oral;
+
+
+                    if (
+                        $oral < 0 ||
+                        $oral > $oralMax
+                    ) {
+
+                        throw new \RuntimeException(
+                            'Invalid oral marks for student ID '
+                            . $studentId
+                            . '. Maximum allowed marks: '
+                            . $oralMax
+                        );
+                    }
+
+                } elseif (
+                    $showOral &&
+                    !$isAbsent &&
+                    $oralMax > 0
+                ) {
+
+                    throw new \RuntimeException(
+                        'Oral marks are required for student ID '
+                        . $studentId
+                    );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | PRACTICAL VALIDATION
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $showPractical &&
+                    $practical !== null &&
+                    $practical !== ''
+                ) {
+
+                    $practical =
+                        (float) $practical;
+
+
+                    if (
+                        $practical < 0 ||
+                        $practical > $practicalMax
+                    ) {
+
+                        throw new \RuntimeException(
+                            'Invalid practical marks for student ID '
+                            . $studentId
+                            . '. Maximum allowed marks: '
+                            . $practicalMax
+                        );
+                    }
+
+                } elseif (
+                    $showPractical &&
+                    !$isAbsent &&
+                    $practicalMax > 0
+                ) {
+
+                    throw new \RuntimeException(
+                        'Practical marks are required for student ID '
+                        . $studentId
+                    );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | UPDATE EXISTING MARK
+                |--------------------------------------------------------------------------
+                */
+
+                if ($mark) {
+
+                    $mark->update([
+
+                        /*
+                        |--------------------------------------------------------------
+                        | CRITICAL:
+                        | Always save ACTUAL subjects.id
+                        |--------------------------------------------------------------
+                        */
+
+                        'subject_id' =>
+                            $actualSubjectId,
+
+                        'standard_id' =>
+                            $standardId,
+
+                        'division_id' =>
+                            $divisionId,
+
+                        'theory_obtained_marks' =>
+                            $theory,
+
+                        'oral_obtained_marks' =>
+                            $oral,
+
+                        'practical_obtained_marks' =>
+                            $practical,
+
+                        'is_absent' =>
+                            $isAbsent,
+
+                        'updated_by' =>
+                            Auth::id(),
+                    ]);
+
+
+                    $wasCreated =
+                        false;
+
+                } else {
 
                     /*
                     |--------------------------------------------------------------------------
-                    | EXISTING MARK
+                    | CREATE NEW MARK
                     |--------------------------------------------------------------------------
                     */
 
                     $mark =
-                        StudentMark::where(
-                            'exam_master_id',
-                            $examId
-                        )
-                        ->where(
-                            'teacher_subject_allocation_id',
-                            $tsaId
-                        )
-                        ->where(
-                            'student_id',
-                            $studentId
-                        )
-                        ->first();
+                        StudentMark::create([
 
+                            'student_id' =>
+                                $studentId,
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | OLD VALUES
-                    |--------------------------------------------------------------------------
-                    */
+                            'exam_master_id' =>
+                                $examId,
 
-                    $oldTheory =
-                        $mark
-                            ? $mark
-                                ->theory_obtained_marks
-                            : null;
+                            'teacher_subject_allocation_id' =>
+                                $tsaId,
 
-
-                    $oldOral =
-                        $mark
-                            ? $mark
-                                ->oral_obtained_marks
-                            : null;
-
-
-                    $oldPractical =
-                        $mark
-                            ? $mark
-                                ->practical_obtained_marks
-                            : null;
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ABSENT
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $isAbsent =
-                        (
-                            (int)
-                            (
-                                $request
-                                    ->is_absent[$studentId]
-                                    ?? 0
-                            )
-                        ) === 1
-                            ? 1
-                            : 0;
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | MARK VALUES
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $theory =
-                        $request
-                            ->theory_marks[$studentId]
-                            ?? null;
-
-
-                    $oral =
-                        $request
-                            ->oral_marks[$studentId]
-                            ?? null;
-
-
-                    $practical =
-                        $request
-                            ->practical_marks[$studentId]
-                            ?? null;
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ABSENT = ZERO
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if ($isAbsent) {
-
-                        $theory =
-                            0;
-
-                        $oral =
-                            0;
-
-                        $practical =
-                            0;
-
-                    } else {
-
-                        if (!$showOral) {
-                            $oral = null;
-                        }
-
-
-                        if (!$showPractical) {
-                            $practical = null;
-                        }
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | NUMERIC VALIDATION
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if (
-                        $theory !== null &&
-                        $theory !== ''
-                    ) {
-
-                        $theory =
-                            (float)
-                            $theory;
-
-
-                        if (
-                            $theory < 0 ||
-                            $theory > $theoryMax
-                        ) {
-
-                            throw new \RuntimeException(
-                                'Invalid theory marks for student ID '
-                                . $studentId
-                            );
-                        }
-                    }
-
-
-                    if (
-                        $showOral &&
-                        $oral !== null &&
-                        $oral !== ''
-                    ) {
-
-                        $oral =
-                            (float)
-                            $oral;
-
-
-                        if (
-                            $oral < 0 ||
-                            $oral > $oralMax
-                        ) {
-
-                            throw new \RuntimeException(
-                                'Invalid oral marks for student ID '
-                                . $studentId
-                            );
-                        }
-                    }
-
-
-                    if (
-                        $showPractical &&
-                        $practical !== null &&
-                        $practical !== ''
-                    ) {
-
-                        $practical =
-                            (float)
-                            $practical;
-
-
-                        if (
-                            $practical < 0 ||
-                            $practical > $practicalMax
-                        ) {
-
-                            throw new \RuntimeException(
-                                'Invalid practical marks for student ID '
-                                . $studentId
-                            );
-                        }
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | UPDATE EXISTING RECORD
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if ($mark) {
-
-                        $mark->update([
+                            /*
+                            |----------------------------------------------------------
+                            | CRITICAL:
+                            | Actual subjects.id only
+                            |----------------------------------------------------------
+                            */
 
                             'subject_id' =>
                                 $actualSubjectId,
@@ -2786,184 +3133,152 @@ class AdminMarksController extends Controller
                             'is_absent' =>
                                 $isAbsent,
 
+                            'is_locked' =>
+                                0,
+
                             'updated_by' =>
                                 Auth::id(),
                         ]);
 
 
-                    } else {
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | CREATE NEW RECORD
-                        |--------------------------------------------------------------------------
-                        |
-                        | This is allowed only when the underlying TSA exists.
-                        |
-                        | For orphaned TSA references, existing StudentMark rows
-                        | can be edited, but new rows are not created because the
-                        | original TSA row is missing.
-                        |
-                        */
-
-                        if (!$tsaExists) {
-
-                            throw new \RuntimeException(
-                                'Cannot create a new mark record because the teaching allocation '
-                                . $tsaId
-                                . ' no longer exists. Existing marks can still be corrected.'
-                            );
-                        }
-
-
-                        $mark =
-                            StudentMark::create([
-
-                                'student_id' =>
-                                    $studentId,
-
-                                'exam_master_id' =>
-                                    $examId,
-
-                                'teacher_subject_allocation_id' =>
-                                    $tsaId,
-
-                                'subject_id' =>
-                                    $actualSubjectId,
-
-                                'standard_id' =>
-                                    $standardId,
-
-                                'division_id' =>
-                                    $divisionId,
-
-                                'theory_obtained_marks' =>
-                                    $theory,
-
-                                'oral_obtained_marks' =>
-                                    $oral,
-
-                                'practical_obtained_marks' =>
-                                    $practical,
-
-                                'is_absent' =>
-                                    $isAbsent,
-
-                                'is_locked' =>
-                                    0,
-
-                                'updated_by' =>
-                                    Auth::id(),
-                            ]);
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | AUDIT
-                    |--------------------------------------------------------------------------
-                    */
-
-                    MarkAuditLog::create([
-
-                        'student_mark_id' =>
-                            $mark->id,
-
-                        'student_id' =>
-                            $mark->student_id,
-
-                        'exam_master_id' =>
-                            $mark->exam_master_id,
-
-                        'subject_id' =>
-                            $actualSubjectId,
-
-                        'teacher_id' =>
-                            Auth::id(),
-
-                        'action' =>
-                            'ADMIN_UPDATE',
-
-                        'old_theory_marks' =>
-                            $oldTheory,
-
-                        'new_theory_marks' =>
-                            $mark
-                                ->theory_obtained_marks,
-
-                        'old_oral_marks' =>
-                            $oldOral,
-
-                        'new_oral_marks' =>
-                            $mark
-                                ->oral_obtained_marks,
-
-                        'old_practical_marks' =>
-                            $oldPractical,
-
-                        'new_practical_marks' =>
-                            $mark
-                                ->practical_obtained_marks,
-
-                        'remarks' =>
-                            $mark->wasRecentlyCreated
-                                ? 'Admin Marks Entry'
-                                : (
-                                    $isAbsent
-                                        ? 'Admin Marks Correction - ABSENT'
-                                        : 'Admin Marks Correction - PRESENT'
-                                ),
-
-                        'ip_address' =>
-                            $request->ip(),
-
-                        'user_agent' =>
-                            $request->userAgent(),
-                    ]);
+                    $wasCreated =
+                        true;
                 }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | AUDIT
+                |--------------------------------------------------------------------------
+                */
+
+                MarkAuditLog::create([
+
+                    'student_mark_id' =>
+                        $mark->id,
+
+                    'student_id' =>
+                        $mark->student_id,
+
+                    'exam_master_id' =>
+                        $mark->exam_master_id,
+
+                    'subject_id' =>
+                        $actualSubjectId,
+
+                    'teacher_id' =>
+                        Auth::id(),
+
+                    'action' =>
+                        $wasCreated
+                            ? 'ADMIN_UPDATE'
+                            : 'ADMIN_UPDATE',
+
+                    'old_theory_marks' =>
+                        $oldTheory,
+
+                    'new_theory_marks' =>
+                        $mark->theory_obtained_marks,
+
+                    'old_oral_marks' =>
+                        $oldOral,
+
+                    'new_oral_marks' =>
+                        $mark->oral_obtained_marks,
+
+                    'old_practical_marks' =>
+                        $oldPractical,
+
+                    'new_practical_marks' =>
+                        $mark->practical_obtained_marks,
+
+                    'remarks' =>
+                        $wasCreated
+                            ? 'Admin Marks Entry'
+                            : (
+                                $isAbsent
+                                    ? 'Admin Marks Correction - ABSENT'
+                                    : 'Admin Marks Correction - PRESENT'
+                            ),
+
+                    'ip_address' =>
+                        $request->ip(),
+
+                    'user_agent' =>
+                        $request->userAgent(),
+                ]);
             }
-        );
+        }
+    );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | DO NOT CHANGE STATUS
-        |--------------------------------------------------------------------------
-        */
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE TMS AGAIN AFTER SUCCESSFUL UPDATE
+    |--------------------------------------------------------------------------
+    */
 
-        TeacherMarksStatus::where(
-            'id',
-            $status->id
-        )
-        ->update([
-            'updated_at' =>
-                now(),
-        ]);
+    TeacherMarksStatus::where(
+        'teacher_subject_allocation_id',
+        $tsaId
+    )
+    ->where(
+        'exam_master_id',
+        $examId
+    )
+    ->update([
+
+        'subject_id' =>
+            $actualSubjectId,
+
+        'standard_id' =>
+            $standardId,
+
+        'division_id' =>
+            $divisionId,
+
+        'academic_year_id' =>
+            $academicYearId,
+
+        'updated_at' =>
+            now(),
+    ]);
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | REDIRECT
-        |--------------------------------------------------------------------------
-        */
+    /*
+    |--------------------------------------------------------------------------
+    | REDIRECT
+    |--------------------------------------------------------------------------
+    */
 
-        return redirect()->route(
-            'result-generation.admin-marks.edit',
-            [
-                'academic_year_id' =>
-                    $academicYearId,
+    return redirect()->route(
+        'result-generation.admin-marks.edit',
+        [
+            'academic_year_id' =>
+                $academicYearId,
 
-                'exam_master_id' =>
-                    $examId,
+            'exam_master_id' =>
+                $examId,
 
-                'teacher_subject_allocation_id' =>
-                    $tsaId,
+            'teacher_class_allocation_id' =>
+                $classAllocation
+                    ->id,
 
-                'marks_updated' =>
-                    1,
-            ]
-        );
-    }
+            'subject_id' =>
+                $actualSubjectId,
+
+            'teacher_subject_allocation_id' =>
+                $tsaId,
+
+            'marks_updated' =>
+                1,
+        ]
+    )
+    ->with(
+        'success',
+        'Marks Updated Successfully.'
+    );
+}
 
 
     /*

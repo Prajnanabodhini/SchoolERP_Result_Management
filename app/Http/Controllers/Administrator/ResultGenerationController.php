@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Administrator;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+
 use App\Models\ExamMaster;
-use App\Models\Standard;
 use App\Models\Division;
 use App\Models\AcademicYear;
 
@@ -16,23 +16,28 @@ class ResultGenerationController extends Controller
     |--------------------------------------------------------------------------
     | RESULT GENERATION INDEX
     |--------------------------------------------------------------------------
+    |
+    | Standard is NOT selected separately.
+    | Standard is automatically determined from the selected Exam.
+    |
     */
 
     public function index()
     {
-        $exams = ExamMaster::orderBy('display_order')->get();
+        $exams = ExamMaster::orderBy('display_order')
+            ->orderBy('exam_name')
+            ->get();
 
-        $standards = Standard::orderBy('display_order')->get();
+        $divisions = Division::orderBy('display_order')
+            ->get();
 
-        $divisions = Division::orderBy('display_order')->get();
-
-        $academicYears = AcademicYear::orderByDesc('id')->get();
+        $academicYears = AcademicYear::orderByDesc('id')
+            ->get();
 
         return view(
             'administrator.result-generation.index',
             compact(
                 'exams',
-                'standards',
                 'divisions',
                 'academicYears'
             )
@@ -48,15 +53,20 @@ class ResultGenerationController extends Controller
 
     public function generate(Request $request)
     {
+        /*
+        |--------------------------------------------------------------------------
+        | REQUEST VALUES
+        |--------------------------------------------------------------------------
+        */
+
         $academicYearId = (int) $request->academic_year_id;
         $examMasterId   = (int) $request->exam_master_id;
-        $standardId     = (int) $request->standard_id;
         $divisionId     = (int) $request->division_id;
 
 
         /*
         |--------------------------------------------------------------------------
-        | VALIDATION
+        | BASIC VALIDATION
         |--------------------------------------------------------------------------
         */
 
@@ -71,20 +81,64 @@ class ResultGenerationController extends Controller
         }
 
 
-        if (
-            !$examMasterId ||
-            !$standardId ||
-            !$divisionId
-        ) {
+        if (!$examMasterId || !$divisionId) {
 
             return back()
                 ->withInput()
                 ->with(
                     'error',
-                    'Please select Exam, Standard and Division.'
+                    'Please select Exam and Division.'
                 );
         }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | GET SELECTED EXAM
+        |--------------------------------------------------------------------------
+        */
+
+        $exam = ExamMaster::find($examMasterId);
+
+
+        if (!$exam) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Selected Exam was not found.'
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARD IS DETERMINED FROM EXAM
+        |--------------------------------------------------------------------------
+        */
+
+        $standardId = (int) (
+            $exam->standard_id ?? 0
+        );
+
+
+        if ($standardId <= 0) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Selected Exam does not have a Standard assigned.'
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | GENERATE
+        |--------------------------------------------------------------------------
+        */
 
         try {
 
@@ -105,7 +159,7 @@ class ResultGenerationController extends Controller
                 |
                 | student_marks.subject_id
                 | =
-                | standard_wise_subjects.id
+                | subjects.id
                 |
                 */
 
@@ -145,11 +199,14 @@ class ResultGenerationController extends Controller
                 /*
                 |--------------------------------------------------------------------------
                 | STEP 2
-                | VALIDATE SUBJECT MAPPINGS
+                | VALIDATE CANONICAL SUBJECT IDS
                 |--------------------------------------------------------------------------
+                |
+                | student_marks.subject_id MUST REFER TO subjects.id
+                |
                 */
 
-                $mappingIds = $lockedMarks
+                $subjectIds = $lockedMarks
                     ->pluck('subject_id')
                     ->filter()
                     ->map(
@@ -159,47 +216,104 @@ class ResultGenerationController extends Controller
                     ->values();
 
 
-                if ($mappingIds->isEmpty()) {
+                if ($subjectIds->isEmpty()) {
 
                     throw new \Exception(
-                        'No valid subject mappings found in locked marks.'
+                        'No valid subject IDs found in locked marks.'
                     );
                 }
 
 
-                $subjectMappings = DB::table(
-                    'standard_wise_subjects'
-                )
-                    ->whereIn(
-                        'id',
-                        $mappingIds->toArray()
-                    )
-                    ->get()
-                    ->keyBy('id');
-
-
                 /*
                 |--------------------------------------------------------------------------
-                | Check invalid mapping IDs
+                | VERIFY SUBJECTS EXIST IN SUBJECT MASTER
                 |--------------------------------------------------------------------------
                 */
 
-                $invalidMappingIds = $mappingIds
+                $existingSubjectIds = DB::table('subjects')
+                    ->whereIn(
+                        'id',
+                        $subjectIds->toArray()
+                    )
+                    ->pluck('id')
+                    ->map(
+                        fn ($id) => (int) $id
+                    )
+                    ->toArray();
+
+
+                $invalidSubjectIds = $subjectIds
                     ->filter(
-                        function ($id) use ($subjectMappings) {
-                            return !$subjectMappings->has(
-                                (int) $id
-                            );
-                        }
+                        fn ($id) =>
+                            !in_array(
+                                (int) $id,
+                                $existingSubjectIds,
+                                true
+                            )
                     )
                     ->values();
 
 
-                if ($invalidMappingIds->isNotEmpty()) {
+                if ($invalidSubjectIds->isNotEmpty()) {
 
                     throw new \Exception(
-                        'Invalid subject mapping IDs found in locked marks: '
-                        . $invalidMappingIds->implode(', ')
+                        'Invalid subject IDs found in locked marks: '
+                        . $invalidSubjectIds->implode(', ')
+                    );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | OPTIONAL:
+                | VERIFY SUBJECTS BELONG TO STANDARD
+                |--------------------------------------------------------------------------
+                |
+                | This makes the generation safer.
+                |
+                */
+
+                $validStandardSubjectIds = DB::table(
+                    'standard_wise_subjects'
+                )
+                    ->where(
+                        'standard_id',
+                        $standardId
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->whereIn(
+                        'subject_id',
+                        $subjectIds->toArray()
+                    )
+                    ->pluck('subject_id')
+                    ->map(
+                        fn ($id) => (int) $id
+                    )
+                    ->unique()
+                    ->values()
+                    ->toArray();
+
+
+                $invalidStandardSubjects = $subjectIds
+                    ->filter(
+                        fn ($id) =>
+                            !in_array(
+                                (int) $id,
+                                $validStandardSubjectIds,
+                                true
+                            )
+                    )
+                    ->values();
+
+
+                if ($invalidStandardSubjects->isNotEmpty()) {
+
+                    throw new \Exception(
+                        'The following subject IDs are not mapped to the selected Standard: '
+                        . $invalidStandardSubjects->implode(', ')
                     );
                 }
 
@@ -210,8 +324,8 @@ class ResultGenerationController extends Controller
                 | KEEP ONLY LATEST MARK PER STUDENT + SUBJECT
                 |--------------------------------------------------------------------------
                 |
-                | This prevents duplicate mark rows from producing duplicate
-                | result details.
+                | This prevents duplicate mark rows from creating duplicate
+                | subject result details.
                 |
                 */
 
@@ -236,8 +350,7 @@ class ResultGenerationController extends Controller
                 }
 
 
-                $uniqueMarks =
-                    $uniqueMarks->values();
+                $uniqueMarks = $uniqueMarks->values();
 
 
                 /*
@@ -269,9 +382,7 @@ class ResultGenerationController extends Controller
                     ->pluck('id');
 
 
-                if (
-                    $existingResultIds->isNotEmpty()
-                ) {
+                if ($existingResultIds->isNotEmpty()) {
 
                     DB::table(
                         'student_result_details'
@@ -330,7 +441,7 @@ class ResultGenerationController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Get marks for this student
+                    | MARKS FOR CURRENT STUDENT
                     |--------------------------------------------------------------------------
                     */
 
@@ -377,8 +488,7 @@ class ResultGenerationController extends Controller
                             );
 
 
-                        $totalMax +=
-                            $subjectMax;
+                        $totalMax += $subjectMax;
                     }
 
 
@@ -394,8 +504,7 @@ class ResultGenerationController extends Controller
                     foreach ($marks as $mark) {
 
                         if (
-                            (int) $mark->is_absent
-                            === 1
+                            (int) $mark->is_absent === 1
                         ) {
                             continue;
                         }
@@ -421,7 +530,7 @@ class ResultGenerationController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | PERCENTAGE
+                    | OVERALL PERCENTAGE
                     |--------------------------------------------------------------------------
                     */
 
@@ -450,14 +559,13 @@ class ResultGenerationController extends Controller
                     foreach ($marks as $mark) {
 
                         /*
-                        |--------------------------------------------------------------
+                        |--------------------------------------------------------------------------
                         | ABSENT = FAIL
-                        |--------------------------------------------------------------
+                        |--------------------------------------------------------------------------
                         */
 
                         if (
-                            (int) $mark->is_absent
-                            === 1
+                            (int) $mark->is_absent === 1
                         ) {
 
                             $failedSubjects++;
@@ -500,9 +608,7 @@ class ResultGenerationController extends Controller
                             );
 
 
-                        if (
-                            $obtained < $passing
-                        ) {
+                        if ($obtained < $passing) {
 
                             $failedSubjects++;
                         }
@@ -511,7 +617,7 @@ class ResultGenerationController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | RESULT
+                    | FINAL RESULT
                     |--------------------------------------------------------------------------
                     */
 
@@ -601,7 +707,7 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Subject Maximum
+                        | SUBJECT MAXIMUM
                         |--------------------------------------------------------------------------
                         */
 
@@ -624,7 +730,7 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Subject Passing
+                        | SUBJECT PASSING MARKS
                         |--------------------------------------------------------------------------
                         */
 
@@ -652,8 +758,7 @@ class ResultGenerationController extends Controller
                         */
 
                         if (
-                            (int) $mark->is_absent
-                            === 1
+                            (int) $mark->is_absent === 1
                         ) {
 
                             $obtained = 0;
@@ -668,7 +773,7 @@ class ResultGenerationController extends Controller
 
                             /*
                             |--------------------------------------------------------------------------
-                            | OBTAINED
+                            | OBTAINED MARKS
                             |--------------------------------------------------------------------------
                             */
 
@@ -691,7 +796,7 @@ class ResultGenerationController extends Controller
 
                             /*
                             |--------------------------------------------------------------------------
-                            | PASS / FAIL
+                            | SUBJECT RESULT
                             |--------------------------------------------------------------------------
                             */
 
@@ -703,7 +808,7 @@ class ResultGenerationController extends Controller
 
                             /*
                             |--------------------------------------------------------------------------
-                            | GRADE
+                            | SUBJECT GRADE
                             |--------------------------------------------------------------------------
                             */
 
@@ -718,11 +823,10 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | IMPORTANT:
+                        | IMPORTANT
                         |
-                        | Store student_marks.subject_id AS-IS.
-                        |
-                        | This is the standard_wise_subjects.id.
+                        | student_marks.subject_id is now the canonical
+                        | subjects.id.
                         |--------------------------------------------------------------------------
                         */
 
@@ -829,8 +933,7 @@ class ResultGenerationController extends Controller
                             $studentResult->total_obtained_marks
                     ) {
 
-                        $rank =
-                            $position;
+                        $rank = $position;
                     }
 
 
@@ -851,15 +954,14 @@ class ResultGenerationController extends Controller
                         $studentResult->percentage;
 
                     $previousObtained =
-                        $studentResult
-                            ->total_obtained_marks;
+                        $studentResult->total_obtained_marks;
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
                 | STEP 10
-                | FAILED STUDENTS NO RANK
+                | FAILED STUDENTS HAVE NO RANK
                 |--------------------------------------------------------------------------
                 */
 
@@ -904,11 +1006,9 @@ class ResultGenerationController extends Controller
                 'Results Generated Successfully.'
             );
 
-
         } catch (\Throwable $e) {
 
             report($e);
-
 
             return back()
                 ->withInput()
@@ -933,34 +1033,22 @@ class ResultGenerationController extends Controller
         $subjectResult = 'PASS'
     ) {
 
-        if (
-            $subjectResult === 'ABSENT'
-        ) {
-
+        if ($subjectResult === 'ABSENT') {
             return 'AB';
         }
 
 
-        if (
-            $subjectResult === 'LEFT'
-        ) {
-
+        if ($subjectResult === 'LEFT') {
             return 'LEFT';
         }
 
 
-        if (
-            $subjectResult === 'FAIL'
-        ) {
-
+        if ($subjectResult === 'FAIL') {
             return 'F';
         }
 
 
-        if (
-            $maxMarks <= 0
-        ) {
-
+        if ($maxMarks <= 0) {
             return '';
         }
 

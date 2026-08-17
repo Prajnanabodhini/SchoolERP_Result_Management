@@ -124,7 +124,7 @@
 
 
     .assignment-select {
-        width: 550px;
+        width: 350px;
     }
 
 
