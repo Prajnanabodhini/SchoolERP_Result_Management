@@ -1,0 +1,24 @@
+# SUPERSEDED: historical pre-reconciliation manifest retained for evidence. Use `phase-0-reconciled-sha256.txt` for the current package.
+# Generated 2026-08-17T22:21:12+05:30; SHA-256; excludes checksum manifests themselves.
+4d192b63fe8f204447aada59a52cf9e8cf6ca3380eb58cd4e328b885d5cdf32e  docs/phase-0-baseline/00-recent-commit-delta.md
+d9cb12920cabf85b402f758775fa70bc68ac6ed04beff436ff091985be0842ad  docs/phase-0-baseline/01-git-baseline.md
+b8eb4cf9db5df8658e43dc63508ba2cf3c82ed5434a6f6c76c15dcbc3b961e4b  docs/phase-0-baseline/02-runtime-baseline.md
+ff5fc6aafc3ed3ff9ac74eb85ea83c868559282d8632453449291938fa0ea02f  docs/phase-0-baseline/03-backup-manifest.md
+4e4dbd2b7a0c53f8ea86be6996a026c8f1bbdaed40bb0e28e5c29ff6e41320a9  docs/phase-0-baseline/04-current-data-source-map.md
+52c8bf1941944cc40c698cb56478d16b2df383026b3e33fc8e0f1afc38832657  docs/phase-0-baseline/05-current-happy-paths.md
+0e4218352e623663a7332c0ce0bf16fb93886af98cc06e03f6b1606ed4d39981  docs/phase-0-baseline/06-baseline-test-data.md
+2b3eee6fde584719c3ef35233067eb23bb5c86efbe652c7214d931be2d6c3c73  docs/phase-0-baseline/07-baseline-output-catalog.md
+9f81d5d224213224514286a102cf39b74781be5b86917555a3630738a2b3a1e8  docs/phase-0-baseline/08-known-current-issues.md
+ce66b228f5bd83ea1158c2c3b152c7ebb4b1ea5b6e0521632e8e824bf7298de6  docs/phase-0-baseline/09-phase-0-open-items.md
+246485e727ea301785f6c2fef35d877bdf64227a22e993d3c5356a4202a97a4c  docs/phase-0-baseline/authentication-path-contract.md
+77f1150348a967a01ba9288eb86926ddf1967ca21d19d24e84d069a97f5e7a27  docs/phase-0-baseline/current-local-to-mssql-mapping.md
+b1aa4332a63994a74e911ac807ab983ba6e7467558648b99e5f906925adc4fa1  docs/phase-0-baseline/evidence/counts/committed-dump-counts.md
+497ed892190d92ffa6fff7a3473b6beab0ace2003dcf33410dc93984a345799f  docs/phase-0-baseline/evidence/db-schema/committed-dump-schema-summary.md
+1404145417d3ba360070f3ffd27722433dffa4601f1ae5203e94be19cbc12404  docs/phase-0-baseline/evidence/reports/README.md
+e6ed32242465ae277cddb09a3bdd3cdd5e760647bcad3eaa680a3c9f787933a4  docs/phase-0-baseline/evidence/route-list/route-list.tsv
+b73e5e27632526b0e4926c382a4fb9aeba7c110904d35ad83df9a15c30910552  docs/phase-0-baseline/evidence/screenshots/DEPLOY-UNKNOWN-localhost-login-404.png
+496ea0f9cbd11fa91673dc7fd447653cf97888c30f1eb000ea887589e6aa6c02  docs/phase-0-baseline/evidence/screenshots/README.md
+e4252ee501e825261fa39f6cdedbd700953204f78c1d1354fca5e02d578acc78  docs/phase-0-baseline/route-exposure-matrix.md
+052085503002d6c9040bf64ff386d3099221f05ea193b0d033315a76679c4864  docs/phase-0-baseline/subject-id-contract-matrix.md
+bdfc391a59fff8e1aff810224a3acc6ec908588243b86eaccfc170e22e53ee68  Prompts/Phase_0_Prompt/PHASE_0_PROGRESS_LOG.md
+e1bf5bea3ed3dce930769d32105c89cc2dcaae646780673b2fea5d835178dace  Prompts/Phase_0_Prompt/PHASE_0_ACCEPTANCE_CHECKLIST.md

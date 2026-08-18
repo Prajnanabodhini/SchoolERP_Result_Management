@@ -1,0 +1,10 @@
+# Generated 2026-08-18T11:07:22+05:30 after CURRENT_MAIN_REASSESSMENT.md execution. SHA-256; this manifest excludes itself and preserves earlier milestone manifests unchanged.
+16627b30ab7415dc38ced773b991174c21a9e868242a1051762126ff6a04ae8b  docs/phase-0-baseline/00-recent-commit-delta.md
+6ba226140ae34d8f825093e08ee2a6c9bed4196edfb648995e8b6c7380cfb241  docs/phase-0-baseline/subject-id-contract-matrix.md
+2ba53ff37c4aa182fc93d6da81e14b931b8f5ab4256b68440bf8f0e2e5378ecc  docs/phase-0-baseline/route-exposure-matrix.md
+610676cfc82719ec87f1c34580d07c6ae3d0281e6c30ca156af5dcf778f777c7  docs/phase-0-baseline/authentication-path-contract.md
+d89533785bfa89f6c2b21d719a1421f982466a7eed711c02630ea706c7424058  docs/phase-0-baseline/current-local-to-mssql-mapping.md
+9be3d0564a35e29be8d02a04148ca2f5e376b419a6bb0801e10564e0da3789fc  docs/phase-0-baseline/evidence/counts/mariadb-live-verification.md
+9f870d48ecc42d59f485218f4fa2721ae3991fec0017b53c2eada988c672b07c  docs/phase-0-baseline/evidence/route-list/route-list.tsv
+2865785654f96030e7a420b275d849ffa2f27d74f04158c2a7d2a4ec22c0769a  Prompts/Phase_0_Prompt/PHASE_0_PROGRESS_LOG.md
+0d6f3c563db8e032b313603773d8561aaee80bc3c73d73480a334fd23e20a230  Prompts/Phase_0_Prompt/PHASE_0_ACCEPTANCE_CHECKLIST.md

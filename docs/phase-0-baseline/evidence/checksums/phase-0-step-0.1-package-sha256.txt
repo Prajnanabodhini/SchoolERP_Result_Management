@@ -1,0 +1,27 @@
+# Generated 2026-08-18T10:55:09+05:30 after the new Phase 0 Step 0.1 freeze. SHA-256; excludes checksum manifests.
+3f9e7c7227d31cbec7b2078441476a14ff8039d73554051820a55ec3ad206115  docs/phase-0-baseline/00-recent-commit-delta.md
+682b809095d181b5304637933080186507d41ae90a05dc6077244a2daf936340  docs/phase-0-baseline/01-git-baseline.md
+6be8ab123417a84ad98a9c8c59da5e0464ed6f59a0ddff7f4b50804373b0fb76  docs/phase-0-baseline/02-runtime-baseline.md
+335024d4b43c0323e92743b225fc1f2717dbf91f1f5639fb3a481c4fb2f95565  docs/phase-0-baseline/03-backup-manifest.md
+86954d4ce2318a964e87b02b3b933bc4b0b8a8688b460c1510304d4ee2b61767  docs/phase-0-baseline/04-current-data-source-map.md
+91d7ff1c11e06add2baf23685adb2f3fd478cc24b49d61d5a28a2c92bee37f47  docs/phase-0-baseline/05-current-happy-paths.md
+929f03509501b5337bfe597e2252cf70c55f4f1aa452aa127a6ea44cee3f4d25  docs/phase-0-baseline/06-baseline-test-data.md
+1f6551761f4b421cd4c309d050865b8bf5f0bced2137b66480784082d0028be0  docs/phase-0-baseline/07-baseline-output-catalog.md
+f2518190bcc8c332df71e8b30a4efb134e7e69cfdc57ad8a4cd1c896e58ac503  docs/phase-0-baseline/08-known-current-issues.md
+64a4ed7ff4065e8f5e8223c92f222720dd7b7b3dc9b7b90b10e0b9a2ea236764  docs/phase-0-baseline/09-phase-0-open-items.md
+5f331ade3cc7e7641de4d067c1a1fd6076a226bab56d7b2591e13deea3da0cfd  docs/phase-0-baseline/authentication-path-contract.md
+65845beb07b940b864b20c8972368495eaeb47cf6a6da729677831e9fcff1e8c  docs/phase-0-baseline/current-local-to-mssql-mapping.md
+8f9715edec58aa492f84dec0e7ac39845a36724303055f2fbebc3baa24416e8d  docs/phase-0-baseline/evidence/counts/committed-dump-counts.md
+a13aba84b155ac13b6c076634d2b62428e9fce606366675ec85d8ec65751b042  docs/phase-0-baseline/evidence/counts/mariadb-live-verification.md
+3c6a05d37a6233bd1a2b4e4232d56c7f6fd5b16ba72548393612a3597afc7d61  docs/phase-0-baseline/evidence/counts/mssql-read-verification.md
+51e2ab4a5dbe5f3a30423d373d68d77d6afcb9edf11b2525966178c59d6301ac  docs/phase-0-baseline/evidence/db-schema/committed-dump-schema-summary.md
+c1167f4ace3847e26951c123b91bb93d5f6709f80bec31be38ccbd13decc538b  docs/phase-0-baseline/evidence/prior-run-artifact-reconciliation.md
+543b85b6503c16718cad66a9f2e3ad648a943dd64967d29d86e3a72796f43e9d  docs/phase-0-baseline/evidence/reports/README.md
+e6ed32242465ae277cddb09a3bdd3cdd5e760647bcad3eaa680a3c9f787933a4  docs/phase-0-baseline/evidence/route-list/route-list.tsv
+606fd315a09ffd9070ba49efe34f8c9181756451b810648f3e5fb5fba0ea9b4e  docs/phase-0-baseline/evidence/runtime/local-environment-verification.md
+b73e5e27632526b0e4926c382a4fb9aeba7c110904d35ad83df9a15c30910552  docs/phase-0-baseline/evidence/screenshots/DEPLOY-UNKNOWN-localhost-login-404.png
+76ad6c245ea6731bca795a87a46854289a29461c450e634a385cd2cb20830e10  docs/phase-0-baseline/evidence/screenshots/README.md
+e4252ee501e825261fa39f6cdedbd700953204f78c1d1354fca5e02d578acc78  docs/phase-0-baseline/route-exposure-matrix.md
+51fea67503871a843fbab3803fd730db5e714c5e72860d838208ab84ab9a596f  docs/phase-0-baseline/subject-id-contract-matrix.md
+8dd71d4895b6f54d902b19a97a9ec1bc021611a56f9e1721a28559c87f59133e  Prompts/Phase_0_Prompt/PHASE_0_PROGRESS_LOG.md
+6a221fc5f8d2c3367df5e7396e563725e5d85608601a97e492519f95d97db6a6  Prompts/Phase_0_Prompt/PHASE_0_ACCEPTANCE_CHECKLIST.md

@@ -1,0 +1,11 @@
+{
+  "pack_version": "3.0-local-vscode",
+  "date": "2026-08-17",
+  "remote_deployed_system_accessible": false,
+  "local_ui_execution": "VS Code php artisan serve + npm run dev",
+  "correct_local_sql_baseline": "db/school_management.sql",
+  "historical_sql_snapshot": "db/school_management_before_final_subject_cleanup.sql",
+  "composer_setup_allowed": false,
+  "migration_reconstruction_allowed": false,
+  "observed_main_sha": "1780866c61c0b7cb0e7a9652735ccdc312d671ad"
+}

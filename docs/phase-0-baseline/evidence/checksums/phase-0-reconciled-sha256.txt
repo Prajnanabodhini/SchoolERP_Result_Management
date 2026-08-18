@@ -1,0 +1,27 @@
+# SUPERSEDED: reconciliation-time manifest retained for evidence. Use `phase-0-preflight-ready-sha256.txt` after live-stack preflight.
+# Generated 2026-08-18T10:03:55+05:30 after prompt-pack 3.0-local-vscode reconciliation. SHA-256; excludes checksum manifests.
+1113cf1447db9722f56a1a0bdee7d75386297f49265a6ea7dff44ab195ea6cdc  docs/phase-0-baseline/00-recent-commit-delta.md
+c730720e617a2c78871f30705ddac4c96cd934cc9ab239687440a454ec06373b  docs/phase-0-baseline/01-git-baseline.md
+66e952e9b7e891617bb4a4a02ca05ec3edc5692d9081e86b43ddbe1f817e8c12  docs/phase-0-baseline/02-runtime-baseline.md
+c090b8a2781878580ccec520cb64bbcd8660df18fd805f3303ca205d5d13e066  docs/phase-0-baseline/03-backup-manifest.md
+5ccecbc82582d6ef28c764e8c497cac60e36a94879ada3cf21447ffae6a5a2d6  docs/phase-0-baseline/04-current-data-source-map.md
+f34e2b018c2e0eb81c949c4df4c7743dedf5677456aace7da87c16fba63dbf22  docs/phase-0-baseline/05-current-happy-paths.md
+f34b82cfaee2a25158511dd63c35d4be0ee97a2c08363413b77373eba101aabf  docs/phase-0-baseline/06-baseline-test-data.md
+a60df5657b5292c1fedbaee8f8d51c1ddf083b7635b1f6c9af933092d752674a  docs/phase-0-baseline/07-baseline-output-catalog.md
+c75716ef82e1fadba6b8f2ec746f165309097449344aa3c150f287d676ba0c13  docs/phase-0-baseline/08-known-current-issues.md
+693c2c3299159f489ff24c0e7924f77ca4041ac515ff52df51f185f877cd115f  docs/phase-0-baseline/09-phase-0-open-items.md
+7536d3ee6793a02e8e02f97124e460fae6f4207c4c99669494fbaecb52b6dfd3  docs/phase-0-baseline/authentication-path-contract.md
+65845beb07b940b864b20c8972368495eaeb47cf6a6da729677831e9fcff1e8c  docs/phase-0-baseline/current-local-to-mssql-mapping.md
+42781a047c2ed44f486d46f484390dd8611534f12d67f7ee4186100e1ac4f0dd  docs/phase-0-baseline/evidence/counts/committed-dump-counts.md
+3c6a05d37a6233bd1a2b4e4232d56c7f6fd5b16ba72548393612a3597afc7d61  docs/phase-0-baseline/evidence/counts/mssql-read-verification.md
+51e2ab4a5dbe5f3a30423d373d68d77d6afcb9edf11b2525966178c59d6301ac  docs/phase-0-baseline/evidence/db-schema/committed-dump-schema-summary.md
+ac8be067299147f8b7b4ae54ee0159bfa71c8cfae62123cb21b7d9bd2ec2dc29  docs/phase-0-baseline/evidence/prior-run-artifact-reconciliation.md
+543b85b6503c16718cad66a9f2e3ad648a943dd64967d29d86e3a72796f43e9d  docs/phase-0-baseline/evidence/reports/README.md
+e6ed32242465ae277cddb09a3bdd3cdd5e760647bcad3eaa680a3c9f787933a4  docs/phase-0-baseline/evidence/route-list/route-list.tsv
+fc2b7f3bb5cd112c187765c6f89491179e2d9c5b5320b812196ec96219b78028  docs/phase-0-baseline/evidence/runtime/local-environment-verification.md
+b73e5e27632526b0e4926c382a4fb9aeba7c110904d35ad83df9a15c30910552  docs/phase-0-baseline/evidence/screenshots/DEPLOY-UNKNOWN-localhost-login-404.png
+76ad6c245ea6731bca795a87a46854289a29461c450e634a385cd2cb20830e10  docs/phase-0-baseline/evidence/screenshots/README.md
+e4252ee501e825261fa39f6cdedbd700953204f78c1d1354fca5e02d578acc78  docs/phase-0-baseline/route-exposure-matrix.md
+51fea67503871a843fbab3803fd730db5e714c5e72860d838208ab84ab9a596f  docs/phase-0-baseline/subject-id-contract-matrix.md
+70c47f1dead04efb8c10b1be77a221abc198e7e5fd0859f0cb748b0f6b7ee5ad  Prompts/Phase_0_Prompt/PHASE_0_PROGRESS_LOG.md
+0653cbd4ab88307fe59e82b5934199d19ef28887441dbaa26f33ad9c3d10c19d  Prompts/Phase_0_Prompt/PHASE_0_ACCEPTANCE_CHECKLIST.md

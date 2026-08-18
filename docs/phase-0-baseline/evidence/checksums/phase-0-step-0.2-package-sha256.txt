@@ -1,0 +1,5 @@
+# Generated 2026-08-18T11:20:16+05:30 after Step 0.2 reached its MSSQL backup-process stop condition. SHA-256; excludes this manifest and protected off-repository backup artifacts, whose hashes are recorded in 03-backup-manifest.md.
+a4bd26e6f23cba31da6b3b2bcc992690b2fc9333fd778127f61de1e9ba50e0f0  docs/phase-0-baseline/03-backup-manifest.md
+85fe646140f8788f0efb4b09ffe14228e15ba1e4006534dfb95f675e5b5ecb3a  docs/phase-0-baseline/09-phase-0-open-items.md
+e8ff7f3110b56cdf754e17223c2bcf4e3209a7b93ccd50bda77d585af4655f8a  Prompts/Phase_0_Prompt/PHASE_0_PROGRESS_LOG.md
+5cbcd1676789ec4ff97c2f5385ef1b97f71269607ca172348bee46684108c280  Prompts/Phase_0_Prompt/PHASE_0_ACCEPTANCE_CHECKLIST.md

@@ -1,0 +1,7 @@
+# Generated 2026-08-18T11:27:18+05:30 after the explicitly requested Step 0.1 re-execution. SHA-256; excludes this manifest. Earlier milestone manifests are retained as historical snapshots.
+16627b30ab7415dc38ced773b991174c21a9e868242a1051762126ff6a04ae8b  docs/phase-0-baseline/00-recent-commit-delta.md
+aa03ac041d992b238517cd58cda77532b5414f42b3855dd23cceb0d1ae2776e0  docs/phase-0-baseline/01-git-baseline.md
+fc8d1a8e8d9ca611aed2d8b27a72a25959de12de831eaca73761b2ffb7f3952e  docs/phase-0-baseline/02-runtime-baseline.md
+140da844a55b995410af6a0cddad2b3285e529553dd9d91362027b8f3548642a  docs/phase-0-baseline/evidence/checksums/step-0.1-sha256.txt
+1418a063557756fc2728f4a9a562e9f26b7acd3888a2befdc8a2f4523cb4bd13  Prompts/Phase_0_Prompt/PHASE_0_PROGRESS_LOG.md
+5cbcd1676789ec4ff97c2f5385ef1b97f71269607ca172348bee46684108c280  Prompts/Phase_0_Prompt/PHASE_0_ACCEPTANCE_CHECKLIST.md
