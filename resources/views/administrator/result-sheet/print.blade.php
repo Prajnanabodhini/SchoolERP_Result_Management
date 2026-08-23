@@ -9,513 +9,1074 @@
         Examination Result Sheet
     </title>
 
+
     <style>
+
+        /*
+        |--------------------------------------------------------------------------
+        | PAGE
+        |--------------------------------------------------------------------------
+        */
 
         @page {
             size: A4 landscape;
-            margin: 5mm;
+
+            /*
+            | Approximately 2 cm top and left space.
+            */
+            margin-top: 20mm;
+            margin-left: 20mm;
+
+            /*
+            | Right and bottom remain smaller.
+            */
+            margin-right: 7mm;
+            margin-bottom: 7mm;
         }
+
 
         * {
             box-sizing: border-box;
         }
 
+
         html,
         body {
             width: 100%;
+
             margin: 0;
+
             padding: 0;
         }
 
+
         body {
-            font-family: Arial, Helvetica, sans-serif;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
             font-size: 10px;
+
             color: #111827;
-            background: #ffffff;
+
+            background:
+                #ffffff;
         }
 
 
-        /* =========================================================
-           PRINT
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | PRINT
+        |--------------------------------------------------------------------------
+        */
 
         @media print {
 
-    html,
-    body {
-        width: 100%;
-        margin: 0;
-        padding: 0;
-    }
+            html,
+            body {
 
-    .no-print {
-        display: none !important;
-    }
+                width: 100%;
 
-    .print-page {
-        width: 100%;
-    }
+                margin: 0;
 
-    /*
-    |--------------------------------------------------------------------------
-    | HIDE LINK URLS WHEN PRINTING
-    |--------------------------------------------------------------------------
-    */
+                padding: 0;
+            }
 
-    a[href]::after {
-        content: none !important;
-        display: none !important;
-    }
 
-    a {
-        text-decoration: none !important;
-        color: inherit !important;
-    }
+            .no-print {
 
-    thead {
-        display: table-header-group;
-    }
+                display:
+                    none !important;
+            }
 
-    tfoot {
-        display: table-footer-group;
-    }
 
-    tr {
-        page-break-inside: avoid !important;
-    }
+            .print-page {
 
-    .analysis-block {
-        page-break-inside: avoid;
-    }
+                width:
+                    100%;
+            }
 
-    .subject-wise-analysis-wrapper {
-        page-break-inside: avoid;
-    }
-}
 
-        /* =========================================================
-           PRINT CONTROLS
-        ========================================================== */
+            a[href]::after {
+
+                content:
+                    none !important;
+
+                display:
+                    none !important;
+            }
+
+
+            a {
+
+                text-decoration:
+                    none !important;
+
+                color:
+                    inherit !important;
+            }
+
+
+            thead {
+
+                display:
+                    table-header-group;
+            }
+
+
+            tfoot {
+
+                display:
+                    table-footer-group;
+            }
+
+
+            tr {
+
+                page-break-inside:
+                    avoid !important;
+            }
+
+
+            .analysis-block {
+
+                page-break-inside:
+                    avoid;
+            }
+
+
+            .signature-area {
+
+                page-break-inside:
+                    avoid;
+
+                break-inside:
+                    avoid;
+            }
+
+
+            .subject-wise-analysis-wrapper {
+
+                page-break-inside:
+                    avoid;
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRINT CONTROLS
+        |--------------------------------------------------------------------------
+        */
 
         .print-controls {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 99999;
 
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            position:
+                fixed;
+
+            top:
+                10px;
+
+            right:
+                10px;
+
+            z-index:
+                99999;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                8px;
         }
 
 
         .print-button,
         .excel-button,
         .close-button {
-            border: 1px solid #374151;
-            color: #ffffff;
-            border-radius: 4px;
-            padding: 7px 15px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            white-space: nowrap;
+
+            border:
+                1px solid #374151;
+
+            color:
+                #ffffff;
+
+            border-radius:
+                4px;
+
+            padding:
+                7px 15px;
+
+            font-size:
+                13px;
+
+            font-weight:
+                700;
+
+            cursor:
+                pointer;
+
+            text-decoration:
+                none;
+
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            white-space:
+                nowrap;
         }
 
 
         .print-button {
-            background: #1d4ed8;
-        }
 
-
-        .print-button:hover {
-            background: #1e40af;
+            background:
+                #1d4ed8;
         }
 
 
         .excel-button {
-            background: #15803d;
-        }
 
-
-        .excel-button:hover {
-            background: #166534;
+            background:
+                #15803d;
         }
 
 
         .close-button {
-            background: #6b7280;
+
+            background:
+                #6b7280;
         }
 
 
-        .close-button:hover {
-            background: #4b5563;
+        /*
+        |--------------------------------------------------------------------------
+        | PRINT PAGE
+        |--------------------------------------------------------------------------
+        */
+
+        .print-page {
+
+            width:
+                100%;
+
+            padding:
+                0;
+
+            margin:
+                0;
         }
 
 
-        /* =========================================================
-           SCHOOL HEADER
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | SCHOOL HEADER
+        |--------------------------------------------------------------------------
+        */
 
         .school-header {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-            margin-bottom: 3px;
+
+            width:
+                100%;
+
+            border-collapse:
+                collapse;
+
+            table-layout:
+                auto;
+
+            margin-bottom:
+                4px;
         }
+
 
         .school-header td {
-            border: none !important;
-            padding: 1px 3px;
-            vertical-align: middle;
+
+            border:
+                none !important;
+
+            padding:
+                1px 3px;
+
+            vertical-align:
+                middle;
         }
+
 
         .school-logo-cell {
-            width: 75px;
-            text-align: center !important;
+
+            width:
+                60px;
+
+            text-align:
+                center !important;
         }
+
 
         .school-logo {
-            width: 55px;
-            height: 55px;
-            object-fit: contain;
+
+            width:
+                50px;
+
+            height:
+                50px;
+
+            object-fit:
+                contain;
         }
+
 
         .school-title-cell {
-            text-align: center !important;
+
+            text-align:
+                center !important;
         }
+
 
         .school-name {
-            font-size: 18px;
-            line-height: 21px;
-            font-weight: 700;
-            text-align: center;
+
+            font-size:
+                17px;
+
+            line-height:
+                20px;
+
+            font-weight:
+                700;
+
+            text-align:
+                center;
         }
+
 
         .school-location {
-            font-size: 11px;
-            line-height: 14px;
-            font-weight: 700;
-            text-align: center;
+
+            font-size:
+                11px;
+
+            line-height:
+                14px;
+
+            font-weight:
+                700;
+
+            text-align:
+                center;
         }
+
 
         .school-year {
-            font-size: 12px;
-            line-height: 14px;
-            font-weight: 600;
-            text-align: center;
+
+            font-size:
+                11px;
+
+            line-height:
+                14px;
+
+            font-weight:
+                700;
+
+            text-align:
+                center;
         }
 
 
-        /* =========================================================
-           EXAM INFORMATION
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | EXAM INFORMATION
+        |--------------------------------------------------------------------------
+        */
 
         .exam-info {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-            margin-bottom: 5px;
+
+            width:
+                100%;
+
+            border-collapse:
+                collapse;
+
+            table-layout:
+                auto;
+
+            margin-bottom:
+                5px;
         }
+
 
         .exam-info td {
-            border: none !important;
-            font-size: 10.5px;
-            padding: 2px 4px;
-            text-align: left;
-            vertical-align: middle;
+
+            border:
+                none !important;
+
+            font-size:
+                10px;
+
+            padding:
+                2px 4px;
+
+            text-align:
+                left;
+
+            vertical-align:
+                middle;
+
+            font-weight:
+                600;
         }
 
 
-        /* =========================================================
-           MAIN RESULT TABLE
-        ========================================================== */
+        .exam-info strong {
+
+            font-weight:
+                700;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MAIN RESULT TABLE
+        |--------------------------------------------------------------------------
+        |
+        | No fixed column widths.
+        | Browser automatically adjusts all columns.
+        |--------------------------------------------------------------------------
+        */
 
         .result-sheet-wrapper {
-            width: 100%;
-            overflow: visible;
+
+            width:
+                100%;
+
+            overflow:
+                visible;
         }
+
 
         .result-sheet-table {
-            width: 100%;
-            max-width: 100%;
-            border-collapse: collapse;
-            border-spacing: 0;
-            table-layout: fixed;
 
-            border: 1px solid #333;
+            width:
+                100%;
 
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 9.5px;
+            max-width:
+                100%;
+
+            border-collapse:
+                collapse;
+
+            border-spacing:
+                0;
+
+            table-layout:
+                auto;
+
+            border:
+                1px solid #333;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
+            font-size:
+                9.5px;
         }
+
 
         .result-sheet-table th,
         .result-sheet-table td {
-            border: 1px solid #333 !important;
-            border-style: solid !important;
-            border-width: 1px !important;
 
-            color: #111827 !important;
+            border:
+                1px solid #333 !important;
 
-            text-align: center;
-            vertical-align: middle;
+            border-style:
+                solid !important;
+
+            border-width:
+                1px !important;
+
+            text-align:
+                center;
+
+            vertical-align:
+                middle;
+
+            padding:
+                3px 3px;
+
+            color:
+                #111827 !important;
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MAIN HEADER
+        |--------------------------------------------------------------------------
+        */
 
         .result-sheet-table th {
-            background: #dbeafe;
-            font-size: 9px;
-            font-weight: 700;
 
-            padding: 3px 1px;
+            background:
+                #dbeafe;
 
-            line-height: 1.05;
+            font-size:
+                9px;
 
-            white-space: normal;
-            overflow-wrap: break-word;
-            word-break: normal;
+            font-weight:
+                700 !important;
+
+            line-height:
+                1.05;
+
+            white-space:
+                normal;
+
+            overflow-wrap:
+                normal;
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BODY
+        |--------------------------------------------------------------------------
+        */
 
         .result-sheet-table td {
-            font-size: 9px;
-            font-weight: 500;
 
-            padding: 3px 1px;
+            font-size:
+                8.8px;
 
-            line-height: 1.05;
+            font-weight:
+                500;
 
-            white-space: nowrap;
+            line-height:
+                1.05;
+
+            white-space:
+                nowrap;
         }
 
 
-        /* =========================================================
-           SUBJECT HEADER
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | ROLL NUMBER
+        |--------------------------------------------------------------------------
+        */
 
-        .subject-code {
-            display: block;
-            font-size: 8.5px;
-            font-weight: 700;
-            line-height: 9px;
-        }
+        .result-sheet-table td:first-child {
 
-        .subject-name {
-            display: block;
-            font-size: 7.5px;
-            font-weight: 600;
-            line-height: 8px;
-        }
+            white-space:
+                nowrap;
 
-        .subject-max {
-            display: block;
-            font-size: 6.8px;
-            font-weight: 400;
-            line-height: 7.2px;
+            font-weight:
+                700;
         }
 
 
-        /* =========================================================
-           STUDENT NAME
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | STUDENT NAME
+        |--------------------------------------------------------------------------
+        */
 
         .student-name-cell {
-            text-align: left !important;
-            white-space: nowrap !important;
-            overflow: hidden;
-            text-overflow: ellipsis;
+
+            text-align:
+                left !important;
+
+            white-space:
+                nowrap !important;
+
+            font-weight:
+                700 !important;
+
+            overflow:
+                visible !important;
+
+            text-overflow:
+                clip !important;
+
+            color:
+                #111827 !important;
         }
 
 
-        /* =========================================================
-           RESULT VALUES
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT HEADER
+        |--------------------------------------------------------------------------
+        */
+
+        .subject-name {
+
+            display:
+                block;
+
+            font-size:
+                8.5px;
+
+            font-weight:
+                700 !important;
+
+            line-height:
+                9px;
+
+            white-space:
+                nowrap;
+        }
+
+
+        .subject-max {
+
+            display:
+                block;
+
+            font-size:
+                6.8px;
+
+            font-weight:
+                700 !important;
+
+            line-height:
+                7.5px;
+
+            white-space:
+                nowrap;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STATUS
+        |--------------------------------------------------------------------------
+        */
 
         .absent-mark {
-            color: #991b1b !important;
-            font-weight: 700;
+
+            color:
+                #991b1b !important;
+
+            font-weight:
+                700 !important;
         }
+
 
         .fail-result {
-            color: #991b1b !important;
-            font-weight: 700;
+
+            color:
+                #991b1b !important;
+
+            font-weight:
+                700 !important;
         }
+
 
         .pass-result {
-            color: #166534 !important;
-            font-weight: 700;
+
+            color:
+                #166534 !important;
+
+            font-weight:
+                700 !important;
         }
 
 
-        /* =========================================================
-           ANALYSIS
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | ANALYSIS
+        |--------------------------------------------------------------------------
+        */
 
         .analysis-block {
-            margin-top: 10px;
+
+            margin-top:
+                9px;
         }
+
 
         .analysis-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: #1d4ed8;
-            margin: 9px 0 4px 0;
+
+            font-size:
+                12px;
+
+            font-weight:
+                700 !important;
+
+            color:
+                #1d4ed8;
+
+            margin:
+                7px 0 4px 0;
         }
+
 
         .analysis-table-wrapper {
-            width: 100%;
-            overflow: visible;
+
+            width:
+                100%;
+
+            overflow:
+                visible;
         }
+
 
         .analysis-table {
-            width: 100%;
-            max-width: 100%;
-            border-collapse: collapse;
-            border-spacing: 0;
 
-            border: 1px solid #333;
+            width:
+                100%;
 
-            font-size: 8.5px;
+            max-width:
+                100%;
+
+            border-collapse:
+                collapse;
+
+            border-spacing:
+                0;
+
+            table-layout:
+                auto;
+
+            border:
+                1px solid #333;
+
+            font-size:
+                8px;
         }
+
 
         .analysis-table th,
         .analysis-table td {
-            border: 1px solid #333 !important;
-            border-style: solid !important;
-            border-width: 1px !important;
 
-            text-align: center;
-            vertical-align: middle;
+            border:
+                1px solid #333 !important;
 
-            padding: 3px 2px;
+            padding:
+                3px 3px;
 
-            color: #111827 !important;
+            text-align:
+                center;
+
+            vertical-align:
+                middle;
+
+            color:
+                #111827 !important;
+
+            white-space:
+                nowrap;
         }
+
 
         .analysis-table th {
-            background: #dbeafe;
-            font-weight: 700;
+
+            background:
+                #dbeafe;
+
+            font-weight:
+                700 !important;
         }
+
 
         .analysis-table td:first-child {
-            text-align: left !important;
-            font-weight: 600;
+
+            text-align:
+                left !important;
+
+            font-weight:
+                700 !important;
         }
 
 
-        /* =========================================================
-           TOTAL ROW
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | ANALYSIS TOTAL
+        |--------------------------------------------------------------------------
+        */
 
         .analysis-total-row {
-            font-weight: 700 !important;
-            background: #e5e7eb !important;
+
+            font-weight:
+                700 !important;
+
+            background:
+                #e5e7eb !important;
         }
+
 
         .analysis-total-row td {
-            font-weight: 700 !important;
-            background: #e5e7eb !important;
+
+            font-weight:
+                700 !important;
+
+            background:
+                #e5e7eb !important;
         }
 
 
-        /* =========================================================
-           SUBJECT WISE ANALYSIS
-        ========================================================== */
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT WISE ANALYSIS
+        |--------------------------------------------------------------------------
+        |
+        | Automatic sizing.
+        | Subject name does not wrap.
+        |--------------------------------------------------------------------------
+        */
 
         .subject-wise-analysis-wrapper {
-            width: 100%;
-            overflow: visible;
+
+            width:
+                100%;
+
+            overflow:
+                visible;
         }
+
 
         .subject-wise-analysis-table {
-            width: 100%;
-            max-width: 100%;
-            border-collapse: collapse;
-            border-spacing: 0;
-            table-layout: fixed;
 
-            border: 1px solid #333;
+            width:
+                100%;
 
-            font-size: 8.5px;
+            max-width:
+                100%;
+
+            border-collapse:
+                collapse;
+
+            border-spacing:
+                0;
+
+            table-layout:
+                auto;
+
+            border:
+                1px solid #333;
+
+            font-size:
+                8px;
         }
+
 
         .subject-wise-analysis-table th,
         .subject-wise-analysis-table td {
-            border: 1px solid #333 !important;
-            border-style: solid !important;
-            border-width: 1px !important;
 
-            padding: 3px 2px;
+            border:
+                1px solid #333 !important;
 
-            text-align: center;
-            vertical-align: middle;
+            padding:
+                3px 2px;
 
-            color: #111827 !important;
+            text-align:
+                center;
+
+            vertical-align:
+                middle;
+
+            color:
+                #111827 !important;
+
+            white-space:
+                nowrap;
         }
+
 
         .subject-wise-analysis-table th {
-            background: #dbeafe;
-            font-weight: 700;
-            white-space: nowrap;
-        }
 
-        .subject-wise-analysis-table .subject-analysis-name {
-            width: 155px;
-            min-width: 155px;
-            max-width: 155px;
+            background:
+                #dbeafe;
 
-            text-align: left !important;
-            font-weight: 700;
-
-            white-space: normal !important;
-            word-break: normal;
-            overflow-wrap: break-word;
-        }
-
-        .subject-wise-analysis-table .analysis-number-column {
-            width: 33px;
-            min-width: 33px;
-            max-width: 33px;
-        }
-
-        .subject-wise-analysis-table .analysis-total-column {
-            width: 40px;
-            min-width: 40px;
-            max-width: 40px;
-
-            font-weight: 700;
+            font-weight:
+                700 !important;
         }
 
 
-        /* =========================================================
-           SIGNATURES
-        ========================================================== */
+        .subject-wise-analysis-table
+        .subject-analysis-name {
+
+            width:
+                auto;
+
+            min-width:
+                max-content;
+
+            text-align:
+                left !important;
+
+            font-weight:
+                700 !important;
+
+            white-space:
+                nowrap !important;
+
+            overflow:
+                visible !important;
+
+            text-overflow:
+                clip !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SIGNATURES
+        |--------------------------------------------------------------------------
+        */
 
         .signature-area {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            margin-top: 18px;
+
+            width:
+                100%;
+
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                flex-end;
+
+            margin-top:
+                15px;
+
+            page-break-inside:
+                avoid;
+
+            break-inside:
+                avoid;
         }
+
 
         .signature-box {
-            width: 180px;
-            text-align: center;
-            font-size: 10px;
-            font-weight: 600;
+
+            width:
+                220px;
+
+            text-align:
+                center;
+
+            font-size:
+                10px;
+
+            font-weight:
+                700;
+
+            page-break-inside:
+                avoid;
         }
 
 
-        /* =========================================================
-           SCREEN
-        ========================================================== */
+        .signature-line {
+
+            display:
+                block;
+
+            border-bottom:
+                1px solid #111827;
+
+            width:
+                100%;
+
+            height:
+                20px;
+
+            margin-bottom:
+                4px;
+        }
+
+
+        .signature-name {
+
+            display:
+                block;
+
+            font-size:
+                10px;
+
+            font-weight:
+                700;
+
+            line-height:
+                12px;
+
+            text-transform:
+                uppercase;
+        }
+
+
+        .signature-designation {
+
+            display:
+                block;
+
+            margin-top:
+                2px;
+
+            font-size:
+                9px;
+
+            font-weight:
+                700;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SCREEN
+        |--------------------------------------------------------------------------
+        */
 
         @media screen {
 
             .print-page {
-                padding: 10px;
+
+                padding:
+                    10px;
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SCREEN RESPONSIVE
+        |--------------------------------------------------------------------------
+        */
+
+        @media screen and (max-width: 900px) {
+
+            .result-sheet-table {
+
+                font-size:
+                    8px;
+            }
+
+
+            .result-sheet-table th {
+
+                font-size:
+                    8px;
+            }
+
+
+            .result-sheet-table td {
+
+                font-size:
+                    7.5px;
             }
 
         }
@@ -531,7 +1092,7 @@
 
 
     {{-- =========================================================
-         PRINT / EXCEL / CLOSE BUTTONS
+         PRINT CONTROLS
     ========================================================== --}}
 
     <div class="print-controls no-print">
@@ -547,9 +1108,14 @@
 
         <a
             href="{{ route('result-sheet.export-excel', [
-                'academic_year_id' => request('academic_year_id'),
-                'exam_master_id' => request('exam_master_id'),
-                'division_id' => request('division_id'),
+                'academic_year_id' =>
+                    request('academic_year_id'),
+
+                'exam_master_id' =>
+                    request('exam_master_id'),
+
+                'division_id' =>
+                    request('division_id'),
             ]) }}"
             class="excel-button"
         >
@@ -566,6 +1132,70 @@
         </button>
 
     </div>
+
+
+    {{-- =========================================================
+         STAFF NAME PREPARATION
+    ========================================================== --}}
+
+    @php
+
+        /*
+        |--------------------------------------------------------------------------
+        | FORMAT STAFF NAME
+        |--------------------------------------------------------------------------
+        |
+        | Example:
+        |
+        | ratnamala.kapase
+        |
+        | becomes:
+        |
+        | RATNAMALA KAPASE
+        |--------------------------------------------------------------------------
+        */
+
+        $formatStaffName =
+            function ($name) {
+
+                $name =
+                    str_replace(
+                        '.',
+                        ' ',
+                        trim(
+                            (string)$name
+                        )
+                    );
+
+
+                $name =
+                    preg_replace(
+                        '/\s+/',
+                        ' ',
+                        $name
+                    );
+
+
+                return strtoupper(
+                    trim($name)
+                );
+            };
+
+
+        $classTeacherName =
+            $formatStaffName(
+                $classTeacher?->user?->name
+                ?? ''
+            );
+
+
+        $principalName =
+            $formatStaffName(
+                $principal?->user?->name
+                ?? ''
+            );
+
+    @endphp
 
 
     {{-- =========================================================
@@ -590,12 +1220,19 @@
             <td class="school-title-cell">
 
                 <div class="school-name">
-                    PRAJNANABODHINI ENGLISH MEDIUM SCHOOL &amp; JR. COLLEGE
+
+                    PRAJNANABODHINI ENGLISH MEDIUM SCHOOL
+                    &amp; JR. COLLEGE
+
                 </div>
 
+
                 <div class="school-location">
+
                     SHIRGAON / CHIKHALI
+
                 </div>
+
 
                 <div class="school-year">
 
@@ -613,7 +1250,7 @@
 
             <td
                 style="
-                    width:75px;
+                    width:60px;
                     border:none !important;
                 "
             ></td>
@@ -625,6 +1262,7 @@
 
     {{-- =========================================================
          EXAM INFORMATION
+         NO DUPLICATE ACADEMIC YEAR
     ========================================================== --}}
 
     <table class="exam-info">
@@ -634,26 +1272,15 @@
             <td>
 
                 <strong>
-                    Academic Year :
-                </strong>
-
-                {{
-                    $academicYear->year_name
-                    ?? ($yearName ?? '')
-                }}
-
-            </td>
-
-
-            <td>
-
-                <strong>
                     Exam :
                 </strong>
 
                 {{
                     $exam->display_exam_name
-                    ?? ($exam->exam_name ?? '')
+                    ?? (
+                        $exam->exam_name
+                        ?? ''
+                    )
                 }}
 
             </td>
@@ -690,6 +1317,20 @@
             <td>
 
                 <strong>
+                    Class Teacher :
+                </strong>
+
+                {{
+                    $classTeacherName
+                    ?: '-'
+                }}
+
+            </td>
+
+
+            <td>
+
+                <strong>
                     Total Students :
                 </strong>
 
@@ -703,75 +1344,54 @@
 
 
     {{-- =========================================================
-         SUBJECT DISPLAY DATA + STUDENT SORT
+         DATA PREPARATION
     ========================================================== --}}
 
     @php
 
         /*
-        |----------------------------------------------------------------------
-        | SUBJECT LIST
-        |----------------------------------------------------------------------
+        |--------------------------------------------------------------------------
+        | SUBJECTS
+        |--------------------------------------------------------------------------
         */
 
         $academicDisplayColumns =
             collect(
-                $displayColumns ?? []
+                $displayColumns
+                ?? []
             )->values();
 
 
-        $subjectCount =
-            $academicDisplayColumns->count();
-
-
         /*
-        |----------------------------------------------------------------------
-        | WIDTH
-        |----------------------------------------------------------------------
-        */
-
-        $subjectArea =
-            61;
-
-
-        $eachSubjectWidth =
-            $subjectCount > 0
-                ? $subjectArea / $subjectCount
-                : 5;
-
-
-        $eachSubColumnWidth =
-            $eachSubjectWidth / 2;
-
-
-        /*
-        |----------------------------------------------------------------------
-        | TOTAL MAXIMUM MARKS
-        |----------------------------------------------------------------------
+        |--------------------------------------------------------------------------
+        | TOTAL MAX MARKS
+        |--------------------------------------------------------------------------
         */
 
         $displayTotalMaxMarks =
-            (float) (
-                $totalMaxMarks ?? 0
+            (float)(
+                $totalMaxMarks
+                ?? 0
             );
 
 
         /*
-        |----------------------------------------------------------------------
-        | SORT BY ROLL NUMBER
-        |----------------------------------------------------------------------
+        |--------------------------------------------------------------------------
+        | SORT STUDENTS BY ROLL NUMBER
+        |--------------------------------------------------------------------------
         */
 
         $sortedResults =
             collect(
-                $results ?? []
+                $results
+                ?? []
             )
             ->sortBy(
                 function ($student) {
 
                     $rollNo =
                         trim(
-                            (string) (
+                            (string)(
                                 $student->roll_no
                                 ?? ''
                             )
@@ -786,7 +1406,7 @@
 
                         return [
                             0,
-                            (int) $rollNo,
+                            (int)$rollNo,
                         ];
                     }
 
@@ -799,16 +1419,6 @@
             )
             ->values();
 
-
-        /*
-        |----------------------------------------------------------------------
-        | RESULT COUNT
-        |----------------------------------------------------------------------
-        */
-
-        $studentCount =
-            $sortedResults->count();
-
     @endphp
 
 
@@ -820,113 +1430,89 @@
 
         <table class="result-sheet-table">
 
-
-            <colgroup>
-
-                {{-- ROLL --}}
-
-                <col style="width:5%;">
-
-
-                {{-- STUDENT NAME --}}
-
-                <col style="width:15%;">
-
-
-                {{-- SUBJECTS --}}
-
-                @foreach(
-                    $academicDisplayColumns as $column
-                )
-
-                    <col
-                        style="
-                            width:{{ $eachSubColumnWidth }}%;
-                        "
-                    >
-
-                    <col
-                        style="
-                            width:{{ $eachSubColumnWidth }}%;
-                        "
-                    >
-
-                @endforeach
-
-
-                {{-- TOTAL --}}
-
-                <col style="width:6%;">
-
-
-                {{-- PERCENTAGE --}}
-
-                <col style="width:4%;">
-
-
-                {{-- GRADE --}}
-
-                <col style="width:4%;">
-
-
-                {{-- RESULT --}}
-
-                <col style="width:5%;">
-
-            </colgroup>
-
-
             <thead>
 
                 <tr>
 
-                    <th rowspan="2">
+
+                    {{-- ROLL --}}
+
+                    <th>
                         Roll No
                     </th>
 
 
-                    <th rowspan="2">
+                    {{-- STUDENT --}}
+
+                    <th>
                         Student Name
                     </th>
 
 
+                    {{-- SUBJECTS --}}
+
                     @foreach(
-                        $academicDisplayColumns as $column
+                        $academicDisplayColumns
+                        as $column
                     )
 
                         @php
 
                             $subjectMax =
-                                (float) (
+                                (float)(
                                     $column->max_marks
                                     ?? 0
                                 );
 
 
+                            $subjectPassing =
+                                (float)(
+                                    $column->passing_marks
+                                    ?? 0
+                                );
+
+
                             $subjectMaxDisplay =
-                                floor($subjectMax) === $subjectMax
-                                    ? (int)$subjectMax
+                                floor(
+                                    $subjectMax
+                                )
+                                ===
+                                $subjectMax
+
+                                    ? (int)
+                                        $subjectMax
+
                                     : number_format(
                                         $subjectMax,
+                                        2
+                                    );
+
+
+                            $subjectPassingDisplay =
+                                floor(
+                                    $subjectPassing
+                                )
+                                ===
+                                $subjectPassing
+
+                                    ? (int)
+                                        $subjectPassing
+
+                                    : number_format(
+                                        $subjectPassing,
                                         2
                                     );
 
                         @endphp
 
 
-                        <th colspan="2">
+                        <th
+                            colspan="2"
+                        >
 
-                            <span class="subject-code">
-
-                                {{
-                                    $column->subject_code
-                                    ?? ''
-                                }}
-
-                            </span>
-
-
-                            <span class="subject-name">
+                            <span
+                                class="subject-name"
+                            >
 
                                 {{
                                     $column->subject_name
@@ -936,10 +1522,22 @@
                             </span>
 
 
-                            <span class="subject-max">
+                            <span
+                                class="subject-max"
+                            >
 
                                 Max =
                                 {{ $subjectMaxDisplay }}
+
+                            </span>
+
+
+                            <span
+                                class="subject-max"
+                            >
+
+                                Pass =
+                                {{ $subjectPassingDisplay }}
 
                             </span>
 
@@ -948,20 +1546,27 @@
                     @endforeach
 
 
-                    <th rowspan="2">
+                    {{-- TOTAL --}}
+
+                    <th>
 
                         Total
 
-                        <span class="subject-max">
+                        <span
+                            class="subject-max"
+                        >
 
                             Max =
+
                             {{
                                 floor(
                                     $displayTotalMaxMarks
-                                ) ===
+                                )
+                                ===
                                 $displayTotalMaxMarks
 
-                                    ? (int)$displayTotalMaxMarks
+                                    ? (int)
+                                        $displayTotalMaxMarks
 
                                     : number_format(
                                         $displayTotalMaxMarks,
@@ -974,27 +1579,41 @@
                     </th>
 
 
-                    <th rowspan="2">
-                        %
+                    {{-- PERCENTAGE --}}
+
+                    <th>
+                        Per. %
                     </th>
 
 
-                    <th rowspan="2">
+                    {{-- GRADE --}}
+
+                    <th>
                         Grade
                     </th>
 
 
-                    <th rowspan="2">
+                    {{-- RESULT --}}
+
+                    <th>
                         Result
                     </th>
 
                 </tr>
 
 
+                {{-- SECOND HEADER ROW --}}
+
                 <tr>
 
+                    <th></th>
+
+                    <th></th>
+
+
                     @foreach(
-                        $academicDisplayColumns as $column
+                        $academicDisplayColumns
+                        as $column
                     )
 
                         <th>
@@ -1007,6 +1626,15 @@
 
                     @endforeach
 
+
+                    <th></th>
+
+                    <th></th>
+
+                    <th></th>
+
+                    <th></th>
+
                 </tr>
 
             </thead>
@@ -1016,19 +1644,18 @@
 
 
             {{-- =====================================================
-                 STUDENTS IN ROLL NUMBER SEQUENCE
+                 STUDENTS
             ====================================================== --}}
 
             @forelse(
-                $sortedResults as $student
+                $sortedResults
+                as $student
             )
 
                 <tr>
 
 
-                    {{-- =================================================
-                         ROLL NUMBER
-                    ================================================== --}}
+                    {{-- ROLL NUMBER --}}
 
                     <td>
 
@@ -1040,13 +1667,14 @@
                     </td>
 
 
-                    {{-- =================================================
-                         STUDENT NAME
-                    ================================================== --}}
+                    {{-- STUDENT NAME --}}
 
                     <td
                         class="student-name-cell"
-                        title="{{ $student->full_student_name ?? '' }}"
+                        title="{{
+                            $student->full_student_name
+                            ?? ''
+                        }}"
                     >
 
                         {{
@@ -1057,12 +1685,11 @@
                     </td>
 
 
-                    {{-- =================================================
-                         SUBJECTS
-                    ================================================== --}}
+                    {{-- SUBJECTS --}}
 
                     @foreach(
-                        $academicDisplayColumns as $column
+                        $academicDisplayColumns
+                        as $column
                     )
 
                         @php
@@ -1074,13 +1701,15 @@
                             $mark =
                                 $student->subject_marks[
                                     $subjectKey
-                                ] ?? '-';
+                                ]
+                                ?? '-';
 
 
                             $grade =
                                 $student->subject_grades[
                                     $subjectKey
-                                ] ?? '-';
+                                ]
+                                ?? '-';
 
 
                             $markText =
@@ -1101,9 +1730,7 @@
                         @endphp
 
 
-                        {{-- =================================================
-                             MARK
-                        ================================================== --}}
+                        {{-- MARK --}}
 
                         <td>
 
@@ -1111,7 +1738,9 @@
                                 $markText === 'AB'
                             )
 
-                                <span class="absent-mark">
+                                <span
+                                    class="absent-mark"
+                                >
                                     AB
                                 </span>
 
@@ -1132,15 +1761,16 @@
                                 {{
                                     floor(
                                         (float)$mark
-                                    ) ===
+                                    )
+                                    ===
                                     (float)$mark
 
-                                    ? (int)$mark
+                                        ? (int)$mark
 
-                                    : number_format(
-                                        (float)$mark,
-                                        2
-                                    )
+                                        : number_format(
+                                            (float)$mark,
+                                            2
+                                        )
                                 }}
 
                             @else
@@ -1152,9 +1782,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             GRADE
-                        ================================================== --}}
+                        {{-- GRADE --}}
 
                         <td>
 
@@ -1162,7 +1790,9 @@
                                 $gradeText === 'AB'
                             )
 
-                                <span class="absent-mark">
+                                <span
+                                    class="absent-mark"
+                                >
                                     AB
                                 </span>
 
@@ -1170,7 +1800,9 @@
                                 $gradeText === 'F'
                             )
 
-                                <span class="fail-result">
+                                <span
+                                    class="fail-result"
+                                >
                                     F
                                 </span>
 
@@ -1195,16 +1827,15 @@
                     @endforeach
 
 
-                    {{-- =================================================
-                         TOTAL
-                    ================================================== --}}
+                    {{-- TOTAL --}}
 
                     <td>
 
                         @php
 
                             $academicTotal =
-                                $student->academic_total
+                                $student
+                                    ->academic_total
                                 ?? null;
 
                         @endphp
@@ -1221,21 +1852,24 @@
                             -
 
                         @elseif(
-                            is_numeric($academicTotal)
+                            is_numeric(
+                                $academicTotal
+                            )
                         )
 
                             {{
                                 floor(
                                     (float)$academicTotal
-                                ) ===
+                                )
+                                ===
                                 (float)$academicTotal
 
-                                ? (int)$academicTotal
+                                    ? (int)$academicTotal
 
-                                : number_format(
-                                    (float)$academicTotal,
-                                    2
-                                )
+                                    : number_format(
+                                        (float)$academicTotal,
+                                        2
+                                    )
                             }}
 
                         @else
@@ -1247,16 +1881,14 @@
                     </td>
 
 
-                    {{-- =================================================
-                         PERCENTAGE
-                    ================================================== --}}
+                    {{-- PER % --}}
 
                     <td>
 
                         @if(
-                            $student->calculated_percentage
-                            ===
-                            null
+                            $student
+                                ->calculated_percentage
+                            === null
                         )
 
                             -
@@ -1265,7 +1897,8 @@
 
                             {{
                                 (int)(
-                                    $student->calculated_percentage
+                                    $student
+                                        ->calculated_percentage
                                 )
                             }}%
 
@@ -1274,9 +1907,7 @@
                     </td>
 
 
-                    {{-- =================================================
-                         OVERALL GRADE
-                    ================================================== --}}
+                    {{-- OVERALL GRADE --}}
 
                     <td>
 
@@ -1286,7 +1917,8 @@
                                 strtoupper(
                                     trim(
                                         (string)(
-                                            $student->calculated_grade
+                                            $student
+                                                ->calculated_grade
                                             ?? '-'
                                         )
                                     )
@@ -1299,7 +1931,9 @@
                             $overallGrade === 'F'
                         )
 
-                            <span class="fail-result">
+                            <span
+                                class="fail-result"
+                            >
                                 F
                             </span>
 
@@ -1307,7 +1941,9 @@
                             $overallGrade === 'AB'
                         )
 
-                            <span class="absent-mark">
+                            <span
+                                class="absent-mark"
+                            >
                                 AB
                             </span>
 
@@ -1326,9 +1962,7 @@
                     </td>
 
 
-                    {{-- =================================================
-                         RESULT
-                    ================================================== --}}
+                    {{-- RESULT --}}
 
                     <td>
 
@@ -1338,7 +1972,8 @@
                                 strtoupper(
                                     trim(
                                         (string)(
-                                            $student->result
+                                            $student
+                                                ->result
                                             ?? '-'
                                         )
                                     )
@@ -1351,7 +1986,9 @@
                             $studentResult === 'PASS'
                         )
 
-                            <span class="pass-result">
+                            <span
+                                class="pass-result"
+                            >
                                 PASS
                             </span>
 
@@ -1359,7 +1996,9 @@
                             $studentResult === 'FAIL'
                         )
 
-                            <span class="fail-result">
+                            <span
+                                class="fail-result"
+                            >
                                 FAIL
                             </span>
 
@@ -1367,7 +2006,9 @@
                             $studentResult === 'AB'
                         )
 
-                            <span class="absent-mark">
+                            <span
+                                class="absent-mark"
+                            >
                                 AB
                             </span>
 
@@ -1390,7 +2031,11 @@
                         colspan="{{
                             4
                             +
-                            ($academicDisplayColumns->count() * 2)
+                            (
+                                $academicDisplayColumns->count()
+                                * 2
+                            )
+                            + 2
                         }}"
                         style="
                             padding:10px;
@@ -1398,7 +2043,9 @@
                             font-weight:700;
                         "
                     >
+
                         No result records found.
+
                     </td>
 
                 </tr>
@@ -1415,13 +2062,14 @@
 
     {{-- =========================================================
          OVERALL GRADE / RESULT ANALYSIS
-         TOTAL MUST COME AFTER FAIL
     ========================================================== --}}
 
     <div class="analysis-block">
 
         <div class="analysis-title">
+
             Overall Grade / Result Analysis
+
         </div>
 
 
@@ -1460,29 +2108,8 @@
 
             @php
 
-                /*
-                |--------------------------------------------------------------------------
-                | FIXED DISPLAY ORDER
-                |--------------------------------------------------------------------------
-                |
-                | This guarantees:
-                |
-                | A1
-                | A2
-                | B1
-                | B2
-                | C1
-                | C2
-                | D
-                | F
-                | PASS
-                | FAIL
-                | TOTAL
-                |
-                |--------------------------------------------------------------------------
-                */
-
                 $overallOrder = [
+
                     'A1',
                     'A2',
                     'B1',
@@ -1493,6 +2120,7 @@
                     'F',
                     'PASS',
                     'FAIL',
+
                 ];
 
             @endphp
@@ -1506,19 +2134,29 @@
             )
 
                 @foreach(
-                    $overallOrder as $grade
+                    $overallOrder
+                    as $grade
                 )
 
                     @php
 
                         $row =
-                            $overallGradeAnalysis[$grade]
+                            $overallGradeAnalysis[
+                                $grade
+                            ]
                             ??
                             [
-                                'range' => '-',
-                                'girls' => 0,
-                                'boys' => 0,
-                                'total' => 0,
+                                'range' =>
+                                    '-',
+
+                                'girls' =>
+                                    0,
+
+                                'boys' =>
+                                    0,
+
+                                'total' =>
+                                    0,
                             ];
 
                     @endphp
@@ -1563,57 +2201,68 @@
                 @endforeach
 
 
-                {{-- =====================================================
-                     TOTAL ROW
-                     ALWAYS AFTER FAIL
-                ====================================================== --}}
-
                 @php
 
                     $totalRow =
-                        $overallGradeAnalysis['TOTAL']
+                        $overallGradeAnalysis[
+                            'TOTAL'
+                        ]
                         ??
                         [
-                            'range' => 'TOTAL',
 
                             'girls' =>
                                 (
-                                    $overallGradeAnalysis['PASS']['girls']
+                                    $overallGradeAnalysis[
+                                        'PASS'
+                                    ]['girls']
                                     ?? 0
                                 )
                                 +
                                 (
-                                    $overallGradeAnalysis['FAIL']['girls']
+                                    $overallGradeAnalysis[
+                                        'FAIL'
+                                    ]['girls']
                                     ?? 0
                                 ),
 
                             'boys' =>
                                 (
-                                    $overallGradeAnalysis['PASS']['boys']
+                                    $overallGradeAnalysis[
+                                        'PASS'
+                                    ]['boys']
                                     ?? 0
                                 )
                                 +
                                 (
-                                    $overallGradeAnalysis['FAIL']['boys']
+                                    $overallGradeAnalysis[
+                                        'FAIL'
+                                    ]['boys']
                                     ?? 0
                                 ),
 
                             'total' =>
                                 (
-                                    $overallGradeAnalysis['PASS']['total']
+                                    $overallGradeAnalysis[
+                                        'PASS'
+                                    ]['total']
                                     ?? 0
                                 )
                                 +
                                 (
-                                    $overallGradeAnalysis['FAIL']['total']
+                                    $overallGradeAnalysis[
+                                        'FAIL'
+                                    ]['total']
                                     ?? 0
                                 ),
+
                         ];
 
                 @endphp
 
 
-                <tr class="analysis-total-row">
+                <tr
+                    class="analysis-total-row"
+                >
 
                     <td>
                         TOTAL
@@ -1652,7 +2301,9 @@
                 <tr>
 
                     <td colspan="5">
+
                         No overall analysis available.
+
                     </td>
 
                 </tr>
@@ -1673,17 +2324,13 @@
     <div class="analysis-block">
 
         <div class="analysis-title">
+
             Subject Wise Analysis
+
         </div>
 
 
         @php
-
-            /*
-            |--------------------------------------------------------------------------
-            | SUBJECT ANALYSIS COLLECTIONS
-            |--------------------------------------------------------------------------
-            */
 
             $girlsBySubject =
                 collect(
@@ -1702,12 +2349,6 @@
                     'subject_code'
                 );
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SAME SUBJECT ORDER AS RESULT TABLE
-            |--------------------------------------------------------------------------
-            */
 
             $analysisSubjects =
                 $academicDisplayColumns
@@ -1731,38 +2372,22 @@
         @endphp
 
 
-        <div class="subject-wise-analysis-wrapper">
+        <div
+            class="subject-wise-analysis-wrapper"
+        >
 
-            <table class="subject-wise-analysis-table">
-
-                <colgroup>
-
-                    <col style="width:155px;">
-
-
-                    @foreach(
-                        $analysisCategories
-                        as $category
-                    )
-
-                        <col style="width:33px;">
-
-                        <col style="width:33px;">
-
-                    @endforeach
-
-
-                    <col style="width:40px;">
-
-                </colgroup>
-
+            <table
+                class="subject-wise-analysis-table"
+            >
 
                 <thead>
 
                     <tr>
 
                         <th rowspan="2">
+
                             Subject
+
                         </th>
 
 
@@ -1772,15 +2397,12 @@
                         )
 
                             <th colspan="2">
+
                                 {{ $category }}
+
                             </th>
 
                         @endforeach
-
-
-                        <th rowspan="2">
-                            Total
-                        </th>
 
                     </tr>
 
@@ -1809,6 +2431,10 @@
 
                 <tbody>
 
+
+                {{-- =================================================
+                     SUBJECT ROWS
+                ================================================== --}}
 
                 @foreach(
                     $analysisSubjects
@@ -1888,6 +2514,7 @@
                         $girls =
                             array_merge(
                                 $defaultAnalysis,
+
                                 $girlsBySubject->get(
                                     $subjectCode,
                                     []
@@ -1898,26 +2525,22 @@
                         $boys =
                             array_merge(
                                 $defaultAnalysis,
+
                                 $boysBySubject->get(
                                     $subjectCode,
                                     []
                                 )
                             );
 
-
-                        $rowTotal =
-                            (int)$girls['total']
-                            +
-                            (int)$boys['total'];
-
                     @endphp
 
 
                     <tr>
 
-
                         <td
-                            class="subject-analysis-name"
+                            class="
+                                subject-analysis-name
+                            "
                             title="{{ $subjectFullName }}"
                         >
 
@@ -1926,9 +2549,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             A1
-                        ================================================== --}}
+                        {{-- A1 --}}
 
                         <td>
                             {{ $girls['A1'] }}
@@ -1939,9 +2560,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             A2
-                        ================================================== --}}
+                        {{-- A2 --}}
 
                         <td>
                             {{ $girls['A2'] }}
@@ -1952,9 +2571,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             B1
-                        ================================================== --}}
+                        {{-- B1 --}}
 
                         <td>
                             {{ $girls['B1'] }}
@@ -1965,9 +2582,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             B2
-                        ================================================== --}}
+                        {{-- B2 --}}
 
                         <td>
                             {{ $girls['B2'] }}
@@ -1978,9 +2593,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             C1
-                        ================================================== --}}
+                        {{-- C1 --}}
 
                         <td>
                             {{ $girls['C1'] }}
@@ -1991,9 +2604,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             C2
-                        ================================================== --}}
+                        {{-- C2 --}}
 
                         <td>
                             {{ $girls['C2'] }}
@@ -2004,9 +2615,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             D
-                        ================================================== --}}
+                        {{-- D --}}
 
                         <td>
                             {{ $girls['D'] }}
@@ -2017,9 +2626,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             FAIL
-                        ================================================== --}}
+                        {{-- FAIL --}}
 
                         <td>
                             {{ $girls['fail'] }}
@@ -2030,9 +2637,7 @@
                         </td>
 
 
-                        {{-- =================================================
-                             ABSENT
-                        ================================================== --}}
+                        {{-- ABSENT --}}
 
                         <td>
                             {{ $girls['absent'] }}
@@ -2042,144 +2647,275 @@
                             {{ $boys['absent'] }}
                         </td>
 
-
-                        {{-- =================================================
-                             TOTAL
-                        ================================================== --}}
-
-                        <td class="analysis-total-column">
-                            {{ $rowTotal }}
-                        </td>
-
                     </tr>
 
                 @endforeach
 
 
-                {{-- =====================================================
-                     GRAND TOTAL
-                ====================================================== --}}
+                {{-- =================================================
+                     TOTAL ROW
+                ================================================== --}}
 
                 @php
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | GRAND TOTAL OF SUBJECT RECORDS
-                    |--------------------------------------------------------------------------
-                    */
+                    $categoryKeys = [
 
-                    $grandGirlsTotal =
-                        $girlsBySubject->sum(
-                            function ($row) {
+                        'A1',
+                        'A2',
+                        'B1',
+                        'B2',
+                        'C1',
+                        'C2',
+                        'D',
+                        'fail',
+                        'absent',
 
-                                return (int)(
-                                    $row['total']
-                                    ?? 0
-                                );
-                            }
-                        );
+                    ];
 
 
-                    $grandBoysTotal =
-                        $boysBySubject->sum(
-                            function ($row) {
+                    $grandTotals = [];
 
-                                return (int)(
-                                    $row['total']
-                                    ?? 0
-                                );
-                            }
-                        );
+
+                    foreach (
+                        $categoryKeys
+                        as $categoryKey
+                    ) {
+
+                        $grandTotals[
+                            $categoryKey
+                            . '_girls'
+                        ] =
+                            $girlsBySubject->sum(
+                                fn($row) =>
+                                    (int)(
+                                        $row[
+                                            $categoryKey
+                                        ]
+                                        ?? 0
+                                    )
+                            );
+
+
+                        $grandTotals[
+                            $categoryKey
+                            . '_boys'
+                        ] =
+                            $boysBySubject->sum(
+                                fn($row) =>
+                                    (int)(
+                                        $row[
+                                            $categoryKey
+                                        ]
+                                        ?? 0
+                                    )
+                            );
+
+                    }
 
                 @endphp
 
 
                 <tr
-                    style="
-                        font-weight:700;
-                        background:#e5e7eb;
-                    "
+                    class="analysis-total-row"
                 >
 
-                    <td class="subject-analysis-name">
+                    <td
+                        class="
+                            subject-analysis-name
+                        "
+                    >
+
                         TOTAL
+
                     </td>
 
 
-                    @foreach(
-                        $analysisCategories
-                        as $category
-                    )
+                    {{-- A1 --}}
 
-                        @php
-
-                            $analysisKey =
-                                $category === 'FAIL'
-
-                                    ? 'fail'
-
-                                    : (
-                                        $category === 'ABSENT'
-
-                                            ? 'absent'
-
-                                            : $category
-                                    );
-
-
-                            $girlsTotal =
-                                $girlsBySubject->sum(
-                                    function ($row) use (
-                                        $analysisKey
-                                    ) {
-
-                                        return (int)(
-                                            $row[
-                                                $analysisKey
-                                            ]
-                                            ?? 0
-                                        );
-                                    }
-                                );
-
-
-                            $boysTotal =
-                                $boysBySubject->sum(
-                                    function ($row) use (
-                                        $analysisKey
-                                    ) {
-
-                                        return (int)(
-                                            $row[
-                                                $analysisKey
-                                            ]
-                                            ?? 0
-                                        );
-                                    }
-                                );
-
-                        @endphp
-
-
-                        <td>
-                            {{ $girlsTotal }}
-                        </td>
-
-                        <td>
-                            {{ $boysTotal }}
-                        </td>
-
-                    @endforeach
-
-
-                    <td class="analysis-total-column">
-
+                    <td>
                         {{
-                            $grandGirlsTotal
-                            +
-                            $grandBoysTotal
+                            $grandTotals[
+                                'A1_girls'
+                            ]
+                            ?? 0
                         }}
+                    </td>
 
+                    <td>
+                        {{
+                            $grandTotals[
+                                'A1_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- A2 --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'A2_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'A2_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- B1 --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'B1_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'B1_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- B2 --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'B2_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'B2_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- C1 --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'C1_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'C1_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- C2 --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'C2_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'C2_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- D --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'D_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'D_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- FAIL --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'fail_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'fail_boys'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+
+                    {{-- ABSENT --}}
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'absent_girls'
+                            ]
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $grandTotals[
+                                'absent_boys'
+                            ]
+                            ?? 0
+                        }}
                     </td>
 
                 </tr>
@@ -2199,26 +2935,55 @@
 
     <div class="signature-area">
 
+
+        {{-- =====================================================
+             CLASS TEACHER
+        ====================================================== --}}
+
         <div class="signature-box">
 
-            _______________________
+            <span class="signature-line"></span>
 
-            <br>
-            <br>
+            <span class="signature-name">
 
-            Class Teacher
+                {{
+                    $classTeacherName
+                    ?: '-'
+                }}
+
+            </span>
+
+            <span class="signature-designation">
+
+                CLASS TEACHER
+
+            </span>
 
         </div>
 
 
+        {{-- =====================================================
+             PRINCIPAL
+        ====================================================== --}}
+
         <div class="signature-box">
 
-            _______________________
+            <span class="signature-line"></span>
 
-            <br>
-            <br>
+            <span class="signature-name">
 
-            Principal
+                {{
+                    $principalName
+                    ?: '-'
+                }}
+
+            </span>
+
+            <span class="signature-designation">
+
+                PRINCIPAL
+
+            </span>
 
         </div>
 
@@ -2226,7 +2991,6 @@
 
 
 </div>
-
 
 </body>
 

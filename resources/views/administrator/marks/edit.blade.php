@@ -2,6 +2,12 @@
 
 @php
 
+    /*
+    |--------------------------------------------------------------------------
+    | SELECTED VALUES
+    |--------------------------------------------------------------------------
+    */
+
     $selectedTsaId =
         request('teacher_subject_allocation_id');
 
@@ -17,16 +23,111 @@
     $marksReopened =
         request()->boolean('marks_reopened');
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUBJECT
+    |--------------------------------------------------------------------------
+    */
+
     $selectedSubjectName =
         optional(
             $teacherSubjectAllocation
         )->subject->subject_name
         ?? '';
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | STUDENT COUNT
+    |--------------------------------------------------------------------------
+    */
+
     $studentCount =
         isset($students)
             ? $students->count()
             : 0;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LAST MODIFIED MARK
+    |--------------------------------------------------------------------------
+    */
+
+    $latestModifiedMark =
+        collect(
+            $existingMarks ?? []
+        )
+        ->filter(
+            function ($mark) {
+
+                return !empty(
+                    $mark->updated_at
+                );
+
+            }
+        )
+        ->sortByDesc(
+            function ($mark) {
+
+                return $mark->updated_at;
+
+            }
+        )
+        ->first();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LAST MODIFIED USER
+    |--------------------------------------------------------------------------
+    */
+
+    $lastModifiedById =
+        $latestModifiedMark->updated_by
+        ?? null;
+
+
+    $lastModifiedByUser =
+        null;
+
+
+    if (
+        $lastModifiedById
+    ) {
+
+        try {
+
+            $lastModifiedByUser =
+                \App\Models\User::find(
+                    $lastModifiedById
+                );
+
+        } catch (
+            \Throwable $e
+        ) {
+
+            $lastModifiedByUser =
+                null;
+
+        }
+
+    }
+
+
+    $lastModifiedByName =
+        $lastModifiedByUser->name
+        ?? (
+            $lastModifiedById
+                ? 'User ID ' . $lastModifiedById
+                : ''
+        );
+
+
+    $lastModifiedAt =
+        $latestModifiedMark->updated_at
+        ?? null;
 
 @endphp
 
@@ -73,6 +174,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 0 0 auto;
 }
 
 
@@ -88,6 +190,12 @@
     display: inline-block;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| FILTER SELECT
+|--------------------------------------------------------------------------
+*/
 
 .admin-filter-select {
     height: 34px;
@@ -124,18 +232,73 @@
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| ACADEMIC YEAR
+|--------------------------------------------------------------------------
+*/
+
 .admin-academic-year-select {
-    width: 175px;
+    width: 165px;
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| EXAM
+|--------------------------------------------------------------------------
+*/
+
 .admin-exam-select {
-    width: 270px;
+    width: 250px;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| TEACHING ASSIGNMENT
+|--------------------------------------------------------------------------
+|
+| Adjustable according to content.
+|
+*/
+
+.admin-assignment-group {
+    flex: 0 1 auto;
+    min-width: 220px;
+    max-width: 470px;
+}
+
+
+.admin-assignment-wrapper {
+    width: max-content;
+    max-width: 100%;
 }
 
 
 .admin-assignment-select {
-    width: 560px;
+    width: max-content;
+    min-width: 260px;
+    max-width: 470px;
+    padding-right: 32px;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LOAD + RESET GROUP
+|--------------------------------------------------------------------------
+|
+| They remain together on one row with Teaching Assignment.
+|--------------------------------------------------------------------------
+*/
+
+.admin-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding-bottom: 0;
 }
 
 
@@ -194,6 +357,12 @@
 }
 
 
+.admin-erp-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+
 /*
 |--------------------------------------------------------------------------
 | MESSAGE BOXES
@@ -231,7 +400,7 @@
 
 /*
 |--------------------------------------------------------------------------
-| SELECTED INFO
+| SELECTED INFORMATION
 |--------------------------------------------------------------------------
 */
 
@@ -257,6 +426,44 @@
 
 .admin-selected-separator {
     color: #93c5fd;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LAST MODIFIED INFORMATION
+|--------------------------------------------------------------------------
+*/
+
+.admin-modified-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    color: #374151;
+    font-size: 12px;
+}
+
+
+.admin-modified-title {
+    font-weight: 700;
+    color: #1e3a8a;
+}
+
+
+.admin-modified-value {
+    font-weight: 700;
+    color: #111827;
+}
+
+
+.admin-modified-separator {
+    color: #94a3b8;
 }
 
 
@@ -405,14 +612,22 @@
 }
 
 
+/*
+|--------------------------------------------------------------------------
+| MARK INPUT
+|--------------------------------------------------------------------------
+*/
+
 .admin-mark-input {
     width: 62px;
     height: 30px;
-    padding: 3px;
+    padding: 3px 5px;
     border: 1px solid #9ca3af;
     border-radius: 4px;
     text-align: center;
     font-size: 13px;
+    font-weight: 600;
+    background: #ffffff;
 }
 
 
@@ -435,6 +650,12 @@
     color: #991b1b;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| ATTENDANCE
+|--------------------------------------------------------------------------
+*/
 
 .admin-attendance-btn {
     min-width: 82px;
@@ -510,6 +731,20 @@
 |--------------------------------------------------------------------------
 */
 
+@media (max-width: 1100px) {
+
+    .admin-assignment-group {
+        max-width: 390px;
+    }
+
+    .admin-assignment-select {
+        min-width: 220px;
+        max-width: 390px;
+    }
+
+}
+
+
 @media (max-width: 900px) {
 
     .admin-filter-group {
@@ -520,6 +755,23 @@
     .admin-exam-select,
     .admin-assignment-select {
         width: 100%;
+        max-width: none;
+    }
+
+    .admin-assignment-wrapper {
+        width: 100%;
+    }
+
+    .admin-assignment-group {
+        max-width: none;
+    }
+
+    .admin-filter-actions {
+        width: 100%;
+    }
+
+    .admin-filter-actions .admin-erp-btn {
+        flex: 0 0 auto;
     }
 
     .admin-marks-header {
@@ -674,13 +926,21 @@
 
                                 <option
                                     value="{{ $year->id }}"
-                                    {{ (string)$selectedAcademicYearId === (string)$year->id ? 'selected' : '' }}
+                                    {{
+                                        (string)$selectedAcademicYearId
+                                        ===
+                                        (string)$year->id
+                                            ? 'selected'
+                                            : ''
+                                    }}
                                 >
+
                                     {{
                                         $year->year_name
                                         ?? $year->name
                                         ?? $year->id
                                     }}
+
                                 </option>
 
                             @endforeach
@@ -720,8 +980,18 @@
 
                                 <option
                                     value="{{ $examItem->id }}"
-                                    data-standard-id="{{ $examItem->resolved_standard_id ?? '' }}"
-                                    {{ (string)$selectedExamId === (string)$examItem->id ? 'selected' : '' }}
+                                    data-standard-id="{{
+                                        $examItem
+                                            ->resolved_standard_id
+                                        ?? ''
+                                    }}"
+                                    {{
+                                        (string)$selectedExamId
+                                        ===
+                                        (string)$examItem->id
+                                            ? 'selected'
+                                            : ''
+                                    }}
                                 >
 
                                     {{
@@ -746,19 +1016,36 @@
                      TEACHING ASSIGNMENT
                 =================================================== --}}
 
-                <div class="admin-filter-group">
+                <div
+                    class="
+                        admin-filter-group
+                        admin-assignment-group
+                    "
+                >
 
                     <label class="admin-filter-label">
                         Teaching Assignment
                     </label>
 
-                    <div class="admin-filter-wrapper">
+                    <div
+                        class="
+                            admin-filter-wrapper
+                            admin-assignment-wrapper
+                        "
+                    >
 
                         <select
                             name="teacher_subject_allocation_id"
                             id="admin_teacher_subject_allocation_id"
-                            class="admin-filter-select admin-assignment-select"
-                            {{ !$selectedExamId ? 'disabled' : '' }}
+                            class="
+                                admin-filter-select
+                                admin-assignment-select
+                            "
+                            {{
+                                !$selectedExamId
+                                    ? 'disabled'
+                                    : ''
+                            }}
                         >
 
                             @if(!$selectedExamId)
@@ -800,7 +1087,9 @@
                                             )->division;
 
                                         $teacherName =
-                                            optional($teacher)->name
+                                            optional(
+                                                $teacher
+                                            )->name
                                             ?? 'Teacher';
 
                                         $subjectName =
@@ -810,20 +1099,21 @@
                                             ?? 'Subject';
 
                                         $standardName =
-                                            optional($standard)
-                                                ->standard_name
+                                            optional(
+                                                $standard
+                                            )->standard_name
                                             ?? '';
 
                                         $divisionName =
-                                            optional($division)
-                                                ->division_name
+                                            optional(
+                                                $division
+                                            )->division_name
                                             ?? '';
 
                                         $status =
                                             strtoupper(
                                                 trim(
-                                                    (string)
-                                                    (
+                                                    (string)(
                                                         $assignment
                                                             ->resolved_status
                                                         ?? 'PENDING'
@@ -836,9 +1126,24 @@
 
                                     <option
                                         value="{{ $assignment->id }}"
-                                        data-academic-year-id="{{ $assignment->resolved_academic_year_id ?? '' }}"
-                                        data-exam-id="{{ $assignment->resolved_exam_master_id ?? $assignment->exam_master_id }}"
-                                        {{ (string)$selectedTsaId === (string)$assignment->id ? 'selected' : '' }}
+                                        data-academic-year-id="{{
+                                            $assignment
+                                                ->resolved_academic_year_id
+                                            ?? ''
+                                        }}"
+                                        data-exam-id="{{
+                                            $assignment
+                                                ->resolved_exam_master_id
+                                            ??
+                                            $assignment->exam_master_id
+                                        }}"
+                                        {{
+                                            (string)$selectedTsaId
+                                            ===
+                                            (string)$assignment->id
+                                                ? 'selected'
+                                                : ''
+                                        }}
                                     >
 
                                         {{ $teacherName }}
@@ -848,8 +1153,10 @@
                                         {{ $standardName }}
 
                                         @if($divisionName)
+
                                             -
                                             {{ $divisionName }}
+
                                         @endif
 
                                         [{{ $status }}]
@@ -870,32 +1177,38 @@
 
 
                 {{-- ==================================================
-                     LOAD
+                     LOAD + RESET
                 =================================================== --}}
 
-                <div class="admin-filter-group">
+                <div class="admin-filter-actions">
 
                     <button
                         type="submit"
                         id="adminLoadMarksButton"
-                        class="admin-erp-btn admin-btn-blue"
-                        {{ !$selectedTsaId ? 'disabled' : '' }}
+                        class="
+                            admin-erp-btn
+                            admin-btn-blue
+                        "
+                        {{
+                            !$selectedTsaId
+                                ? 'disabled'
+                                : ''
+                        }}
                     >
                         Load Marks
                     </button>
 
-                </div>
-
-
-                {{-- ==================================================
-                     RESET
-                =================================================== --}}
-
-                <div class="admin-filter-group">
 
                     <a
-                        href="{{ route('result-generation.admin-marks.edit') }}"
-                        class="admin-erp-btn admin-btn-gray"
+                        href="{{
+                            route(
+                                'result-generation.admin-marks.edit'
+                            )
+                        }}"
+                        class="
+                            admin-erp-btn
+                            admin-btn-gray
+                        "
                     >
                         Reset
                     </a>
@@ -930,7 +1243,8 @@
                     {{
                         optional(
                             optional(
-                                $teacherSubjectAllocation->allocation
+                                $teacherSubjectAllocation
+                                    ->allocation
                             )->teacher
                         )->name
                         ?? 'Teacher'
@@ -954,7 +1268,8 @@
 
                     {{
                         optional(
-                            $teacherSubjectAllocation->subject
+                            $teacherSubjectAllocation
+                                ->subject
                         )->subject_name
                         ?? 'Subject'
                     }}
@@ -1048,8 +1363,7 @@
                     $currentStatus =
                         strtoupper(
                             trim(
-                                (string)
-                                (
+                                (string)(
                                     optional(
                                         $selectedAssignmentRecord
                                     )->resolved_status
@@ -1068,27 +1382,53 @@
                     </span>
 
 
-                    @if($currentStatus === 'COMPLETED')
+                    @if(
+                        $currentStatus === 'COMPLETED'
+                    )
 
-                        <span class="admin-status-badge admin-status-completed">
+                        <span
+                            class="
+                                admin-status-badge
+                                admin-status-completed
+                            "
+                        >
                             COMPLETED
                         </span>
 
-                    @elseif($currentStatus === 'LOCKED')
+                    @elseif(
+                        $currentStatus === 'LOCKED'
+                    )
 
-                        <span class="admin-status-badge admin-status-locked">
+                        <span
+                            class="
+                                admin-status-badge
+                                admin-status-locked
+                            "
+                        >
                             LOCKED
                         </span>
 
-                    @elseif($currentStatus === 'PENDING')
+                    @elseif(
+                        $currentStatus === 'PENDING'
+                    )
 
-                        <span class="admin-status-badge admin-status-pending">
+                        <span
+                            class="
+                                admin-status-badge
+                                admin-status-pending
+                            "
+                        >
                             PENDING
                         </span>
 
                     @else
 
-                        <span class="admin-status-badge admin-status-default">
+                        <span
+                            class="
+                                admin-status-badge
+                                admin-status-default
+                            "
+                        >
                             {{ $currentStatus }}
                         </span>
 
@@ -1118,6 +1458,63 @@
 
 
             {{-- ======================================================
+                 LAST MODIFIED
+            ======================================================= --}}
+
+            @if($lastModifiedAt)
+
+                <div class="admin-modified-info">
+
+                    <span class="admin-modified-title">
+                        Last Modified By:
+                    </span>
+
+                    <span class="admin-modified-value">
+                        {{ $lastModifiedByName }}
+                    </span>
+
+
+                    <span class="admin-modified-separator">
+                        |
+                    </span>
+
+
+                    <span class="admin-modified-title">
+                        Last Modified On:
+                    </span>
+
+                    <span class="admin-modified-value">
+
+                        {{
+                            \Carbon\Carbon::parse(
+                                $lastModifiedAt
+                            )->format(
+                                'd-m-Y H:i:s'
+                            )
+                        }}
+
+                    </span>
+
+                </div>
+
+            @else
+
+                <div class="admin-modified-info">
+
+                    <span class="admin-modified-title">
+                        Last Modified:
+                    </span>
+
+                    <span>
+                        No marks have been modified yet.
+                    </span>
+
+                </div>
+
+            @endif
+
+
+            {{-- ======================================================
                  ADMIN MESSAGE
             ======================================================= --}}
 
@@ -1133,7 +1530,6 @@
                 </div>
 
             @endif
-
 
         @endif
 
@@ -1167,6 +1563,7 @@
                     <div class="admin-marks-header-subtitle">
 
                         Subject:
+
                         <strong>
                             {{ $selectedSubjectName }}
                         </strong>
@@ -1174,6 +1571,7 @@
                         &nbsp; | &nbsp;
 
                         Teacher:
+
                         <strong>
                             {{
                                 optional(
@@ -1189,6 +1587,7 @@
                         &nbsp; | &nbsp;
 
                         Class:
+
                         <strong>
 
                             {{
@@ -1253,10 +1652,6 @@
 
                 @method('PUT')
 
-
-                {{-- ==================================================
-                     REQUIRED CONTROLLER VALUES
-                =================================================== --}}
 
                 <input
                     type="hidden"
@@ -1366,15 +1761,11 @@
 
                                 $studentId =
                                     $record->Studentid
-                                    ?? $record->student_id
-                                    ?? $record->id;
+                                    ??
+                                    $record->student_id
+                                    ??
+                                    $record->id;
 
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | EXISTING MARK
-                                |--------------------------------------------------------------------------
-                                */
 
                                 $studentMark =
                                     $existingMarks->get(
@@ -1382,44 +1773,39 @@
                                     );
 
 
-                                /*
-                                |--------------------------------------------------------------------------
-                                | ABSENT
-                                |--------------------------------------------------------------------------
-                                */
-
                                 $isAbsent =
                                     $studentMark &&
-                                    (int)
-                                    $studentMark->is_absent === 1;
+                                    (
+                                        (int)
+                                        $studentMark
+                                            ->is_absent
+                                        ===
+                                        1
+                                    );
 
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | FULL NAME
-                                |--------------------------------------------------------------------------
-                                */
 
                                 $fatherName =
                                     $record->fathername
-                                    ?? $record->father_name
-                                    ?? $record->father
-                                    ?? '';
+                                    ??
+                                    $record->father_name
+                                    ??
+                                    $record->father
+                                    ??
+                                    '';
 
 
                                 $studentFullName =
                                     trim(
-                                        ($record->studname ?? '')
+                                        (
+                                            $record
+                                                ->studname
+                                            ?? ''
+                                        )
                                         . ' '
-                                        . $fatherName
+                                        .
+                                        $fatherName
                                     );
 
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | EXISTING VALUES
-                                |--------------------------------------------------------------------------
-                                */
 
                                 $theoryValue =
                                     $studentMark
@@ -1441,24 +1827,40 @@
                                             ->practical_obtained_marks
                                         : null;
 
+
+                                $formatIntegerMark =
+                                    function ($value) {
+
+                                        if (
+                                            $value === null
+                                            ||
+                                            $value === ''
+                                        ) {
+
+                                            return '';
+
+                                        }
+
+                                        return (string)(
+                                            (int)
+                                            round(
+                                                (float)$value
+                                            )
+                                        );
+
+                                    };
+
                             @endphp
 
-
-                            {{-- ==================================================
-                                 EVERY ERP STUDENT IS RENDERED
-                            =================================================== --}}
 
                             <tr>
 
 
-                                {{-- ==========================================
-                                     GR NO
-                                =========================================== --}}
+                                {{-- GR NO --}}
 
                                 <td class="admin-center">
 
                                     {{ $record->regno ?? '-' }}
-
 
                                     <input
                                         type="hidden"
@@ -1469,9 +1871,7 @@
                                 </td>
 
 
-                                {{-- ==========================================
-                                     ROLL NO
-                                =========================================== --}}
+                                {{-- ROLL NO --}}
 
                                 <td class="admin-center">
 
@@ -1480,9 +1880,7 @@
                                 </td>
 
 
-                                {{-- ==========================================
-                                     FULL STUDENT NAME
-                                =========================================== --}}
+                                {{-- STUDENT NAME --}}
 
                                 <td class="admin-student-name">
 
@@ -1493,9 +1891,7 @@
                                 </td>
 
 
-                                {{-- ==========================================
-                                     ATTENDANCE
-                                =========================================== --}}
+                                {{-- ATTENDANCE --}}
 
                                 <td class="admin-center">
 
@@ -1503,19 +1899,30 @@
                                         type="hidden"
                                         name="is_absent[{{ $studentId }}]"
                                         id="admin_absent_{{ $studentId }}"
-                                        value="{{ $isAbsent ? 1 : 0 }}"
+                                        value="{{
+                                            $isAbsent
+                                                ? 1
+                                                : 0
+                                        }}"
                                     >
 
 
                                     <button
                                         type="button"
                                         id="admin_attendance_btn_{{ $studentId }}"
-                                        class="admin-attendance-btn {{
-                                            $isAbsent
-                                                ? 'admin-absent-btn'
-                                                : 'admin-present-btn'
-                                        }}"
-                                        onclick="toggleAdminAttendance('{{ $studentId }}')"
+                                        class="
+                                            admin-attendance-btn
+                                            {{
+                                                $isAbsent
+                                                    ? 'admin-absent-btn'
+                                                    : 'admin-present-btn'
+                                            }}
+                                        "
+                                        onclick="
+                                            toggleAdminAttendance(
+                                                '{{ $studentId }}'
+                                            )
+                                        "
                                     >
 
                                         {{
@@ -1529,43 +1936,55 @@
                                 </td>
 
 
-                                {{-- ==========================================
-                                     THEORY
-                                =========================================== --}}
+                                {{-- THEORY --}}
 
                                 @if($showTheory)
 
                                     <td class="admin-center">
-
                                         {{ (int)$theoryMaxMarks }}
-
                                     </td>
-
 
                                     <td class="admin-center">
-
                                         {{ (int)$theoryPassingMarks }}
-
                                     </td>
-
 
                                     <td class="admin-center">
 
                                         <input
-                                            type="number"
+                                            type="text"
                                             name="theory_marks[{{ $studentId }}]"
                                             value="{{
                                                 old(
-                                                    'theory_marks.' . $studentId,
-                                                    $theoryValue
+                                                    'theory_marks.'
+                                                    . $studentId,
+
+                                                    $formatIntegerMark(
+                                                        $theoryValue
+                                                    )
                                                 )
                                             }}"
-                                            min="0"
-                                            max="{{ (float)$theoryMaxMarks }}"
-                                            step="1"
-                                            class="admin-mark-input admin-mark-input-{{ $studentId }} {{ $isAbsent ? 'admin-absent-input' : '' }}"
+                                            inputmode="numeric"
+                                            pattern="[0-9]*"
+                                            autocomplete="off"
+                                            maxlength="4"
+                                            data-max="{{
+                                                (int)$theoryMaxMarks
+                                            }}"
+                                            class="
+                                                admin-mark-input
+                                                admin-mark-input-{{ $studentId }}
+                                                {{
+                                                    $isAbsent
+                                                        ? 'admin-absent-input'
+                                                        : ''
+                                                }}
+                                            "
                                             data-student="{{ $studentId }}"
-                                            {{ $isAbsent ? 'readonly' : '' }}
+                                            {{
+                                                $isAbsent
+                                                    ? 'readonly'
+                                                    : ''
+                                            }}
                                         >
 
                                     </td>
@@ -1573,43 +1992,55 @@
                                 @endif
 
 
-                                {{-- ==========================================
-                                     ORAL
-                                =========================================== --}}
+                                {{-- ORAL --}}
 
                                 @if($showOral)
 
                                     <td class="admin-center">
-
                                         {{ (int)$oralMaxMarks }}
-
                                     </td>
-
 
                                     <td class="admin-center">
-
                                         {{ (int)$oralPassingMarks }}
-
                                     </td>
-
 
                                     <td class="admin-center">
 
                                         <input
-                                            type="number"
+                                            type="text"
                                             name="oral_marks[{{ $studentId }}]"
                                             value="{{
                                                 old(
-                                                    'oral_marks.' . $studentId,
-                                                    $oralValue
+                                                    'oral_marks.'
+                                                    . $studentId,
+
+                                                    $formatIntegerMark(
+                                                        $oralValue
+                                                    )
                                                 )
                                             }}"
-                                            min="0"
-                                            max="{{ (float)$oralMaxMarks }}"
-                                            step="1"
-                                            class="admin-mark-input admin-mark-input-{{ $studentId }} {{ $isAbsent ? 'admin-absent-input' : '' }}"
+                                            inputmode="numeric"
+                                            pattern="[0-9]*"
+                                            autocomplete="off"
+                                            maxlength="4"
+                                            data-max="{{
+                                                (int)$oralMaxMarks
+                                            }}"
+                                            class="
+                                                admin-mark-input
+                                                admin-mark-input-{{ $studentId }}
+                                                {{
+                                                    $isAbsent
+                                                        ? 'admin-absent-input'
+                                                        : ''
+                                                }}
+                                            "
                                             data-student="{{ $studentId }}"
-                                            {{ $isAbsent ? 'readonly' : '' }}
+                                            {{
+                                                $isAbsent
+                                                    ? 'readonly'
+                                                    : ''
+                                            }}
                                         >
 
                                     </td>
@@ -1617,43 +2048,55 @@
                                 @endif
 
 
-                                {{-- ==========================================
-                                     PRACTICAL
-                                =========================================== --}}
+                                {{-- PRACTICAL --}}
 
                                 @if($showPractical)
 
                                     <td class="admin-center">
-
                                         {{ (int)$practicalMaxMarks }}
-
                                     </td>
-
 
                                     <td class="admin-center">
-
                                         {{ (int)$practicalPassingMarks }}
-
                                     </td>
-
 
                                     <td class="admin-center">
 
                                         <input
-                                            type="number"
+                                            type="text"
                                             name="practical_marks[{{ $studentId }}]"
                                             value="{{
                                                 old(
-                                                    'practical_marks.' . $studentId,
-                                                    $practicalValue
+                                                    'practical_marks.'
+                                                    . $studentId,
+
+                                                    $formatIntegerMark(
+                                                        $practicalValue
+                                                    )
                                                 )
                                             }}"
-                                            min="0"
-                                            max="{{ (float)$practicalMaxMarks }}"
-                                            step="1"
-                                            class="admin-mark-input admin-mark-input-{{ $studentId }} {{ $isAbsent ? 'admin-absent-input' : '' }}"
+                                            inputmode="numeric"
+                                            pattern="[0-9]*"
+                                            autocomplete="off"
+                                            maxlength="4"
+                                            data-max="{{
+                                                (int)$practicalMaxMarks
+                                            }}"
+                                            class="
+                                                admin-mark-input
+                                                admin-mark-input-{{ $studentId }}
+                                                {{
+                                                    $isAbsent
+                                                        ? 'admin-absent-input'
+                                                        : ''
+                                                }}
+                                            "
                                             data-student="{{ $studentId }}"
-                                            {{ $isAbsent ? 'readonly' : '' }}
+                                            {{
+                                                $isAbsent
+                                                    ? 'readonly'
+                                                    : ''
+                                            }}
                                         >
 
                                     </td>
@@ -1661,19 +2104,19 @@
                                 @endif
 
 
-                                {{-- ==========================================
-                                     STATUS
-                                =========================================== --}}
+                                {{-- STATUS --}}
 
                                 <td class="admin-center">
 
                                     <span
                                         id="admin_status_{{ $studentId }}"
-                                        class="{{
-                                            $isAbsent
-                                                ? 'admin-status-absent'
-                                                : 'admin-status-present'
-                                        }}"
+                                        class="
+                                            {{
+                                                $isAbsent
+                                                    ? 'admin-status-absent'
+                                                    : 'admin-status-present'
+                                            }}
+                                        "
                                     >
 
                                         {{
@@ -1690,7 +2133,6 @@
 
                         @endforeach
 
-
                         </tbody>
 
                     </table>
@@ -1703,7 +2145,6 @@
                 =================================================== --}}
 
                 <div class="admin-action-row">
-
 
                     <button
                         type="submit"
@@ -1758,7 +2199,9 @@
                 "
             >
 
-                <strong>Administrator Access:</strong>
+                <strong>
+                    Administrator Access:
+                </strong>
 
                 Marks can be entered or corrected for
 
@@ -1841,15 +2284,17 @@ document.addEventListener(
 
         /*
         |--------------------------------------------------------------------------
-        | UPDATE DROPDOWN BUTTON
+        | LOAD BUTTON
         |--------------------------------------------------------------------------
         */
 
         function updateLoadButton()
         {
+
             if (!loadButton) {
                 return;
             }
+
 
             loadButton.disabled =
                 !(
@@ -1858,6 +2303,7 @@ document.addEventListener(
                     assignment &&
                     assignment.value
                 );
+
         }
 
 
@@ -1883,11 +2329,13 @@ document.addEventListener(
                                 option.textContent.trim(),
 
                             academicYearId:
-                                option.dataset.academicYearId
+                                option.dataset
+                                    .academicYearId
                                 || '',
 
                             examId:
-                                option.dataset.examId
+                                option.dataset
+                                    .examId
                                 || ''
 
                         };
@@ -1931,9 +2379,7 @@ document.addEventListener(
                 '<option value="">Select Teaching Assignment</option>';
 
 
-            if (
-                !selectedExam
-            ) {
+            if (!selectedExam) {
 
                 assignment.disabled =
                     true;
@@ -1995,12 +2441,14 @@ document.addEventListener(
                             item.text;
 
 
-                        option.dataset.academicYearId =
-                            item.academicYearId;
+                        option.dataset
+                            .academicYearId =
+                                item.academicYearId;
 
 
-                        option.dataset.examId =
-                            item.examId;
+                        option.dataset
+                            .examId =
+                                item.examId;
 
 
                         if (
@@ -2045,6 +2493,7 @@ document.addEventListener(
 
 
             updateLoadButton();
+
         }
 
 
@@ -2060,7 +2509,10 @@ document.addEventListener(
                 'change',
                 function() {
 
-                    if (exam && exam.value) {
+                    if (
+                        exam &&
+                        exam.value
+                    ) {
 
                         document
                             .getElementById(
@@ -2077,9 +2529,11 @@ document.addEventListener(
 
                             assignment.disabled =
                                 true;
+
                         }
 
                         updateLoadButton();
+
                     }
 
                 }
@@ -2157,7 +2611,7 @@ document.addEventListener(
 
         /*
         |--------------------------------------------------------------------------
-        | MARK INPUT VALIDATION
+        | INTEGER-ONLY MARK INPUT
         |--------------------------------------------------------------------------
         */
 
@@ -2168,63 +2622,157 @@ document.addEventListener(
             .forEach(
                 function(input) {
 
+
+                    /*
+                    |----------------------------------------------------------------------
+                    | TYPING
+                    |----------------------------------------------------------------------
+                    */
+
                     input.addEventListener(
                         'input',
                         function() {
 
-                            if (
-                                this.readOnly
-                            ) {
-                                return;
-                            }
-
-
-                            const max =
-                                parseFloat(
-                                    this.max
+                            this.value =
+                                this.value.replace(
+                                    /[^0-9]/g,
+                                    ''
                                 );
 
 
-                            const value =
-                                this.value;
+                            const max =
+                                parseInt(
+                                    this.dataset.max
+                                    || '0',
+                                    10
+                                );
 
 
                             if (
-                                value === ''
+                                this.value !== ''
+                                &&
+                                max > 0
+                                &&
+                                parseInt(
+                                    this.value,
+                                    10
+                                ) > max
+                            ) {
+
+                                this.value =
+                                    String(max);
+
+                            }
+
+
+                            if (
+                                this.value === ''
                             ) {
 
                                 this.style.border =
                                     '1px solid #9ca3af';
 
                                 return;
+
                             }
 
 
-                            const numericValue =
-                                parseFloat(
-                                    value
-                                );
+                            this.style.border =
+                                '1px solid #16a34a';
+
+                        }
+                    );
+
+
+                    /*
+                    |----------------------------------------------------------------------
+                    | KEYBOARD
+                    |----------------------------------------------------------------------
+                    */
+
+                    input.addEventListener(
+                        'keydown',
+                        function(event) {
+
+                            const allowedKeys = [
+
+                                'Backspace',
+                                'Delete',
+                                'Tab',
+                                'ArrowLeft',
+                                'ArrowRight',
+                                'Home',
+                                'End'
+
+                            ];
 
 
                             if (
-                                isNaN(
-                                    numericValue
+                                allowedKeys.includes(
+                                    event.key
                                 )
-                                ||
-                                numericValue < 0
-                                ||
-                                numericValue > max
                             ) {
 
-                                this.style.border =
-                                    '2px solid #dc2626';
-
-                            } else {
-
-                                this.style.border =
-                                    '1px solid #16a34a';
+                                return;
 
                             }
+
+
+                            if (
+                                !/^[0-9]$/.test(
+                                    event.key
+                                )
+                            ) {
+
+                                event.preventDefault();
+
+                            }
+
+                        }
+                    );
+
+
+                    /*
+                    |----------------------------------------------------------------------
+                    | PASTE
+                    |----------------------------------------------------------------------
+                    */
+
+                    input.addEventListener(
+                        'paste',
+                        function(event) {
+
+                            event.preventDefault();
+
+
+                            const pastedText =
+                                (
+                                    event.clipboardData
+                                    ||
+                                    window.clipboardData
+                                )
+                                .getData('text');
+
+
+                            const cleaned =
+                                pastedText.replace(
+                                    /[^0-9]/g,
+                                    ''
+                                );
+
+
+                            this.value =
+                                cleaned;
+
+
+                            this.dispatchEvent(
+                                new Event(
+                                    'input',
+                                    {
+                                        bubbles: true
+                                    }
+                                )
+                            );
 
                         }
                     );
@@ -2260,12 +2808,6 @@ document.addEventListener(
                         false;
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | VALIDATE MARK VALUES
-                    |--------------------------------------------------------------------------
-                    */
-
                     document
                         .querySelectorAll(
                             '.admin-mark-input'
@@ -2276,51 +2818,60 @@ document.addEventListener(
                                 if (
                                     input.readOnly
                                 ) {
+
                                     return;
+
                                 }
 
 
                                 const value =
-                                    input.value;
+                                    input.value.trim();
 
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | Blank is allowed here.
-                                |--------------------------------------------------------------------------
-                                |
-                                | This is important because PENDING
-                                | assignments may initially contain
-                                | no marks.
-                                |
-                                */
 
                                 if (
                                     value === ''
                                 ) {
+
                                     return;
+
+                                }
+
+
+                                if (
+                                    !/^\d+$/.test(
+                                        value
+                                    )
+                                ) {
+
+                                    hasError =
+                                        true;
+
+                                    input.style.border =
+                                        '2px solid #dc2626';
+
+                                    return;
+
                                 }
 
 
                                 const max =
-                                    parseFloat(
-                                        input.max
+                                    parseInt(
+                                        input.dataset.max
+                                        || '0',
+                                        10
                                     );
 
 
                                 const numericValue =
-                                    parseFloat(
-                                        value
+                                    parseInt(
+                                        value,
+                                        10
                                     );
 
 
                                 if (
-                                    isNaN(
-                                        numericValue
-                                    )
-                                    ||
-                                    numericValue < 0
-                                    ||
+                                    max > 0
+                                    &&
                                     numericValue > max
                                 ) {
 
@@ -2349,19 +2900,14 @@ document.addEventListener(
                                 'Validation Error',
 
                             text:
-                                'Please correct the invalid marks before updating.'
+                                'Please enter valid whole-number marks only.'
 
                         });
 
                         return;
+
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CONFIRM
-                    |--------------------------------------------------------------------------
-                    */
 
                     Swal.fire({
 
@@ -2408,7 +2954,7 @@ document.addEventListener(
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN PRESENT / ABSENT
+| PRESENT / ABSENT
 |--------------------------------------------------------------------------
 */
 
@@ -2445,7 +2991,9 @@ function toggleAdminAttendance(
         !button ||
         !status
     ) {
+
         return;
+
     }
 
 
@@ -2505,14 +3053,6 @@ function toggleAdminAttendance(
                 input.classList.remove(
                     'admin-absent-input'
                 );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Do not automatically erase a legitimate zero from an
-                | existing mark when toggling Present.
-                |--------------------------------------------------------------------------
-                */
 
             }
         );

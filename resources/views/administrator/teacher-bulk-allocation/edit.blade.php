@@ -111,69 +111,26 @@
 
 
     {{-- =========================================================
-         IMPORTANT:
          NORMALIZE SAVED SUBJECT IDS
-         
-         This supports:
-         1. [1,2,3]
-         2. Collection of Subject models
-         3. Collection containing subject_id
-         4. Collection containing id
-         5. Array of objects
     ========================================================== --}}
 
     @php
 
+        /*
+        |--------------------------------------------------------------------------
+        | selectedSubjects already contains REAL subjects.id values
+        |--------------------------------------------------------------------------
+        */
+
         $savedSubjectIds = collect($selectedSubjects ?? [])
-            ->map(function ($item) {
-
-                /*
-                |--------------------------------------------------
-                | If item is an array
-                |--------------------------------------------------
-                */
-
-                if (is_array($item)) {
-
-                    return $item['subject_id']
-                        ?? $item['id']
-                        ?? null;
-                }
-
-
-                /*
-                |--------------------------------------------------
-                | If item is an object / Eloquent model
-                |--------------------------------------------------
-                */
-
-                if (is_object($item)) {
-
-                    return $item->subject_id
-                        ?? $item->id
-                        ?? null;
-                }
-
-
-                /*
-                |--------------------------------------------------
-                | If item is already an integer/string ID
-                |--------------------------------------------------
-                */
-
-                return $item;
-
-            })
             ->filter(function ($id) {
 
-                return $id !== null
-                    && $id !== ''
-                    && is_numeric($id);
+                return is_numeric($id);
 
             })
             ->map(function ($id) {
 
-                return (int)$id;
+                return (int) $id;
 
             })
             ->unique()
@@ -181,28 +138,6 @@
             ->toArray();
 
     @endphp
-
-
-    {{-- =========================================================
-         DEBUG INFORMATION
-         REMOVE THIS BLOCK AFTER TESTING IF NOT REQUIRED
-    ========================================================== --}}
-
-    {{--
-    <div style="
-        background:#eff6ff;
-        border:1px solid #93c5fd;
-        padding:10px;
-        margin-bottom:15px;
-        border-radius:5px;
-    ">
-
-        <strong>Saved Subject IDs:</strong>
-
-        {{ implode(', ', $savedSubjectIds) }}
-
-    </div>
-    --}}
 
 
     {{-- =========================================================
@@ -257,7 +192,9 @@
             ">
 
 
-                {{-- TEACHER --}}
+                {{-- =================================================
+                     TEACHER
+                ================================================== --}}
 
                 <div>
 
@@ -301,7 +238,9 @@
                 </div>
 
 
-                {{-- ACADEMIC YEAR --}}
+                {{-- =================================================
+                     ACADEMIC YEAR
+                ================================================== --}}
 
                 <div>
 
@@ -345,7 +284,9 @@
                 </div>
 
 
-                {{-- EXAM --}}
+                {{-- =================================================
+                     EXAM
+                ================================================== --}}
 
                 <div>
 
@@ -377,7 +318,7 @@
 
                             <option
                                 value="{{ $exam->id }}"
-                                {{ (int)($selectedExam ?? $allocation->exam_master_id ?? 0) === (int)$exam->id ? 'selected' : '' }}
+                                {{ (int)($selectedExamId ?? 0) === (int)$exam->id ? 'selected' : '' }}
                             >
                                 {{ $exam->exam_name }}
                             </option>
@@ -406,7 +347,7 @@
 
 
                 {{-- =================================================
-                     STANDARD - FROZEN TEXT BOX
+                     STANDARD - FROZEN
                 ================================================== --}}
 
                 <div>
@@ -421,31 +362,10 @@
 
                     @php
 
-                        /*
-                        |--------------------------------------------------
-                        | Try relationship first
-                        |--------------------------------------------------
-                        */
-
                         $displayStandardName =
-                            $allocation->standard->standard_name
-                            ?? $standard->standard_name
+                            $standard->standard_name
+                            ?? $allocation->standard_name
                             ?? '';
-
-
-                        /*
-                        |--------------------------------------------------
-                        | If standard_name is directly available
-                        |--------------------------------------------------
-                        */
-
-                        if (!$displayStandardName) {
-
-                            $displayStandardName =
-                                $allocation->standard_name
-                                ?? '';
-
-                        }
 
                     @endphp
 
@@ -464,11 +384,6 @@
                             cursor:not-allowed;
                         "
                     >
-
-                    {{-- IMPORTANT:
-                         Keep standard_id hidden so controller
-                         continues receiving it.
-                    --}}
 
                     <input
                         type="hidden"
@@ -584,48 +499,27 @@
                     @php
 
                         /*
-                        |==================================================
-                        | DETERMINE ACTUAL SUBJECT ID
-                        |==================================================
-                        |
-                        | The checkbox MUST submit subjects.id.
-                        |
-                        | If controller returns:
-                        |
-                        | subject_id = subjects.id
-                        |
-                        | use that.
-                        |
-                        | Otherwise use subject->id.
-                        |
+                        |--------------------------------------------------------------------------
+                        | REAL subjects.id
+                        |--------------------------------------------------------------------------
                         */
 
                         $actualSubjectId =
-                            $subject->subject_id
-                            ?? $subject->id
-                            ?? null;
+                            (int) (
+                                $subject->subject_id
+                                ?? $subject->id
+                                ?? 0
+                            );
 
 
                         /*
-                        |==================================================
-                        | NORMALIZE TO INTEGER
-                        |==================================================
-                        */
-
-                        $actualSubjectId =
-                            is_numeric($actualSubjectId)
-                                ? (int)$actualSubjectId
-                                : null;
-
-
-                        /*
-                        |==================================================
-                        | CHECK WHETHER THIS SUBJECT WAS PREVIOUSLY SAVED
-                        |==================================================
+                        |--------------------------------------------------------------------------
+                        | CHECK SAVED SUBJECT
+                        |--------------------------------------------------------------------------
                         */
 
                         $isChecked =
-                            $actualSubjectId !== null
+                            $actualSubjectId > 0
                             &&
                             in_array(
                                 $actualSubjectId,
@@ -636,7 +530,7 @@
                     @endphp
 
 
-                    @if($actualSubjectId !== null)
+                    @if($actualSubjectId > 0)
 
                         <label
                             style="
@@ -681,7 +575,7 @@
                     <span style="
                         color:#dc2626;
                     ">
-                        No subjects found for this Standard.
+                        No subjects found for this Standard / Exam.
                     </span>
 
                 @endforelse
@@ -696,28 +590,56 @@
         ========================================================== --}}
 
         <div style="
-            margin-top:18px;
-            display:flex;
-            gap:10px;
+    margin-top:18px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+">
+
+    <button
+        type="submit"
+        class="erp-btn erp-btn-save"
+        style="
+            display:inline-flex;
             align-items:center;
-        ">
+            justify-content:center;
+            width:auto !important;
+            min-width:170px !important;
+            padding:10px 18px !important;
+            white-space:nowrap !important;
+            overflow:visible !important;
+            text-overflow:clip !important;
+            font-size:14px !important;
+            line-height:1.4 !important;
+            box-sizing:border-box !important;
+        "
+    >
+        Update Allocation
+    </button>
 
-            <button
-                type="submit"
-                class="erp-btn erp-btn-save"
-            >
-                Update Allocation
-            </button>
+    <a
+        href="{{ route('teacher-bulk-allocation.index') }}"
+        class="erp-btn erp-btn-cancel"
+        style="
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            width:auto !important;
+            min-width:90px !important;
+            padding:10px 18px !important;
+            white-space:nowrap !important;
+            overflow:visible !important;
+            text-overflow:clip !important;
+            font-size:14px !important;
+            line-height:1.4 !important;
+            box-sizing:border-box !important;
+        "
+    >
+        Cancel
+    </a>
 
-            <a
-                href="{{ route('teacher-bulk-allocation.index') }}"
-                class="erp-btn erp-btn-cancel"
-            >
-                Cancel
-            </a>
-
-        </div>
-
+</div>
     </form>
 
 </div>
@@ -744,53 +666,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /*
-    |--------------------------------------------------------------
+    |--------------------------------------------------------------------------
     | FORM VALIDATION
-    |--------------------------------------------------------------
+    |--------------------------------------------------------------------------
     */
 
     form.addEventListener('submit', function (event) {
 
         const teacher =
-            document.querySelector(
+            form.querySelector(
                 '[name="user_id"]'
             );
 
 
         const academicYear =
-            document.querySelector(
+            form.querySelector(
                 '[name="academic_year_id"]'
             );
 
 
         const exam =
-            document.querySelector(
+            form.querySelector(
                 '[name="exam_master_id"]'
             );
 
 
         const standard =
-            document.querySelector(
+            form.querySelector(
                 '[name="standard_id"]'
             );
 
 
         const division =
-            document.querySelector(
+            form.querySelector(
                 '[name="division_id"]'
             );
 
 
         const subjects =
-            document.querySelectorAll(
+            form.querySelectorAll(
                 'input[name="subjects[]"]:checked'
             );
 
 
         /*
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         | TEACHER
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
 
         if (!teacher || !teacher.value) {
@@ -798,9 +720,9 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
 
             Swal.fire({
-                icon:'error',
-                title:'Validation Error',
-                text:'Please select Teacher.'
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please select Teacher.'
             });
 
             return;
@@ -808,9 +730,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         /*
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         | ACADEMIC YEAR
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
 
         if (!academicYear || !academicYear.value) {
@@ -818,9 +740,9 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
 
             Swal.fire({
-                icon:'error',
-                title:'Validation Error',
-                text:'Please select Academic Year.'
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please select Academic Year.'
             });
 
             return;
@@ -828,9 +750,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         /*
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         | EXAM
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
 
         if (!exam || !exam.value) {
@@ -838,9 +760,9 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
 
             Swal.fire({
-                icon:'error',
-                title:'Validation Error',
-                text:'Please select Exam.'
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please select Exam.'
             });
 
             return;
@@ -848,13 +770,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         /*
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         | STANDARD
-        |----------------------------------------------------------
-        |
-        | Standard is now a frozen text box.
-        | We still submit standard_id as hidden field.
-        |
+        |--------------------------------------------------------------------------
         */
 
         if (!standard || !standard.value) {
@@ -862,9 +780,9 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
 
             Swal.fire({
-                icon:'error',
-                title:'Validation Error',
-                text:'Standard information is missing.'
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Standard information is missing.'
             });
 
             return;
@@ -872,9 +790,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         /*
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         | DIVISION
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
 
         if (!division || !division.value) {
@@ -882,9 +800,9 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
 
             Swal.fire({
-                icon:'error',
-                title:'Validation Error',
-                text:'Please select Division.'
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please select Division.'
             });
 
             return;
@@ -892,9 +810,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         /*
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         | SUBJECTS
-        |----------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
 
         if (subjects.length === 0) {
@@ -902,9 +820,9 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
 
             Swal.fire({
-                icon:'error',
-                title:'Validation Error',
-                text:'Please select at least one Subject.'
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please select at least one Subject.'
             });
 
             return;
@@ -914,12 +832,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /*
-    |--------------------------------------------------------------
-    | VISUAL CHECKBOX HIGHLIGHT
-    |--------------------------------------------------------------
+    |--------------------------------------------------------------------------
+    | SUBJECT CHECKBOX VISUAL STATE
+    |--------------------------------------------------------------------------
     */
 
-    document
+    form
         .querySelectorAll(
             'input[name="subjects[]"]'
         )
@@ -930,9 +848,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 const label =
                     checkbox.closest('label');
 
+
                 if (!label) {
                     return;
                 }
+
+
+                const text =
+                    label.querySelector('span');
 
 
                 if (checkbox.checked) {
@@ -943,6 +866,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     label.style.background =
                         '#eff6ff';
 
+                    if (text) {
+
+                        text.style.fontWeight =
+                            '600';
+                    }
+
                 } else {
 
                     label.style.borderColor =
@@ -950,6 +879,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     label.style.background =
                         'white';
+
+                    if (text) {
+
+                        text.style.fontWeight =
+                            '400';
+                    }
 
                 }
 
@@ -961,10 +896,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateLabel
             );
 
-
-            /*
-            | Initial state
-            */
 
             updateLabel();
 

@@ -52,7 +52,34 @@ use App\Http\Controllers\ExamMasterController;
 use App\Http\Controllers\ExamPatternController;
 use App\Http\Controllers\ExamSubjectController;
 use App\Http\Controllers\ExamPatternDetailController;
+use App\Http\Controllers\DesignationController;
+use App\Http\Controllers\UserDesignationController;
 
+/*
+|--------------------------------------------------------------------------
+| USER DESIGNATION ASSIGNMENT
+|--------------------------------------------------------------------------
+*/
+
+Route::resource(
+    'user-designations',
+    UserDesignationController::class
+)->except([
+    'show',
+]);
+
+/*
+|--------------------------------------------------------------------------
+| DESIGNATIONS
+|--------------------------------------------------------------------------
+*/
+
+Route::resource(
+    'designations',
+    DesignationController::class
+)->except([
+    'show',
+]);
 
 /*
 |--------------------------------------------------------------------------

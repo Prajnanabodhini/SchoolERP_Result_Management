@@ -17,6 +17,7 @@ use App\Models\ExamMasterSubject;
 use App\Models\TeacherClassAllocation;
 use App\Models\TeacherSubjectAllocation;
 use App\Models\TeacherMarksStatus;
+use App\Models\StandardWiseSubject;
 
 class TeacherBulkAllocationController extends Controller
 {
@@ -938,224 +939,295 @@ class TeacherBulkAllocationController extends Controller
     */
 
     private function getExamMappedSubjects($examMasterId, $standardId = null)
-{
-    if (!$examMasterId) {
-        return collect();
-    }
+    {
+        if (!$examMasterId) {
+            return collect();
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET EXAM
-    |--------------------------------------------------------------------------
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | GET EXAM
+        |--------------------------------------------------------------------------
+        */
 
-    $exam = ExamMaster::find($examMasterId);
+        $exam = ExamMaster::find($examMasterId);
 
-    if (!$exam) {
-        return collect();
-    }
+        if (!$exam) {
+            return collect();
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STANDARD
-    |--------------------------------------------------------------------------
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARD
+        |--------------------------------------------------------------------------
+        */
 
-    $standardId = $standardId ?: $exam->standard_id;
+        $standardId = $standardId
+            ? (int) $standardId
+            : (int) $exam->standard_id;
 
-    if (!$standardId) {
-        return collect();
-    }
+        if (!$standardId) {
+            return collect();
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | EXAM MUST BELONG TO SELECTED STANDARD
-    |--------------------------------------------------------------------------
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFY EXAM / STANDARD
+        |--------------------------------------------------------------------------
+        */
 
-    if (
-        $exam->standard_id &&
-        (int) $exam->standard_id !== (int) $standardId
-    ) {
-        return collect();
-    }
+        if (
+            $exam->standard_id &&
+            (int) $exam->standard_id !== $standardId
+        ) {
+            return collect();
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET SUBJECT IDS FROM EXAM
-    |--------------------------------------------------------------------------
-    |
-    | We only use exam_master_subjects to decide which subjects
-    | belong to this Exam.
-    |
-    | Subject NAME comes from standard_wise_subjects -> subjects.
-    |
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD EXAM SUBJECT CONFIGURATION
+        |--------------------------------------------------------------------------
+        |
+        | exam_master_subjects.subject_id may contain either:
+        |
+        | 1. subjects.id (current format)
+        | 2. standard_wise_subjects.id (legacy format)
+        |
+        | Do not filter the standard-wise mapping query by these IDs yet.
+        | We must be able to test BOTH representations.
+        |
+        |--------------------------------------------------------------------------
+        */
 
-    $examSubjectIds = ExamMasterSubject::where(
-        'exam_master_id',
-        $examMasterId
-    )
-        ->whereNotNull('subject_id')
-        ->pluck('subject_id')
-        ->map(fn ($id) => (int) $id)
-        ->unique()
-        ->values();
+        $examSubjects = ExamMasterSubject::query()
+            ->where(
+                'exam_master_id',
+                $examMasterId
+            )
+            ->whereNotNull('subject_id')
+            ->orderBy('display_order')
+            ->orderBy('id')
+            ->get([
+                'id',
+                'exam_master_id',
+                'standard_id',
+                'subject_id',
+                'subject_name',
+                'max_marks',
+                'passing_marks',
+                'display_order',
+            ]);
 
-    if ($examSubjectIds->isEmpty()) {
-        return collect();
-    }
+        if ($examSubjects->isEmpty()) {
+            return collect();
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STANDARD-WISE SUBJECT MAPPING
-    |--------------------------------------------------------------------------
-    |
-    | THIS IS THE AUTHORITATIVE SOURCE.
-    |
-    | Same source as:
-    |
-    | SELECT
-    |     sws.subject_id,
-    |     st.standard_name,
-    |     s.subject_name,
-    |     s.subject_code,
-    |     s.short_name,
-    |     sws.is_optional
-    | FROM standard_wise_subjects sws
-    | LEFT JOIN standards st ...
-    | LEFT JOIN subjects s ...
-    |
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD ALL STANDARD-WISE SUBJECT MAPPINGS
+        |--------------------------------------------------------------------------
+        */
 
-    $subjects = DB::table('standard_wise_subjects as sws')
-        ->leftJoin(
-            'standards as st',
-            'st.id',
-            '=',
-            'sws.standard_id'
+        $standardMappings = DB::table(
+            'standard_wise_subjects as sws'
         )
-        ->leftJoin(
-            'subjects as s',
-            's.id',
-            '=',
-            'sws.subject_id'
-        )
-        ->where(
-            'sws.standard_id',
-            $standardId
-        )
-        ->where(
-            'sws.is_active',
-            1
-        )
-        ->whereIn(
-            'sws.subject_id',
-            $examSubjectIds
-        )
-        ->select([
-            'sws.id as mapping_id',
-            'sws.subject_id',
-            'sws.standard_id',
-            'st.standard_name',
-            's.subject_name',
-            's.subject_code',
-            's.short_name',
-            'sws.is_optional',
-            'sws.sort_order',
-        ])
-        ->orderBy('sws.sort_order')
-        ->orderBy('sws.id')
-        ->get();
+            ->leftJoin(
+                'standards as st',
+                'st.id',
+                '=',
+                'sws.standard_id'
+            )
+            ->leftJoin(
+                'subjects as s',
+                's.id',
+                '=',
+                'sws.subject_id'
+            )
+            ->where(
+                'sws.standard_id',
+                $standardId
+            )
+            ->where(
+                'sws.is_active',
+                1
+            )
+            ->where(
+                's.is_active',
+                1
+            )
+            ->select([
+                'sws.id as mapping_id',
+                'sws.standard_id',
+                'sws.subject_id',
+                'st.standard_name',
+                's.subject_name',
+                's.subject_code',
+                's.short_name',
+                'sws.is_optional',
+                'sws.sort_order',
+            ])
+            ->orderBy('sws.sort_order')
+            ->orderBy('sws.id')
+            ->get();
 
-    /*
-    |--------------------------------------------------------------------------
-    | EXAM SUBJECT DETAILS
-    |--------------------------------------------------------------------------
-    */
+        if ($standardMappings->isEmpty()) {
+            return collect();
+        }
 
-    $examSubjects = ExamMasterSubject::where(
-        'exam_master_id',
-        $examMasterId
-    )
-        ->whereIn(
-            'subject_id',
-            $subjects->pluck('subject_id')
-        )
-        ->get([
-            'id',
-            'subject_id',
-            'max_marks',
-            'passing_marks',
-            'display_order',
-        ])
-        ->keyBy('subject_id');
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARD NAME
+        |--------------------------------------------------------------------------
+        */
 
-    /*
-    |--------------------------------------------------------------------------
-    | MERGE EXAM DETAILS
-    |--------------------------------------------------------------------------
-    */
+        $standardName = optional(
+            Standard::find($standardId)
+        )->standard_name ?? '';
 
-    return $subjects
-        ->map(function ($subject) use ($examSubjects) {
+        /*
+        |--------------------------------------------------------------------------
+        | BUILD SUBJECT LIST
+        |--------------------------------------------------------------------------
+        */
 
-            $examSubject =
-                $examSubjects->get(
-                    $subject->subject_id
+        $subjects = collect();
+
+        foreach ($examSubjects as $examSubject) {
+
+            $storedSubjectId = (int) $examSubject->subject_id;
+
+            if ($storedSubjectId <= 0) {
+                continue;
+            }
+
+            $mappedSubject = null;
+
+            /*
+            |--------------------------------------------------------------------------
+            | CASE 1: CURRENT FORMAT
+            | exam_master_subjects.subject_id = subjects.id
+            |--------------------------------------------------------------------------
+            */
+
+            $mappedSubject = $standardMappings->first(
+                function ($mapping) use ($storedSubjectId) {
+                    return (int) $mapping->subject_id === $storedSubjectId;
+                }
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | CASE 2: LEGACY FORMAT
+            | exam_master_subjects.subject_id = standard_wise_subjects.id
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$mappedSubject) {
+
+                $mappedSubject = $standardMappings->first(
+                    function ($mapping) use ($storedSubjectId) {
+                        return (int) $mapping->mapping_id === $storedSubjectId;
+                    }
                 );
+            }
 
-            return (object) [
+            /*
+            |--------------------------------------------------------------------------
+            | CASE 3: DIRECT SUBJECT FALLBACK
+            |--------------------------------------------------------------------------
+            |
+            | If the exam subject uses a valid subjects.id but that subject has
+            | no current standard_wise_subjects row, still allow the subject to
+            | appear in the Edit page. Store the real subjects.id.
+            |
+            |--------------------------------------------------------------------------
+            */
 
-                'mapping_id' =>
-                    $subject->mapping_id,
+            if (!$mappedSubject) {
 
-                'standard_id' =>
-                    $subject->standard_id,
+                $directSubject = Subject::query()
+                    ->where(
+                        'id',
+                        $storedSubjectId
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->first();
 
-                'subject_id' =>
-                    (int) $subject->subject_id,
+                if ($directSubject) {
 
-                'standard_name' =>
-                    $subject->standard_name,
+                    $subjects->push(
+                        (object) [
+                            'mapping_id' => null,
+                            'standard_id' => $standardId,
+                            'subject_id' => (int) $directSubject->id,
+                            'standard_name' => $standardName,
+                            'subject_name' => $directSubject->subject_name ?: '-',
+                            'subject_code' => $directSubject->subject_code ?: '',
+                            'short_name' => $directSubject->short_name ?: '',
+                            'is_optional' => 0,
+                            'sort_order' => (int) ($examSubject->display_order ?? 9999),
+                            'exam_subject_id' => $examSubject->id,
+                            'max_marks' => $examSubject->max_marks,
+                            'passing_marks' => $examSubject->passing_marks,
+                            'display_order' => (int) ($examSubject->display_order ?? 9999),
+                        ]
+                    );
+                }
 
-                'subject_name' =>
-                    $subject->subject_name ?: '-',
+                continue;
+            }
 
-                'subject_code' =>
-                    $subject->subject_code ?: '',
+            /*
+            |--------------------------------------------------------------------------
+            | ADD MAPPED SUBJECT
+            |--------------------------------------------------------------------------
+            */
 
-                'short_name' =>
-                    $subject->short_name ?: '',
+            $subjects->push(
+                (object) [
+                    'mapping_id' => (int) $mappedSubject->mapping_id,
+                    'standard_id' => (int) $mappedSubject->standard_id,
+                    'subject_id' => (int) $mappedSubject->subject_id,
+                    'standard_name' => $mappedSubject->standard_name ?: $standardName,
+                    'subject_name' => $mappedSubject->subject_name ?: ($examSubject->subject_name ?: '-'),
+                    'subject_code' => $mappedSubject->subject_code ?: '',
+                    'short_name' => $mappedSubject->short_name ?: '',
+                    'is_optional' => (int) ($mappedSubject->is_optional ?? 0),
+                    'sort_order' => (int) ($mappedSubject->sort_order ?? 9999),
+                    'exam_subject_id' => $examSubject->id,
+                    'max_marks' => $examSubject->max_marks,
+                    'passing_marks' => $examSubject->passing_marks,
+                    'display_order' => (int) (
+                        $examSubject->display_order
+                        ?? $mappedSubject->sort_order
+                        ?? 9999
+                    ),
+                ]
+            );
+        }
 
-                'is_optional' =>
-                    $subject->is_optional,
+        /*
+        |--------------------------------------------------------------------------
+        | REMOVE DUPLICATES + SORT
+        |--------------------------------------------------------------------------
+        */
 
-                'sort_order' =>
-                    (int) $subject->sort_order,
-
-                'exam_subject_id' =>
-                    $examSubject?->id,
-
-                'max_marks' =>
-                    $examSubject?->max_marks,
-
-                'passing_marks' =>
-                    $examSubject?->passing_marks,
-
-                'display_order' =>
-                    $examSubject?->display_order
-                    ?? $subject->sort_order,
-            ];
-        })
-        ->sortBy([
-            ['display_order', 'asc'],
-            ['sort_order', 'asc'],
-            ['mapping_id', 'asc'],
-        ])
-        ->values();
-}
-
+        return $subjects
+            ->unique(
+                function ($subject) {
+                    return $subject->subject_id;
+                }
+            )
+            ->sortBy([
+                ['display_order', 'asc'],
+                ['sort_order', 'asc'],
+                ['subject_id', 'asc'],
+            ])
+            ->values();
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -2141,271 +2213,300 @@ class TeacherBulkAllocationController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function edit($id)
-    {
-        $allocation =
-            TeacherClassAllocation::with([
-                'teacher',
-                'academicYear',
-                'section',
-                'standard',
-                'division',
-                'subjectAllocations.subject',
-                'subjectAllocations.exam',
-            ])
-            ->findOrFail($id);
+    /*
+|--------------------------------------------------------------------------
+| EDIT
+|--------------------------------------------------------------------------
+*/
+
+public function edit($id)
+{
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD CLASS ALLOCATION
+    |--------------------------------------------------------------------------
+    */
+
+    $allocation = TeacherClassAllocation::findOrFail($id);
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SELECTED EXAM
-        |--------------------------------------------------------------------------
-        */
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD MASTER DATA
+    |--------------------------------------------------------------------------
+    */
 
-        $selectedExam =
-            $allocation
-                ->subjectAllocations
-                ->first()
-                ?->exam_master_id;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET TMS SUBJECT IDS
-        |--------------------------------------------------------------------------
-        */
-
-        $tsaIds = $allocation
-            ->subjectAllocations
-            ->pluck('id')
-            ->filter()
-            ->values();
+    $teachers = User::where('role', 'Teacher')
+        ->where('is_active', 1)
+        ->orderBy('name')
+        ->get();
 
 
-        $statusMap = collect();
-
-        if ($tsaIds->isNotEmpty()) {
-
-            $statusMap =
-                TeacherMarksStatus::whereIn(
-                    'teacher_subject_allocation_id',
-                    $tsaIds
-                )
-                ->get([
-                    'teacher_subject_allocation_id',
-                    'subject_id',
-                ])
-                ->keyBy(
-                    'teacher_subject_allocation_id'
-                );
-        }
+    $academicYears = AcademicYear::orderBy('year_name')
+        ->get();
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | GET CURRENT STANDARD-WISE SUBJECTS
-        |--------------------------------------------------------------------------
-        */
+    $standard = Standard::findOrFail(
+        $allocation->standard_id
+    );
 
-        $currentMappings = DB::table(
-            'standard_wise_subjects'
+
+    $divisions = Division::where('is_active', 1)
+        ->orderBy('display_order')
+        ->get();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD EXAMS FOR THIS STANDARD
+    |--------------------------------------------------------------------------
+    |
+    | The Standard is already fixed for an existing allocation.
+    | Therefore show exams belonging to this Standard.
+    |
+    */
+
+    $exams = ExamMaster::where('is_active', 1)
+        ->where('standard_id', $allocation->standard_id)
+        ->orderBy('display_order')
+        ->orderBy('exam_name')
+        ->get();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD EXISTING TEACHER SUBJECT ALLOCATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    $existingSubjectAllocations =
+        TeacherSubjectAllocation::where(
+            'teacher_class_allocation_id',
+            $allocation->id
         )
+        ->orderBy('id')
+        ->get();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DETERMINE SELECTED EXAM
+    |--------------------------------------------------------------------------
+    |
+    | TeacherClassAllocation itself does not contain exam_master_id.
+    | The exam is stored in teacher_subject_allocations.
+    |
+    */
+
+    $selectedExamId =
+        $existingSubjectAllocations
+            ->pluck('exam_master_id')
+            ->filter()
+            ->first();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | SELECTED SUBJECT IDS
+    |--------------------------------------------------------------------------
+    |
+    | These are REAL subjects.id values.
+    |
+    */
+
+    $selectedSubjects =
+        $existingSubjectAllocations
+            ->pluck('subject_id')
+            ->filter()
+            ->map(function ($id) {
+                return (int) $id;
+            })
+            ->unique()
+            ->values()
+            ->toArray();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD SUBJECTS
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | Subject list comes from:
+    |
+    | exam_master_subjects
+    |          ↓
+    | standard_wise_subjects
+    |          ↓
+    | subjects
+    |
+    | getExamMappedSubjects() already handles:
+    |
+    | 1. subjects.id
+    | 2. legacy standard_wise_subjects.id
+    |
+    */
+
+    $subjects = collect();
+
+    if ($selectedExamId) {
+
+        $subjects = $this->getExamMappedSubjects(
+            $selectedExamId,
+            $allocation->standard_id
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FALLBACK
+    |--------------------------------------------------------------------------
+    |
+    | If there is no existing exam yet, load all active subjects
+    | mapped to this Standard.
+    |
+    */
+
+    if (!$selectedExamId || $subjects->isEmpty()) {
+
+        $subjects = DB::table(
+            'standard_wise_subjects as sws'
+        )
+            ->join(
+                'subjects as s',
+                's.id',
+                '=',
+                'sws.subject_id'
+            )
             ->where(
-                'standard_id',
+                'sws.standard_id',
                 $allocation->standard_id
             )
             ->where(
-                'is_active',
+                'sws.is_active',
                 1
-            )
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SELECTED SUBJECTS
-        |--------------------------------------------------------------------------
-        */
-
-        $selectedSubjects = collect();
-
-        foreach (
-            $allocation->subjectAllocations
-            as $subjectAllocation
-        ) {
-
-            $tsaSubjectId =
-                (int) $subjectAllocation->subject_id;
-
-            $tmsSubjectId =
-                (int) (
-                    $statusMap->get(
-                        $subjectAllocation->id
-                    )?->subject_id
-                    ?? 0
-                );
-
-
-            /*
-            | Try TMS first if valid for current Standard.
-            */
-
-            $mapped = null;
-
-            if ($tmsSubjectId > 0) {
-
-                $mapped =
-                    $currentMappings->first(
-                        function ($mapping) use (
-                            $tmsSubjectId
-                        ) {
-                            return (int)
-                                $mapping->subject_id
-                                === $tmsSubjectId;
-                        }
-                    );
-            }
-
-
-            /*
-            | If old TMS value is wrong, use TSA.
-            */
-
-            if (!$mapped && $tsaSubjectId > 0) {
-
-                $mapped =
-                    $currentMappings->first(
-                        function ($mapping) use (
-                            $tsaSubjectId
-                        ) {
-                            return (int)
-                                $mapping->subject_id
-                                === $tsaSubjectId;
-                        }
-                    );
-            }
-
-
-            if ($mapped) {
-                $selectedSubjects->push(
-                    (int) $mapped->subject_id
-                );
-            }
-        }
-
-
-        $selectedSubjects =
-            $selectedSubjects
-                ->unique()
-                ->values()
-                ->toArray();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | FORM DATA
-        |--------------------------------------------------------------------------
-        */
-
-        $teachers =
-            User::where(
-                'role',
-                'Teacher'
             )
             ->where(
-                'is_active',
+                's.is_active',
                 1
             )
+            ->select([
+                's.id as subject_id',
+                's.subject_name',
+                's.subject_code',
+                's.short_name',
+                'sws.is_optional',
+                'sws.sort_order',
+            ])
             ->orderBy(
-                'name'
+                'sws.sort_order'
+            )
+            ->orderBy(
+                's.id'
             )
             ->get();
-
-
-        $academicYears =
-            AcademicYear::orderBy(
-                'year_name'
-            )->get();
-
-
-        $sections =
-            Section::orderBy(
-                'display_order'
-            )->get();
-
-
-        $standards =
-            Standard::where(
-                'is_active',
-                1
-            )
-            ->orderBy(
-                'display_order'
-            )
-            ->get();
-
-
-        $divisions =
-            Division::where(
-                'is_active',
-                1
-            )
-            ->orderBy(
-                'display_order'
-            )
-            ->get();
-
-
-        $exams =
-            ExamMaster::where(
-                'is_active',
-                1
-            )
-            ->orderBy(
-                'display_order'
-            )
-            ->orderBy(
-                'exam_name'
-            )
-            ->get();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECTS
-        |--------------------------------------------------------------------------
-        */
-
-        $subjects = collect();
-
-        if ($selectedExam) {
-
-            $subjects =
-                $this->getExamMappedSubjects(
-                    $selectedExam,
-                    $allocation->standard_id
-                );
-        }
-
-
-        return view(
-            'administrator.teacher-bulk-allocation.edit',
-            compact(
-                'allocation',
-                'teachers',
-                'academicYears',
-                'sections',
-                'standards',
-                'divisions',
-                'subjects',
-                'exams',
-                'selectedSubjects',
-                'selectedExam'
-            )
-        );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE SUBJECT OBJECTS
+    |--------------------------------------------------------------------------
+    |
+    | This makes the Blade receive:
+    |
+    | subject_id
+    | subject_name
+    | subject_code
+    | short_name
+    | sort_order
+    |
+    */
+
+    $subjects = collect($subjects)
+        ->map(function ($subject) {
+
+            return (object) [
+
+                'subject_id' =>
+                    (int) (
+                        $subject->subject_id
+                        ?? $subject->id
+                        ?? 0
+                    ),
+
+                'subject_name' =>
+                    $subject->subject_name
+                    ?? '-',
+
+                'subject_code' =>
+                    $subject->subject_code
+                    ?? '',
+
+                'short_name' =>
+                    $subject->short_name
+                    ?? '',
+
+                'is_optional' =>
+                    (int) (
+                        $subject->is_optional
+                        ?? 0
+                    ),
+
+                'sort_order' =>
+                    (int) (
+                        $subject->sort_order
+                        ?? $subject->display_order
+                        ?? 9999
+                    ),
+            ];
+        })
+        ->filter(function ($subject) {
+
+            return $subject->subject_id > 0;
+        })
+        ->unique('subject_id')
+        ->sortBy([
+            ['sort_order', 'asc'],
+            ['subject_name', 'asc'],
+        ])
+        ->values();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | RETURN EDIT VIEW
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | Your index/create views are under:
+    |
+    | resources/views/administrator/teacher-bulk-allocation/
+    |
+    | Therefore edit must use:
+    |
+    | administrator.teacher-bulk-allocation.edit
+    |
+    */
+
+    return view(
+        'administrator.teacher-bulk-allocation.edit',
+        compact(
+            'allocation',
+            'teachers',
+            'academicYears',
+            'exams',
+            'divisions',
+            'standard',
+            'subjects',
+            'selectedSubjects',
+            'selectedExamId'
+        )
+    );
+}
 
 
     /*

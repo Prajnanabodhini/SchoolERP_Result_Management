@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\AcademicYear;
 use App\Models\ExamMaster;
-use App\Models\TeacherClassAllocation;
 use App\Models\TeacherMarksStatus;
 use App\Models\TeacherSubjectAllocation;
 use App\Models\StudentMark;
@@ -20,23 +19,209 @@ class MarkEntryController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | Resolve Actual Subject ID
+    | ADMINISTRATOR
+    |--------------------------------------------------------------------------
+    */
+
+    private function isAdministrator(): bool
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasRole')) {
+
+            if (
+                $user->hasRole('Administrator') ||
+                $user->hasRole('admin')
+            ) {
+                return true;
+            }
+        }
+
+        $role = strtolower(
+            trim(
+                (string)($user->role ?? '')
+            )
+        );
+
+        return in_array(
+            $role,
+            [
+                'administrator',
+                'admin',
+            ],
+            true
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESOLVE SUBJECT MAP
     |--------------------------------------------------------------------------
     |
-    | TeacherSubjectAllocation.subject_id supports:
+    | Builds subject mapping ONCE.
     |
-    | CURRENT FORMAT:
-    |     subject_id = subjects.id
+    | Supports:
     |
-    | LEGACY FORMAT:
-    |     subject_id = standard_wise_subjects.id
+    | CURRENT:
+    | TSA.subject_id = subjects.id
     |
+    | LEGACY:
+    | TSA.subject_id = standard_wise_subjects.id
+    |
+    */
+
+    private function buildSubjectResolutionMap(
+        $assignments
+    ) {
+        $map = collect();
+
+        if ($assignments->isEmpty()) {
+            return $map;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARD IDS
+        |--------------------------------------------------------------------------
+        */
+
+        $standardIds = $assignments
+            ->pluck('allocation.standard_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | STORED SUBJECT IDS
+        |--------------------------------------------------------------------------
+        */
+
+        $storedSubjectIds = $assignments
+            ->pluck('subject_id')
+            ->filter()
+            ->map(fn($id) => (int)$id)
+            ->unique()
+            ->values();
+
+        if (
+            $standardIds->isEmpty() ||
+            $storedSubjectIds->isEmpty()
+        ) {
+            return $map;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD STANDARD WISE SUBJECT MAPPINGS
+        |--------------------------------------------------------------------------
+        */
+
+        $mappings =
+            DB::table(
+                'standard_wise_subjects as sws'
+            )
+            ->join(
+                'subjects as s',
+                's.id',
+                '=',
+                'sws.subject_id'
+            )
+            ->whereIn(
+                'sws.standard_id',
+                $standardIds
+            )
+            ->where(
+                'sws.is_active',
+                1
+            )
+            ->where(
+                's.is_active',
+                1
+            )
+            ->select([
+                'sws.id as sws_id',
+                'sws.standard_id',
+                'sws.subject_id',
+                's.id as actual_subject_id',
+                's.subject_name',
+                's.subject_code',
+                's.short_name',
+            ])
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Build lookup
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ($mappings as $mapping) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Legacy key
+            |
+            | standard + sws.id
+            |--------------------------------------------------------------------------
+            */
+
+            $legacyKey =
+                $mapping->standard_id
+                . ':'
+                . $mapping->sws_id;
+
+            $map->put(
+                $legacyKey,
+                $mapping
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Current key
+            |
+            | standard + subjects.id
+            |--------------------------------------------------------------------------
+            */
+
+            $currentKey =
+                $mapping->standard_id
+                . ':'
+                . $mapping->subject_id;
+
+            /*
+            | Current format must win.
+            */
+
+            if (!$map->has($currentKey)) {
+
+                $map->put(
+                    $currentKey,
+                    $mapping
+                );
+            }
+        }
+
+        return $map;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ACTUAL SUBJECT ID
     |--------------------------------------------------------------------------
     */
 
     private function resolveActualSubjectId(
         $storedSubjectId,
-        $standardId
+        $standardId,
+        $subjectMap = null
     ) {
         if (
             $storedSubjectId === null ||
@@ -46,8 +231,8 @@ class MarkEntryController extends Controller
             return null;
         }
 
-        $storedSubjectId = (int) $storedSubjectId;
-        $standardId = (int) $standardId;
+        $storedSubjectId = (int)$storedSubjectId;
+        $standardId = (int)$standardId;
 
         if (
             $storedSubjectId <= 0 ||
@@ -58,12 +243,33 @@ class MarkEntryController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | CURRENT FORMAT
-        | subject_id = subjects.id
+        | FAST MAP
         |--------------------------------------------------------------------------
         */
 
-        $currentSubject =
+        if ($subjectMap instanceof \Illuminate\Support\Collection) {
+
+            $key =
+                $standardId
+                . ':'
+                . $storedSubjectId;
+
+            $mapping =
+                $subjectMap->get($key);
+
+            if ($mapping) {
+
+                return (int)$mapping->actual_subject_id;
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FALLBACK CURRENT FORMAT
+        |--------------------------------------------------------------------------
+        */
+
+        $subject =
             DB::table('subjects')
                 ->where(
                     'id',
@@ -75,9 +281,9 @@ class MarkEntryController extends Controller
                 )
                 ->first();
 
-        if ($currentSubject) {
+        if ($subject) {
 
-            $mappingExists =
+            $exists =
                 DB::table(
                     'standard_wise_subjects'
                 )
@@ -95,19 +301,18 @@ class MarkEntryController extends Controller
                 )
                 ->exists();
 
-            if ($mappingExists) {
+            if ($exists) {
                 return $storedSubjectId;
             }
         }
 
         /*
         |--------------------------------------------------------------------------
-        | LEGACY FORMAT
-        | subject_id = standard_wise_subjects.id
+        | FALLBACK LEGACY FORMAT
         |--------------------------------------------------------------------------
         */
 
-        $legacyMapping =
+        $mapping =
             DB::table(
                 'standard_wise_subjects'
             )
@@ -126,25 +331,10 @@ class MarkEntryController extends Controller
             ->first();
 
         if (
-            $legacyMapping &&
-            !empty($legacyMapping->subject_id)
+            $mapping &&
+            !empty($mapping->subject_id)
         ) {
-
-            $actualSubject =
-                DB::table('subjects')
-                    ->where(
-                        'id',
-                        (int) $legacyMapping->subject_id
-                    )
-                    ->where(
-                        'is_active',
-                        1
-                    )
-                    ->first();
-
-            if ($actualSubject) {
-                return (int) $actualSubject->id;
-            }
+            return (int)$mapping->subject_id;
         }
 
         return null;
@@ -153,26 +343,18 @@ class MarkEntryController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Resolve Display Subject
-    |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    |
-    | 1. TeacherSubjectAllocation.subject_id is PRIMARY.
-    | 2. TeacherMarksStatus.subject_id is ONLY a legacy fallback.
-    |
-    | This prevents an old/conflicting status subject ID from causing
-    | the teacher's assignment to display the wrong subject.
-    |
+    | RESOLVE DISPLAY SUBJECT
     |--------------------------------------------------------------------------
     */
 
     private function resolveDisplaySubject(
         $storedSubjectId,
         $standardId,
-        $tmsSubjectId = null
+        $tmsSubjectId = null,
+        $subjectMap = null,
+        $subjectCollection = null
     ) {
-        $standardId = (int) $standardId;
+        $standardId = (int)$standardId;
 
         if ($standardId <= 0) {
             return null;
@@ -180,69 +362,39 @@ class MarkEntryController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 1. PRIMARY:
-        |    TeacherSubjectAllocation.subject_id
+        | PRIMARY - TSA SUBJECT
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $storedSubjectId !== null &&
-            $storedSubjectId !== '' &&
-            (int) $storedSubjectId > 0
-        ) {
+        $actualSubjectId =
+            $this->resolveActualSubjectId(
+                $storedSubjectId,
+                $standardId,
+                $subjectMap
+            );
 
-            $actualSubjectId =
-                $this->resolveActualSubjectId(
-                    $storedSubjectId,
-                    $standardId
-                );
+        if ($actualSubjectId) {
 
-            if ($actualSubjectId) {
+            if (
+                $subjectCollection instanceof
+                \Illuminate\Support\Collection
+            ) {
 
                 $subject =
-                    DB::table('subjects')
-                        ->where(
-                            'id',
-                            $actualSubjectId
-                        )
-                        ->where(
-                            'is_active',
-                            1
-                        )
-                        ->first();
+                    $subjectCollection->get(
+                        $actualSubjectId
+                    );
 
                 if ($subject) {
                     return $subject;
                 }
             }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 2. LEGACY FALLBACK:
-        |    TeacherMarksStatus.subject_id
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $tmsSubjectId !== null &&
-            $tmsSubjectId !== '' &&
-            (int) $tmsSubjectId > 0
-        ) {
-
-            $tmsSubjectId = (int) $tmsSubjectId;
-
-            /*
-            |--------------------------------------------------------------------------
-            | TMS.subject_id = subjects.id
-            |--------------------------------------------------------------------------
-            */
 
             $subject =
                 DB::table('subjects')
                     ->where(
                         'id',
-                        $tmsSubjectId
+                        $actualSubjectId
                     )
                     ->where(
                         'is_active',
@@ -251,72 +403,94 @@ class MarkEntryController extends Controller
                     ->first();
 
             if ($subject) {
-
-                $mappingExists =
-                    DB::table(
-                        'standard_wise_subjects'
-                    )
-                    ->where(
-                        'standard_id',
-                        $standardId
-                    )
-                    ->where(
-                        'subject_id',
-                        $tmsSubjectId
-                    )
-                    ->where(
-                        'is_active',
-                        1
-                    )
-                    ->exists();
-
-                if ($mappingExists) {
-                    return $subject;
-                }
+                return $subject;
             }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | LEGACY FALLBACK - TMS SUBJECT
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $tmsSubjectId !== null &&
+            $tmsSubjectId !== '' &&
+            (int)$tmsSubjectId > 0
+        ) {
+
+            $tmsSubjectId =
+                (int)$tmsSubjectId;
+
 
             /*
             |--------------------------------------------------------------------------
-            | TMS.subject_id = standard_wise_subjects.id
+            | TMS ID = SUBJECT ID
             |--------------------------------------------------------------------------
             */
 
-            $legacyMapping =
-                DB::table(
-                    'standard_wise_subjects as sws'
-                )
-                ->leftJoin(
-                    'subjects as s',
-                    's.id',
-                    '=',
-                    'sws.subject_id'
-                )
-                ->where(
-                    'sws.id',
-                    $tmsSubjectId
-                )
-                ->where(
-                    'sws.standard_id',
-                    $standardId
-                )
-                ->where(
-                    'sws.is_active',
-                    1
-                )
-                ->where(
-                    's.is_active',
-                    1
-                )
-                ->select([
-                    's.id',
-                    's.subject_name',
-                    's.subject_code',
-                    's.short_name',
-                ])
-                ->first();
+            if (
+                $subjectCollection instanceof
+                \Illuminate\Support\Collection
+            ) {
 
-            if ($legacyMapping) {
-                return $legacyMapping;
+                $subject =
+                    $subjectCollection->get(
+                        $tmsSubjectId
+                    );
+
+                if ($subject) {
+
+                    $key =
+                        $standardId
+                        . ':'
+                        . $tmsSubjectId;
+
+                    if (
+                        $subjectMap instanceof
+                        \Illuminate\Support\Collection &&
+                        $subjectMap->has($key)
+                    ) {
+                        return $subject;
+                    }
+                }
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | TMS ID = SWS ID
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $subjectMap instanceof
+                \Illuminate\Support\Collection
+            ) {
+
+                $key =
+                    $standardId
+                    . ':'
+                    . $tmsSubjectId;
+
+                $mapping =
+                    $subjectMap->get($key);
+
+                if ($mapping) {
+
+                    $actualSubjectId =
+                        (int)$mapping->actual_subject_id;
+
+                    if (
+                        $subjectCollection instanceof
+                        \Illuminate\Support\Collection
+                    ) {
+
+                        return $subjectCollection->get(
+                            $actualSubjectId
+                        );
+                    }
+                }
             }
         }
 
@@ -326,80 +500,7 @@ class MarkEntryController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Administrator Detection
-    |--------------------------------------------------------------------------
-    */
-
-    private function isAdministrator()
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            return false;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Spatie Role
-        |--------------------------------------------------------------------------
-        */
-
-        if (method_exists($user, 'hasRole')) {
-
-            if (
-                $user->hasRole('Administrator') ||
-                $user->hasRole('admin')
-            ) {
-                return true;
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Plain role column
-        |--------------------------------------------------------------------------
-        */
-
-        $role =
-            strtolower(
-                trim(
-                    (string) (
-                        $user->role
-                        ?? ''
-                    )
-                )
-            );
-
-        return in_array(
-            $role,
-            [
-                'administrator',
-                'admin',
-            ],
-            true
-        );
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MARKS ENTRY INDEX
-    |--------------------------------------------------------------------------
-    |
-    | NO SESSION USED.
-    |
-    | Flow:
-    |
-    | Academic Year
-    |      ↓
-    | Exam
-    |      ↓
-    | Teaching Assignment
-    |      ↓
-    | Students
-    |
-    | No Class / Division filter.
-    |
+    | INDEX
     |--------------------------------------------------------------------------
     */
 
@@ -412,46 +513,37 @@ class MarkEntryController extends Controller
         */
 
         $students = collect();
-
         $assignments = collect();
-
         $academicYears = collect();
-
         $exams = collect();
 
         $exam = null;
 
         $teacherSubjectAllocation = null;
-
         $selectedClassAllocation = null;
-
         $subjectConfig = null;
 
         $error = '';
-
         $message = '';
 
         $showTheory = false;
-
         $showOral = false;
-
         $showPractical = false;
 
         $theoryMaxMarks = 0;
-
         $theoryPassingMarks = 0;
 
         $oralMaxMarks = 0;
-
         $oralPassingMarks = 0;
 
         $practicalMaxMarks = 0;
-
         $practicalPassingMarks = 0;
 
         $marksLocked = false;
 
         $existingMarks = collect();
+
+        $marksStatus = null;
 
 
         /*
@@ -466,7 +558,8 @@ class MarkEntryController extends Controller
             abort(403);
         }
 
-        $userId = Auth::id();
+        $userId =
+            (int)Auth::id();
 
         $isAdministrator =
             $this->isAdministrator();
@@ -474,7 +567,7 @@ class MarkEntryController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | REQUEST VALUES
+        | REQUEST
         |--------------------------------------------------------------------------
         */
 
@@ -506,9 +599,7 @@ class MarkEntryController extends Controller
                     'is_active',
                     1
                 )
-                ->orderByDesc(
-                    'id'
-                )
+                ->orderByDesc('id')
                 ->get();
 
 
@@ -524,18 +615,14 @@ class MarkEntryController extends Controller
                     'is_active',
                     1
                 )
-                ->orderBy(
-                    'display_order'
-                )
-                ->orderBy(
-                    'exam_name'
-                )
+                ->orderBy('display_order')
+                ->orderBy('exam_name')
                 ->get();
 
 
         /*
         |--------------------------------------------------------------------------
-        | SELECTED EXAM
+        | EXAM
         |--------------------------------------------------------------------------
         */
 
@@ -544,7 +631,7 @@ class MarkEntryController extends Controller
             $exam =
                 $exams->firstWhere(
                     'id',
-                    (int) $examId
+                    (int)$examId
                 );
 
             if (!$exam) {
@@ -557,277 +644,15 @@ class MarkEntryController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | TEACHING ASSIGNMENTS
+        | SELECTED TSA FIRST
         |--------------------------------------------------------------------------
         |
-        | No is_active condition because the table does not have that
-        | column.
+        | This is important for:
         |
-        |--------------------------------------------------------------------------
-        */
-
-        $assignmentQuery =
-            TeacherSubjectAllocation::query()
-                ->with([
-                    'allocation.teacher',
-                    'allocation.academicYear',
-                    'allocation.section',
-                    'allocation.standard',
-                    'allocation.division',
-                    'exam',
-                ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if ($examId) {
-
-            $assignmentQuery->where(
-                'exam_master_id',
-                $examId
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ACADEMIC YEAR FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if ($academicYearId) {
-
-            $assignmentQuery->whereHas(
-                'allocation',
-                function ($query) use (
-                    $academicYearId
-                ) {
-
-                    $query->where(
-                        'academic_year_id',
-                        $academicYearId
-                    );
-                }
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | TEACHER SECURITY
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$isAdministrator) {
-
-            $assignmentQuery->whereHas(
-                'allocation',
-                function ($query) use (
-                    $userId
-                ) {
-
-                    $query->where(
-                        'user_id',
-                        $userId
-                    );
-                }
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD ASSIGNMENTS
-        |--------------------------------------------------------------------------
-        */
-
-        $assignments =
-            $assignmentQuery
-                ->orderByDesc(
-                    'id'
-                )
-                ->get();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS RECORDS
-        |--------------------------------------------------------------------------
-        */
-
-        $assignmentIds =
-            $assignments
-                ->pluck('id')
-                ->filter()
-                ->unique()
-                ->values();
-
-
-        $allStatuses =
-            collect();
-
-
-        if ($assignmentIds->isNotEmpty()) {
-
-            $statusQuery =
-                TeacherMarksStatus::query()
-                    ->whereIn(
-                        'teacher_subject_allocation_id',
-                        $assignmentIds
-                    );
-
-            if (!$isAdministrator) {
-
-                $statusQuery->where(
-                    'teacher_id',
-                    $userId
-                );
-            }
-
-            $allStatuses =
-                $statusQuery->get([
-                    'id',
-                    'teacher_subject_allocation_id',
-                    'subject_id',
-                    'teacher_id',
-                    'exam_master_id',
-                    'standard_id',
-                    'division_id',
-                    'status',
-                ]);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESOLVE SUBJECTS FOR ASSIGNMENT LIST
-        |--------------------------------------------------------------------------
+        | Exam Progress -> Marks Entry
         |
-        | IMPORTANT:
+        | because TSA tells us the actual academic year.
         |
-        | TSA subject is primary.
-        | TMS subject is only fallback.
-        |--------------------------------------------------------------------------
-        */
-
-        $assignments->each(
-            function ($assignment) use (
-                $allStatuses
-            ) {
-
-                $allocation =
-                    $assignment->allocation;
-
-                if (!$allocation) {
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Find matching status
-                |--------------------------------------------------------------------------
-                */
-
-                $status =
-                    $allStatuses
-                        ->where(
-                            'teacher_subject_allocation_id',
-                            $assignment->id
-                        )
-                        ->where(
-                            'exam_master_id',
-                            $assignment->exam_master_id
-                        )
-                        ->first();
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Fallback status
-                |--------------------------------------------------------------------------
-                */
-
-                if (!$status) {
-
-                    $status =
-                        $allStatuses
-                            ->firstWhere(
-                                'teacher_subject_allocation_id',
-                                $assignment->id
-                            );
-                }
-
-
-                $tmsSubjectId =
-                    $status
-                        ? $status->subject_id
-                        : null;
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | RESOLVE SUBJECT
-                |--------------------------------------------------------------------------
-                */
-
-                $actualSubject =
-                    $this->resolveDisplaySubject(
-                        $assignment->subject_id,
-                        $allocation->standard_id,
-                        $tmsSubjectId
-                    );
-
-
-                if ($actualSubject) {
-
-                    $assignment->setRelation(
-                        'subject',
-                        $actualSubject
-                    );
-
-                    $assignment->resolved_subject_id =
-                        (int) $actualSubject->id;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | DATA USED BY BLADE
-                |--------------------------------------------------------------------------
-                */
-
-                $assignment->resolved_academic_year_id =
-                    $allocation->academic_year_id;
-
-                $assignment->resolved_class_allocation_id =
-                    $assignment->teacher_class_allocation_id;
-
-                $assignment->resolved_exam_master_id =
-                    $assignment->exam_master_id;
-
-                $assignment->resolved_standard_id =
-                    $allocation->standard_id;
-
-                $assignment->resolved_division_id =
-                    $allocation->division_id;
-
-                $assignment->resolved_status =
-                    $status
-                        ? $status->status
-                        : null;
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SELECTED TSA
-        |--------------------------------------------------------------------------
         */
 
         if ($tsaId) {
@@ -844,53 +669,18 @@ class MarkEntryController extends Controller
                     ])
                     ->where(
                         'id',
-                        $tsaId
+                        (int)$tsaId
                     );
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SELECTED EXAM
-            |--------------------------------------------------------------------------
-            */
 
             if ($examId) {
 
                 $tsaQuery->where(
                     'exam_master_id',
-                    $examId
+                    (int)$examId
                 );
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SELECTED ACADEMIC YEAR
-            |--------------------------------------------------------------------------
-            */
-
-            if ($academicYearId) {
-
-                $tsaQuery->whereHas(
-                    'allocation',
-                    function ($query) use (
-                        $academicYearId
-                    ) {
-
-                        $query->where(
-                            'academic_year_id',
-                            $academicYearId
-                        );
-                    }
-                );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | TEACHER SECURITY
-            |--------------------------------------------------------------------------
-            */
 
             if (!$isAdministrator) {
 
@@ -916,39 +706,59 @@ class MarkEntryController extends Controller
             if (!$teacherSubjectAllocation) {
 
                 $error =
-                    'Selected teaching assignment was not found or is not valid for the selected exam.';
+                    'Selected teaching assignment was not found or is not assigned to you.';
+
+            } else {
+
+                $selectedClassAllocation =
+                    $teacherSubjectAllocation
+                        ->allocation;
+
+
+                if (!$selectedClassAllocation) {
+
+                    $teacherSubjectAllocation =
+                        null;
+
+                    $error =
+                        'Teacher class allocation not found.';
+
+                } else {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | RESOLVE YEAR IMMEDIATELY
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $resolvedYear =
+                        $selectedClassAllocation
+                            ->academic_year_id
+                        ?? null;
+
+
+                    if (
+                        $resolvedYear !== null &&
+                        $resolvedYear !== ''
+                    ) {
+
+                        $academicYearId =
+                            (int)$resolvedYear;
+
+
+                        $request->merge([
+                            'academic_year_id' =>
+                                $academicYearId,
+                        ]);
+                    }
+                }
             }
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | GET CLASS ALLOCATION FROM TSA
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $teacherSubjectAllocation
-        ) {
-
-            $selectedClassAllocation =
-                $teacherSubjectAllocation
-                    ->allocation;
-
-            if (!$selectedClassAllocation) {
-
-                $teacherSubjectAllocation =
-                    null;
-
-                $error =
-                    'Teacher class allocation not found.';
-            }
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET EXAM FROM TSA
+        | EXAM FROM TSA
         |--------------------------------------------------------------------------
         */
 
@@ -963,115 +773,259 @@ class MarkEntryController extends Controller
                     $teacherSubjectAllocation
                         ->exam_master_id
                 );
-
-            if (!$exam) {
-
-                $error =
-                    'Exam linked to the teaching assignment was not found.';
-            }
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY TSA / EXAM
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $teacherSubjectAllocation &&
-            $exam
-        ) {
-
-            if (
-                (int)
-                $teacherSubjectAllocation
-                    ->exam_master_id
-                !==
-                (int)
-                $exam->id
-            ) {
-
-                $teacherSubjectAllocation =
-                    null;
-
-                $selectedClassAllocation =
-                    null;
-
-                $error =
-                    'Selected teaching assignment does not belong to the selected exam.';
-            }
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESOLVE SELECTED SUBJECT
+        | LOAD ASSIGNMENTS
         |--------------------------------------------------------------------------
         |
-        | TSA is PRIMARY.
-        |--------------------------------------------------------------------------
+        | Now filtered by the correct academic year.
+        |
         */
 
+        $assignmentQuery =
+            TeacherSubjectAllocation::query()
+                ->with([
+                    'allocation.teacher',
+                    'allocation.academicYear',
+                    'allocation.section',
+                    'allocation.standard',
+                    'allocation.division',
+                    'exam',
+                ]);
+
+
+        if ($examId) {
+
+            $assignmentQuery->where(
+                'exam_master_id',
+                $examId
+            );
+        }
+
+
         if (
-            $teacherSubjectAllocation
+            $academicYearId !== null &&
+            $academicYearId !== ''
         ) {
 
-            $allocation =
-                $teacherSubjectAllocation
-                    ->allocation;
+            $assignmentQuery->whereHas(
+                'allocation',
+                function ($query) use (
+                    $academicYearId
+                ) {
+
+                    $query->where(
+                        'academic_year_id',
+                        $academicYearId
+                    );
+                }
+            );
+        }
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Find status
-            |--------------------------------------------------------------------------
-            */
+        if (!$isAdministrator) {
 
-            $status =
-                $allStatuses
-                    ->where(
-                        'teacher_subject_allocation_id',
-                        $teacherSubjectAllocation->id
-                    )
-                    ->where(
-                        'exam_master_id',
-                        $teacherSubjectAllocation
-                            ->exam_master_id
-                    )
-                    ->first();
+            $assignmentQuery->whereHas(
+                'allocation',
+                function ($query) use (
+                    $userId
+                ) {
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | Direct status fallback
-            |--------------------------------------------------------------------------
-            */
-
-            if (!$status) {
-
-                $statusQuery =
-                    TeacherMarksStatus::query()
-                        ->where(
-                            'teacher_subject_allocation_id',
-                            $teacherSubjectAllocation->id
-                        )
-                        ->where(
-                            'exam_master_id',
-                            $teacherSubjectAllocation
-                                ->exam_master_id
-                        );
-
-                if (!$isAdministrator) {
-
-                    $statusQuery->where(
-                        'teacher_id',
+                    $query->where(
+                        'user_id',
                         $userId
                     );
                 }
+            );
+        }
+
+
+        $assignments =
+            $assignmentQuery
+                ->orderByDesc('id')
+                ->get();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD ALL STATUS RECORDS ONCE
+        |--------------------------------------------------------------------------
+        */
+
+        $assignmentIds =
+            $assignments
+                ->pluck('id')
+                ->filter()
+                ->unique()
+                ->values();
+
+
+        $allStatuses =
+            collect();
+
+
+        if ($assignmentIds->isNotEmpty()) {
+
+            $statusQuery =
+                TeacherMarksStatus::query()
+                    ->whereIn(
+                        'teacher_subject_allocation_id',
+                        $assignmentIds
+                    );
+
+
+            if (!$isAdministrator) {
+
+                $statusQuery->where(
+                    'teacher_id',
+                    $userId
+                );
+            }
+
+
+            $allStatuses =
+                $statusQuery
+                    ->get([
+                        'id',
+                        'teacher_subject_allocation_id',
+                        'subject_id',
+                        'teacher_id',
+                        'exam_master_id',
+                        'standard_id',
+                        'division_id',
+                        'academic_year_id',
+                        'status',
+                    ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD SUBJECTS ONCE
+        |--------------------------------------------------------------------------
+        */
+
+        $standardIds =
+            $assignments
+                ->pluck(
+                    'allocation.standard_id'
+                )
+                ->filter()
+                ->unique()
+                ->values();
+
+
+        $allSubjects =
+            collect();
+
+
+        if ($standardIds->isNotEmpty()) {
+
+            $allSubjects =
+                DB::table(
+                    'subjects as s'
+                )
+                ->join(
+                    'standard_wise_subjects as sws',
+                    'sws.subject_id',
+                    '=',
+                    's.id'
+                )
+                ->whereIn(
+                    'sws.standard_id',
+                    $standardIds
+                )
+                ->where(
+                    's.is_active',
+                    1
+                )
+                ->where(
+                    'sws.is_active',
+                    1
+                )
+                ->select([
+                    's.id',
+                    's.subject_name',
+                    's.subject_code',
+                    's.short_name',
+                ])
+                ->distinct()
+                ->get()
+                ->keyBy('id');
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUILD SUBJECT MAP ONCE
+        |--------------------------------------------------------------------------
+        */
+
+        $subjectMap =
+            $this->buildSubjectResolutionMap(
+                $assignments
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STATUS MAP
+        |--------------------------------------------------------------------------
+        |
+        | Eliminates repeated collection where() calls.
+        |
+        */
+
+        $statusMap =
+            $allStatuses->keyBy(
+                function ($status) {
+
+                    return
+                        $status->teacher_subject_allocation_id
+                        . ':'
+                        . $status->exam_master_id;
+                }
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | RESOLVE ASSIGNMENTS
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ($assignments as $assignment) {
+
+            $allocation =
+                $assignment->allocation;
+
+            if (!$allocation) {
+                continue;
+            }
+
+
+            $statusKey =
+                $assignment->id
+                . ':'
+                . $assignment->exam_master_id;
+
+
+            $status =
+                $statusMap->get(
+                    $statusKey
+                );
+
+
+            if (!$status) {
 
                 $status =
-                    $statusQuery->first();
+                    $allStatuses->firstWhere(
+                        'teacher_subject_allocation_id',
+                        $assignment->id
+                    );
             }
 
 
@@ -1081,20 +1035,139 @@ class MarkEntryController extends Controller
                     : null;
 
 
+            $actualSubject =
+                $this->resolveDisplaySubject(
+                    $assignment->subject_id,
+                    $allocation->standard_id,
+                    $tmsSubjectId,
+                    $subjectMap,
+                    $allSubjects
+                );
+
+
+            if ($actualSubject) {
+
+                $assignment->setRelation(
+                    'subject',
+                    $actualSubject
+                );
+
+                $assignment->resolved_subject_id =
+                    (int)$actualSubject->id;
+            }
+
+
+            $assignment->resolved_academic_year_id =
+                $allocation->academic_year_id;
+
+            $assignment->resolved_class_allocation_id =
+                $assignment->teacher_class_allocation_id;
+
+            $assignment->resolved_exam_master_id =
+                $assignment->exam_master_id;
+
+            $assignment->resolved_standard_id =
+                $allocation->standard_id;
+
+            $assignment->resolved_division_id =
+                $allocation->division_id;
+
+            $assignment->resolved_status =
+                $status
+                    ? strtoupper(
+                        trim(
+                            (string)(
+                                $status->status ?? ''
+                            )
+                        )
+                    )
+                    : null;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SELECTED STATUS
+        |--------------------------------------------------------------------------
+        */
+
+        if ($teacherSubjectAllocation) {
+
+            $selectedAllocation =
+                $teacherSubjectAllocation
+                    ->allocation;
+
+
+            $statusKey =
+                $teacherSubjectAllocation->id
+                . ':'
+                . $teacherSubjectAllocation
+                    ->exam_master_id;
+
+
+            $marksStatus =
+                $statusMap->get(
+                    $statusKey
+                );
+
+
             /*
             |--------------------------------------------------------------------------
-            | IMPORTANT:
-            |
-            | TeacherSubjectAllocation.subject_id is resolved FIRST.
+            | FALLBACK
             |--------------------------------------------------------------------------
             */
+
+            if (!$marksStatus) {
+
+                $marksStatus =
+                    TeacherMarksStatus::query()
+                        ->where(
+                            'teacher_subject_allocation_id',
+                            $teacherSubjectAllocation->id
+                        )
+                        ->where(
+                            'exam_master_id',
+                            $teacherSubjectAllocation
+                                ->exam_master_id
+                        )
+                        ->when(
+                            !$isAdministrator,
+                            function ($query) use (
+                                $userId
+                            ) {
+
+                                $query->where(
+                                    'teacher_id',
+                                    $userId
+                                );
+                            }
+                        )
+                        ->orderByDesc('id')
+                        ->first();
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | SUBJECT
+            |--------------------------------------------------------------------------
+            */
+
+            $tmsSubjectId =
+                $marksStatus
+                    ? $marksStatus->subject_id
+                    : null;
+
 
             $actualSubject =
                 $this->resolveDisplaySubject(
                     $teacherSubjectAllocation
                         ->subject_id,
-                    $allocation->standard_id,
-                    $tmsSubjectId
+                    $selectedAllocation
+                        ->standard_id,
+                    $tmsSubjectId,
+                    $subjectMap,
+                    $allSubjects
                 );
 
 
@@ -1108,8 +1181,7 @@ class MarkEntryController extends Controller
 
                 $teacherSubjectAllocation
                     ->resolved_subject_id =
-                    (int)
-                    $actualSubject->id;
+                        (int)$actualSubject->id;
             }
         }
 
@@ -1138,23 +1210,6 @@ class MarkEntryController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | FALLBACK ACTUAL SUBJECT
-            |--------------------------------------------------------------------------
-            */
-
-            if (!$actualSubjectId) {
-
-                $actualSubjectId =
-                    $this->resolveActualSubjectId(
-                        $teacherSubjectAllocation
-                            ->subject_id,
-                        $allocation->standard_id
-                    );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
             | CURRENT CONFIGURATION
             |--------------------------------------------------------------------------
             */
@@ -1169,8 +1224,7 @@ class MarkEntryController extends Controller
                         )
                         ->where(
                             'standard_id',
-                            $allocation
-                                ->standard_id
+                            $allocation->standard_id
                         )
                         ->where(
                             'subject_id',
@@ -1220,12 +1274,14 @@ class MarkEntryController extends Controller
                             )
                             ->where(
                                 'standard_id',
-                                $allocation
-                                    ->standard_id
+                                $allocation->standard_id
                             )
-                            ->where(
+                            ->whereIn(
                                 'subject_id',
-                                $mapping->id
+                                [
+                                    $actualSubjectId,
+                                    $mapping->id,
+                                ]
                             )
                             ->first();
                 }
@@ -1234,36 +1290,24 @@ class MarkEntryController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | MARK CONFIGURATION
+            | CONFIGURATION ERROR
             |--------------------------------------------------------------------------
             */
 
-            if ($subjectConfig) {
-
-                $theoryMaxMarks =
-                    $subjectConfig->max_marks
-                    ?? 0;
-
-                $theoryPassingMarks =
-                    $subjectConfig->passing_marks
-                    ?? 0;
-
-            } else {
+            if (!$subjectConfig) {
 
                 $subjectName =
                     optional(
                         $teacherSubjectAllocation->subject
                     )->subject_name
-                    ??
-                    'Selected Subject';
+                    ?? 'Selected Subject';
 
 
                 $standardName =
                     optional(
                         $allocation->standard
                     )->standard_name
-                    ??
-                    'Selected Standard';
+                    ?? 'Selected Standard';
 
 
                 $error =
@@ -1284,20 +1328,26 @@ class MarkEntryController extends Controller
             */
 
             $showTheory =
-                (bool) $exam->has_theory;
+                (bool)$exam->has_theory;
 
             $showOral =
-                (bool) $exam->has_oral;
+                (bool)$exam->has_oral;
 
             $showPractical =
-                (bool) $exam->has_practical;
+                (bool)$exam->has_practical;
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | ORAL
-            |--------------------------------------------------------------------------
-            */
+            if ($subjectConfig) {
+
+                $theoryMaxMarks =
+                    $subjectConfig->max_marks
+                    ?? 0;
+
+                $theoryPassingMarks =
+                    $subjectConfig->passing_marks
+                    ?? 0;
+            }
+
 
             if ($showOral) {
 
@@ -1310,12 +1360,6 @@ class MarkEntryController extends Controller
                     ?? 0;
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | PRACTICAL
-            |--------------------------------------------------------------------------
-            */
 
             if ($showPractical) {
 
@@ -1345,129 +1389,137 @@ class MarkEntryController extends Controller
             $allocation =
                 $selectedClassAllocation;
 
+
+            $erpAcademicYearId =
+                (int)(
+                    $allocation->academic_year_id
+                    ?? 0
+                );
+
+
+            $erpStandardId =
+                (int)(
+                    $allocation->standard_id
+                    ?? 0
+                );
+
+
+            $erpDivisionId =
+                (int)(
+                    $allocation->division_id
+                    ?? 0
+                );
+
+
             try {
 
-                $students =
-                    StudentHelper::getStudentsDirectERP(
-                        $allocation->academic_year_id,
-                        $allocation->standard_id,
-                        $allocation->division_id
-                    );
+                if (
+                    $erpAcademicYearId > 0 &&
+                    $erpStandardId > 0 &&
+                    $erpDivisionId > 0
+                ) {
+
+                    $students =
+                        StudentHelper::getStudentsDirectERP(
+                            $erpAcademicYearId,
+                            $erpStandardId,
+                            $erpDivisionId
+                        );
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | GIRLS FIRST
-                |--------------------------------------------------------------------------
-                */
+                    if (
+                        !$students instanceof
+                        \Illuminate\Support\Collection
+                    ) {
 
-                $students =
-                    $students
-                        ->sort(
-                            function (
-                                $a,
-                                $b
-                            ) {
-
-                                $genderA =
-                                    strtoupper(
-                                        trim(
-                                            $a->gender
-                                            ?? ''
-                                        )
-                                    );
-
-                                $genderB =
-                                    strtoupper(
-                                        trim(
-                                            $b->gender
-                                            ?? ''
-                                        )
-                                    );
+                        $students =
+                            collect($students);
+                    }
 
 
-                                if (
-                                    $genderA !==
-                                    $genderB
+                    /*
+                    |--------------------------------------------------------------------------
+                    | GIRLS FIRST
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $students =
+                        $students
+                            ->sort(
+                                function (
+                                    $a,
+                                    $b
                                 ) {
 
-                                    if (
-                                        in_array(
-                                            $genderA,
-                                            [
-                                                'F',
-                                                'FEMALE'
-                                            ],
-                                            true
-                                        )
-                                    ) {
-                                        return -1;
-                                    }
+                                    $genderA =
+                                        strtoupper(
+                                            trim(
+                                                $a->gender
+                                                ?? ''
+                                            )
+                                        );
+
+
+                                    $genderB =
+                                        strtoupper(
+                                            trim(
+                                                $b->gender
+                                                ?? ''
+                                            )
+                                        );
+
 
                                     if (
-                                        in_array(
-                                            $genderB,
-                                            [
-                                                'F',
-                                                'FEMALE'
-                                            ],
-                                            true
-                                        )
+                                        $genderA !==
+                                        $genderB
                                     ) {
-                                        return 1;
+
+                                        if (
+                                            in_array(
+                                                $genderA,
+                                                [
+                                                    'F',
+                                                    'FEMALE',
+                                                ],
+                                                true
+                                            )
+                                        ) {
+                                            return -1;
+                                        }
+
+
+                                        if (
+                                            in_array(
+                                                $genderB,
+                                                [
+                                                    'F',
+                                                    'FEMALE',
+                                                ],
+                                                true
+                                            )
+                                        ) {
+                                            return 1;
+                                        }
                                     }
+
+
+                                    return strcmp(
+                                        strtoupper(
+                                            trim(
+                                                $a->studname
+                                                ?? ''
+                                            )
+                                        ),
+                                        strtoupper(
+                                            trim(
+                                                $b->studname
+                                                ?? ''
+                                            )
+                                        )
+                                    );
                                 }
-
-
-                                return strcmp(
-                                    strtoupper(
-                                        trim(
-                                            $a->studname
-                                            ?? ''
-                                        )
-                                    ),
-                                    strtoupper(
-                                        trim(
-                                            $b->studname
-                                            ?? ''
-                                        )
-                                    )
-                                );
-                            }
-                        )
-                        ->values();
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | NO STUDENTS
-                |--------------------------------------------------------------------------
-                */
-
-                if ($students->isEmpty()) {
-
-                    $standardName =
-                        optional(
-                            $allocation->standard
-                        )->standard_name
-                        ??
-                        'Selected Standard';
-
-
-                    $divisionName =
-                        optional(
-                            $allocation->division
-                        )->division_name
-                        ??
-                        'Selected Division';
-
-
-                    $error =
-                        'No students found for '
-                        . $standardName
-                        . ' - '
-                        . $divisionName
-                        . '. Please verify Old ERP student mapping.';
+                            )
+                            ->values();
                 }
 
             } catch (\Throwable $e) {
@@ -1481,12 +1533,43 @@ class MarkEntryController extends Controller
                     'Old ERP Error: '
                     . $e->getMessage();
             }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | NO STUDENTS
+            |--------------------------------------------------------------------------
+            */
+
+            if ($students->isEmpty()) {
+
+                $standardName =
+                    optional(
+                        $allocation->standard
+                    )->standard_name
+                    ?? 'Selected Standard';
+
+
+                $divisionName =
+                    optional(
+                        $allocation->division
+                    )->division_name
+                    ?? 'Selected Division';
+
+
+                $error =
+                    'No students found for '
+                    . $standardName
+                    . ' - '
+                    . $divisionName
+                    . '. Please verify Old ERP student mapping.';
+            }
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | MARK STATUS
+        | COMPLETED / PENDING
         |--------------------------------------------------------------------------
         */
 
@@ -1495,50 +1578,28 @@ class MarkEntryController extends Controller
             $exam
         ) {
 
-            $marksStatusQuery =
-                TeacherMarksStatus::query()
-                    ->where(
-                        'teacher_subject_allocation_id',
-                        $teacherSubjectAllocation->id
+            $currentStatus =
+                strtoupper(
+                    trim(
+                        (string)(
+                            $marksStatus->status
+                            ?? ''
+                        )
                     )
-                    ->where(
-                        'exam_master_id',
-                        $exam->id
-                    );
-
-
-            if (!$isAdministrator) {
-
-                $marksStatusQuery->where(
-                    'teacher_id',
-                    $userId
                 );
-            }
-
-
-            $marksStatus =
-                $marksStatusQuery
-                    ->first();
 
 
             /*
             |--------------------------------------------------------------------------
-            | COMPLETED
+            | ONLY COMPLETED LOCKS
             |--------------------------------------------------------------------------
             */
 
             if (
-                $marksStatus &&
-                strtoupper(
-                    trim(
-                        $marksStatus->status
-                        ?? ''
-                    )
-                ) === 'COMPLETED'
+                $currentStatus === 'COMPLETED'
             ) {
 
-                $marksLocked =
-                    true;
+                $marksLocked = true;
 
                 $message =
                     'Marks entry has already been completed and is locked.';
@@ -1546,6 +1607,15 @@ class MarkEntryController extends Controller
                 $students =
                     collect();
             }
+
+            /*
+            |--------------------------------------------------------------------------
+            | PENDING
+            |--------------------------------------------------------------------------
+            |
+            | Students remain visible.
+            |
+            */
         }
 
 
@@ -1571,9 +1641,25 @@ class MarkEntryController extends Controller
                         $teacherSubjectAllocation->id
                     )
                     ->get()
-                    ->keyBy(
-                        'student_id'
-                    );
+                    ->keyBy('student_id');
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | REQUEST YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $academicYearId !== null &&
+            $academicYearId !== ''
+        ) {
+
+            $request->merge([
+                'academic_year_id' =>
+                    $academicYearId,
+            ]);
         }
 
 
@@ -1588,6 +1674,7 @@ class MarkEntryController extends Controller
             compact(
                 'request',
                 'academicYears',
+                'academicYearId',
                 'assignments',
                 'exams',
                 'students',

@@ -37,14 +37,11 @@ class ExamProgressController extends Controller
             }
         }
 
-        $role =
-            strtolower(
-                trim(
-                    (string) (
-                        $user->role ?? ''
-                    )
-                )
-            );
+        $role = strtolower(
+            trim(
+                (string) ($user->role ?? '')
+            )
+        );
 
         return in_array(
             $role,
@@ -62,98 +59,83 @@ class ExamProgressController extends Controller
     | RESOLVE ACTUAL SUBJECT ID
     |--------------------------------------------------------------------------
     |
-    | TeacherSubjectAllocation.subject_id can contain:
+    | CURRENT FORMAT:
     |
-    | CURRENT:
-    |     subjects.id
+    |   stored ID = subjects.id
     |
-    | LEGACY:
-    |     standard_wise_subjects.id
+    | LEGACY FORMAT:
+    |
+    |   stored ID = standard_wise_subjects.id
     |
     |--------------------------------------------------------------------------
     */
 
     private function resolveActualSubjectId(
         $storedSubjectId,
-        $standardId
+        $standardId = null
     ): ?int {
 
         if (
             $storedSubjectId === null ||
-            $storedSubjectId === '' ||
-            !$standardId
+            $storedSubjectId === ''
         ) {
             return null;
         }
 
-        $storedSubjectId =
-            (int) $storedSubjectId;
+        $storedSubjectId = (int) $storedSubjectId;
 
-        $standardId =
-            (int) $standardId;
-
-        if (
-            $storedSubjectId <= 0 ||
-            $standardId <= 0
-        ) {
+        if ($storedSubjectId <= 0) {
             return null;
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | CURRENT FORMAT
+        | 1. CURRENT FORMAT
         |--------------------------------------------------------------------------
+        |
+        | Direct subjects.id
+        |
         */
 
-        $subject =
-            DB::table('subjects')
-                ->where(
-                    'id',
-                    $storedSubjectId
-                )
-                ->where(
-                    'is_active',
-                    1
-                )
-                ->first();
+        $subject = DB::table('subjects')
+            ->where(
+                'id',
+                $storedSubjectId
+            )
+            ->where(
+                'is_active',
+                1
+            )
+            ->first();
 
         if ($subject) {
-
-            $mappingExists =
-                DB::table(
-                    'standard_wise_subjects'
-                )
-                ->where(
-                    'standard_id',
-                    $standardId
-                )
-                ->where(
-                    'subject_id',
-                    $storedSubjectId
-                )
-                ->where(
-                    'is_active',
-                    1
-                )
-                ->exists();
-
-            if ($mappingExists) {
-                return $storedSubjectId;
-            }
+            return (int) $subject->id;
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | LEGACY FORMAT
+        | 2. LEGACY FORMAT
         |--------------------------------------------------------------------------
+        |
+        | standard_wise_subjects.id
+        |
         */
 
-        $mapping =
-            DB::table(
-                'standard_wise_subjects'
-            )
+        if (!$standardId) {
+            return null;
+        }
+
+        $standardId = (int) $standardId;
+
+        if ($standardId <= 0) {
+            return null;
+        }
+
+        $mapping = DB::table(
+            'standard_wise_subjects'
+        )
             ->where(
                 'id',
                 $storedSubjectId
@@ -173,20 +155,19 @@ class ExamProgressController extends Controller
             !empty($mapping->subject_id)
         ) {
 
-            $legacySubject =
-                DB::table('subjects')
-                    ->where(
-                        'id',
-                        (int) $mapping->subject_id
-                    )
-                    ->where(
-                        'is_active',
-                        1
-                    )
-                    ->first();
+            $subject = DB::table('subjects')
+                ->where(
+                    'id',
+                    (int) $mapping->subject_id
+                )
+                ->where(
+                    'is_active',
+                    1
+                )
+                ->first();
 
-            if ($legacySubject) {
-                return (int) $legacySubject->id;
+            if ($subject) {
+                return (int) $subject->id;
             }
         }
 
@@ -196,52 +177,285 @@ class ExamProgressController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | RESOLVE SUBJECT FROM TSA
+    | RESOLVE SUBJECT
+    |--------------------------------------------------------------------------
+    |
+    | Priority:
+    |
+    | 1. teacher_marks_status.subject_id
+    | 2. teacher_subject_allocations.subject_id
+    | 3. exam_master_subjects.subject_id
+    | 4. exam_master_subjects.subject_name
+    |
     |--------------------------------------------------------------------------
     */
 
-    private function resolveSubjectFromAllocation(
-        $tsa
+    private function resolveSubject(
+        $statusSubjectId,
+        $tsaSubjectId,
+        $examMasterId,
+        $standardId
     ) {
-        if (!$tsa) {
-            return null;
+
+        /*
+        |--------------------------------------------------------------------------
+        | CANDIDATE IDS
+        |--------------------------------------------------------------------------
+        */
+
+        $candidateIds = collect([
+            $statusSubjectId,
+            $tsaSubjectId,
+        ])
+            ->filter(function ($id) {
+
+                return $id !== null
+                    && $id !== ''
+                    && is_numeric($id)
+                    && (int) $id > 0;
+            })
+            ->map(function ($id) {
+
+                return (int) $id;
+            })
+            ->unique()
+            ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 1. DIRECT subjects.id
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ($candidateIds as $candidateId) {
+
+            $subject = DB::table('subjects')
+                ->where(
+                    'id',
+                    $candidateId
+                )
+                ->where(
+                    'is_active',
+                    1
+                )
+                ->first();
+
+            if ($subject) {
+                return $subject;
+            }
         }
 
-        $standardId =
-            (int) (
-                $tsa->standard_id ?? 0
-            );
 
-        $storedSubjectId =
-            $tsa->subject_id ?? null;
+        /*
+        |--------------------------------------------------------------------------
+        | 2. LEGACY standard_wise_subjects.id
+        |--------------------------------------------------------------------------
+        */
 
-        if (
-            $standardId <= 0 ||
-            $storedSubjectId === null
-        ) {
-            return null;
+        if ($standardId) {
+
+            foreach ($candidateIds as $candidateId) {
+
+                $mapping = DB::table(
+                    'standard_wise_subjects'
+                )
+                    ->where(
+                        'id',
+                        $candidateId
+                    )
+                    ->where(
+                        'standard_id',
+                        (int) $standardId
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->first();
+
+                if (
+                    $mapping &&
+                    !empty($mapping->subject_id)
+                ) {
+
+                    $subject = DB::table('subjects')
+                        ->where(
+                            'id',
+                            (int) $mapping->subject_id
+                        )
+                        ->where(
+                            'is_active',
+                            1
+                        )
+                        ->first();
+
+                    if ($subject) {
+                        return $subject;
+                    }
+                }
+            }
         }
 
-        $actualSubjectId =
-            $this->resolveActualSubjectId(
-                $storedSubjectId,
-                $standardId
-            );
 
-        if (!$actualSubjectId) {
-            return null;
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | 3. EXAM MASTER SUBJECTS
+        |--------------------------------------------------------------------------
+        */
 
-        return DB::table('subjects')
-            ->where(
-                'id',
-                $actualSubjectId
+        if ($examMasterId) {
+
+            $examSubjects = DB::table(
+                'exam_master_subjects'
             )
-            ->where(
-                'is_active',
-                1
-            )
-            ->first();
+                ->where(
+                    'exam_master_id',
+                    (int) $examMasterId
+                )
+                ->orderBy(
+                    'display_order'
+                )
+                ->orderBy(
+                    'id'
+                )
+                ->get([
+                    'id',
+                    'subject_id',
+                    'subject_name',
+                    'display_order',
+                ]);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3A. MATCH BY SUBJECT ID
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($examSubjects as $examSubject) {
+
+                $examSubjectId =
+                    (int) (
+                        $examSubject->subject_id
+                        ?? 0
+                    );
+
+                if ($examSubjectId <= 0) {
+                    continue;
+                }
+
+
+                /*
+                | Try subjects.id
+                */
+
+                $subject = DB::table('subjects')
+                    ->where(
+                        'id',
+                        $examSubjectId
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->first();
+
+                if ($subject) {
+                    return $subject;
+                }
+
+
+                /*
+                | Try standard_wise_subjects.id
+                */
+
+                if ($standardId) {
+
+                    $mapping = DB::table(
+                        'standard_wise_subjects'
+                    )
+                        ->where(
+                            'id',
+                            $examSubjectId
+                        )
+                        ->where(
+                            'standard_id',
+                            (int) $standardId
+                        )
+                        ->where(
+                            'is_active',
+                            1
+                        )
+                        ->first();
+
+                    if (
+                        $mapping &&
+                        !empty($mapping->subject_id)
+                    ) {
+
+                        $subject = DB::table('subjects')
+                            ->where(
+                                'id',
+                                (int) $mapping->subject_id
+                            )
+                            ->where(
+                                'is_active',
+                                1
+                            )
+                            ->first();
+
+                        if ($subject) {
+                            return $subject;
+                        }
+                    }
+                }
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3B. MATCH BY SUBJECT NAME
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($examSubjects as $examSubject) {
+
+                $examSubjectName = trim(
+                    (string) (
+                        $examSubject->subject_name
+                        ?? ''
+                    )
+                );
+
+                if ($examSubjectName === '') {
+                    continue;
+                }
+
+
+                $subject = DB::table('subjects')
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->whereRaw(
+                        'UPPER(TRIM(subject_name)) = ?',
+                        [
+                            strtoupper(
+                                $examSubjectName
+                            )
+                        ]
+                    )
+                    ->first();
+
+                if ($subject) {
+                    return $subject;
+                }
+            }
+        }
+
+
+        return null;
     }
 
 
@@ -253,8 +467,13 @@ class ExamProgressController extends Controller
 
     public function index(Request $request)
     {
-        $user =
-            Auth::user();
+        /*
+        |--------------------------------------------------------------------------
+        | AUTHENTICATION
+        |--------------------------------------------------------------------------
+        */
+
+        $user = Auth::user();
 
         if (!$user) {
             abort(403);
@@ -294,7 +513,7 @@ class ExamProgressController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | DROPDOWNS
+        | EXAMS
         |--------------------------------------------------------------------------
         */
 
@@ -312,6 +531,13 @@ class ExamProgressController extends Controller
                 )
                 ->get();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARDS
+        |--------------------------------------------------------------------------
+        */
+
         $standards =
             Standard::query()
                 ->where(
@@ -322,6 +548,13 @@ class ExamProgressController extends Controller
                     'display_order'
                 )
                 ->get();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DIVISIONS
+        |--------------------------------------------------------------------------
+        */
 
         $divisions =
             Division::query()
@@ -337,7 +570,7 @@ class ExamProgressController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | BASE STATUS QUERY
+        | BASE QUERY
         |--------------------------------------------------------------------------
         */
 
@@ -430,42 +663,58 @@ class ExamProgressController extends Controller
         | TEACHER SECURITY
         |--------------------------------------------------------------------------
         |
-        | Teacher sees only TSA records belonging to their
-        | teacher_class_allocation.user_id.
+        | Normal records are checked against the teacher class allocation.
+        |
+        | Orphaned old records are checked against tms.teacher_id.
         |
         |--------------------------------------------------------------------------
         */
 
         if (!$isAdministrator) {
 
-            $query->whereExists(
-                function ($subQuery) use (
-                    $userId
-                ) {
+            $query->where(function ($securityQuery) use ($userId) {
 
-                    $subQuery
-                        ->select(
-                            DB::raw('1')
-                        )
-                        ->from(
-                            'teacher_subject_allocations as filter_tsa'
-                        )
-                        ->join(
-                            'teacher_class_allocations as filter_tca',
-                            'filter_tca.id',
-                            '=',
-                            'filter_tsa.teacher_class_allocation_id'
-                        )
-                        ->whereColumn(
-                            'filter_tsa.id',
-                            'tms.teacher_subject_allocation_id'
-                        )
-                        ->where(
-                            'filter_tca.user_id',
-                            $userId
-                        );
-                }
-            );
+                /*
+                | Normal TSA/TCA relationship
+                */
+
+                $securityQuery->whereExists(
+                    function ($subQuery) use ($userId) {
+
+                        $subQuery
+                            ->select(
+                                DB::raw('1')
+                            )
+                            ->from(
+                                'teacher_subject_allocations as filter_tsa'
+                            )
+                            ->join(
+                                'teacher_class_allocations as filter_tca',
+                                'filter_tca.id',
+                                '=',
+                                'filter_tsa.teacher_class_allocation_id'
+                            )
+                            ->whereColumn(
+                                'filter_tsa.id',
+                                'tms.teacher_subject_allocation_id'
+                            )
+                            ->where(
+                                'filter_tca.user_id',
+                                $userId
+                            );
+                    }
+                );
+
+
+                /*
+                | Orphaned old TMS record
+                */
+
+                $securityQuery->orWhere(
+                    'tms.teacher_id',
+                    $userId
+                );
+            });
         }
 
 
@@ -481,6 +730,7 @@ class ExamProgressController extends Controller
                     'tms.id'
                 );
 
+
         $completed =
             (clone $query)
                 ->whereRaw(
@@ -489,6 +739,7 @@ class ExamProgressController extends Controller
                 ->count(
                     'tms.id'
                 );
+
 
         $pending =
             (clone $query)
@@ -504,27 +755,46 @@ class ExamProgressController extends Controller
         |--------------------------------------------------------------------------
         | LOAD STATUS RECORDS
         |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        |
+        | tms.subject_id is explicitly loaded because orphaned status
+        | records can still contain a valid subject ID.
+        |
+        |--------------------------------------------------------------------------
         */
 
         $statuses =
             (clone $query)
                 ->select([
                     'tms.id',
+
                     'tms.teacher_subject_allocation_id',
+
                     'tms.exam_master_id',
+
                     'tms.standard_id',
+
                     'tms.division_id',
+
                     'tms.teacher_id',
+
                     'tms.academic_year_id',
+
+                    'tms.subject_id',
+
                     'tms.status',
 
                     'em.exam_name',
+
                     'em.display_order as exam_display_order',
 
                     'st.standard_name',
+
                     'st.display_order as standard_display_order',
 
                     'd.division_name',
+
                     'd.display_order as division_display_order',
 
                     'u.name as teacher_name',
@@ -549,7 +819,7 @@ class ExamProgressController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD TSA
+        | LOAD TSA IDS
         |--------------------------------------------------------------------------
         */
 
@@ -564,6 +834,12 @@ class ExamProgressController extends Controller
             ->unique()
             ->values();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD TSA RECORDS
+        |--------------------------------------------------------------------------
+        */
 
         $allocations =
             collect();
@@ -592,7 +868,7 @@ class ExamProgressController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD CLASS ALLOCATIONS
+        | LOAD TCA IDS
         |--------------------------------------------------------------------------
         */
 
@@ -605,6 +881,12 @@ class ExamProgressController extends Controller
                 ->unique()
                 ->values();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD TCA RECORDS
+        |--------------------------------------------------------------------------
+        */
 
         $classAllocations =
             collect();
@@ -636,7 +918,7 @@ class ExamProgressController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | RESOLVE SUBJECT FOR EACH ROW
+        | RESOLVE EACH DASHBOARD ROW
         |--------------------------------------------------------------------------
         */
 
@@ -644,14 +926,28 @@ class ExamProgressController extends Controller
             $statuses as $status
         ) {
 
+            /*
+            |------------------------------------------------------------------
+            | NORMALIZE STATUS
+            |------------------------------------------------------------------
+            */
+
             $status->status =
                 strtoupper(
                     trim(
-                        (string)(
-                            $status->status ?? ''
+                        (string) (
+                            $status->status
+                            ?? ''
                         )
                     )
                 );
+
+
+            /*
+            |------------------------------------------------------------------
+            | DEFAULT DISPLAY VALUES
+            |------------------------------------------------------------------
+            */
 
             $status->subject_name =
                 '-';
@@ -662,71 +958,257 @@ class ExamProgressController extends Controller
             $status->resolved_subject_id =
                 null;
 
+            $status->has_teacher_subject_allocation =
+                false;
+
+
+            /*
+            |------------------------------------------------------------------
+            | GET TSA
+            |------------------------------------------------------------------
+            */
 
             $tsa =
                 $allocations->get(
                     $status->teacher_subject_allocation_id
                 );
 
-            if (!$tsa) {
-                continue;
-            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | CASE 1: TSA EXISTS
+            |--------------------------------------------------------------------------
+            */
+
+            if ($tsa) {
+
+                $status->has_teacher_subject_allocation =
+                    true;
 
 
-            $tca =
-                $classAllocations->get(
-                    $tsa->teacher_class_allocation_id
-                );
+                /*
+                |------------------------------------------------------------------
+                | GET TCA
+                |------------------------------------------------------------------
+                */
 
-            if (!$tca) {
+                $tca =
+                    $classAllocations->get(
+                        $tsa->teacher_class_allocation_id
+                    );
+
+
+                /*
+                |------------------------------------------------------------------
+                | TEACHER SECURITY
+                |------------------------------------------------------------------
+                */
+
+                if (
+                    !$isAdministrator &&
+                    $tca &&
+                    (int) $tca->user_id !== $userId
+                ) {
+                    continue;
+                }
+
+
+                /*
+                |------------------------------------------------------------------
+                | STANDARD
+                |------------------------------------------------------------------
+                */
+
+                $actualStandardId =
+                    (int) (
+                        $tca?->standard_id
+                        ?: $status->standard_id
+                    );
+
+
+                /*
+                |------------------------------------------------------------------
+                | RESOLVE SUBJECT
+                |------------------------------------------------------------------
+                */
+
+                $subject =
+                    $this->resolveSubject(
+                        $status->subject_id,
+                        $tsa->subject_id ?? null,
+                        $status->exam_master_id,
+                        $actualStandardId
+                    );
+
+
+                /*
+                |------------------------------------------------------------------
+                | DISPLAY
+                |------------------------------------------------------------------
+                */
+
+                if ($subject) {
+
+                    $status->subject_name =
+                        trim(
+                            (string) (
+                                $subject->subject_name
+                                ?? ''
+                            )
+                        );
+
+                    $status->subject_code =
+                        trim(
+                            (string) (
+                                $subject->subject_code
+                                ?? ''
+                            )
+                        );
+
+                    $status->resolved_subject_id =
+                        (int) $subject->id;
+                }
+
+
                 continue;
             }
 
 
             /*
             |--------------------------------------------------------------------------
-            | TEACHER SAFETY
+            | CASE 2: ORPHANED TMS RECORD
             |--------------------------------------------------------------------------
+            |
+            | TMS exists but TSA no longer exists.
+            |
+            | Example:
+            |
+            | TMS 113
+            | subject_id = 2
+            | status = COMPLETED
+            |
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$isAdministrator) {
+
+                /*
+                | Teacher users may see their own orphaned TMS records
+                */
+
+                if (
+                    (int) $status->teacher_id !== $userId
+                ) {
+                    continue;
+                }
+            }
+
+
+            /*
+            |------------------------------------------------------------------
+            | STANDARD
+            |------------------------------------------------------------------
+            */
+
+            $actualStandardId =
+                (int) (
+                    $status->standard_id
+                    ?? 0
+                );
+
+
+            /*
+            |------------------------------------------------------------------
+            | RESOLVE DIRECTLY FROM TMS SUBJECT ID
+            |------------------------------------------------------------------
+            */
+
+            $subject = null;
+
+
+            if (
+                $status->subject_id !== null &&
+                (int) $status->subject_id > 0
+            ) {
+
+                $subject =
+                    DB::table('subjects')
+                        ->where(
+                            'id',
+                            (int) $status->subject_id
+                        )
+                        ->where(
+                            'is_active',
+                            1
+                        )
+                        ->first();
+            }
+
+
+            /*
+            |------------------------------------------------------------------
+            | LEGACY FALLBACK
+            |------------------------------------------------------------------
             */
 
             if (
-                !$isAdministrator &&
-                (int) $tca->user_id !== $userId
+                !$subject &&
+                $actualStandardId > 0 &&
+                $status->subject_id
             ) {
-                continue;
+
+                $mapping =
+                    DB::table(
+                        'standard_wise_subjects'
+                    )
+                    ->where(
+                        'id',
+                        (int) $status->subject_id
+                    )
+                    ->where(
+                        'standard_id',
+                        $actualStandardId
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->first();
+
+
+                if (
+                    $mapping &&
+                    !empty(
+                        $mapping->subject_id
+                    )
+                ) {
+
+                    $subject =
+                        DB::table('subjects')
+                            ->where(
+                                'id',
+                                (int) $mapping->subject_id
+                            )
+                            ->where(
+                                'is_active',
+                                1
+                            )
+                            ->first();
+                }
             }
 
 
             /*
-            |--------------------------------------------------------------------------
-            | STANDARD FROM CLASS ALLOCATION
-            |--------------------------------------------------------------------------
+            |------------------------------------------------------------------
+            | DISPLAY ORPHANED SUBJECT
+            |------------------------------------------------------------------
             */
-
-            $tsa->standard_id =
-                (int) (
-                    $tca->standard_id
-                    ?: $status->standard_id
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | RESOLVE SUBJECT
-            |--------------------------------------------------------------------------
-            */
-
-            $subject =
-                $this->resolveSubjectFromAllocation(
-                    $tsa
-                );
-
 
             if ($subject) {
 
                 $status->subject_name =
                     trim(
-                        (string)(
+                        (string) (
                             $subject->subject_name
                             ?? ''
                         )
@@ -734,7 +1216,7 @@ class ExamProgressController extends Controller
 
                 $status->subject_code =
                     trim(
-                        (string)(
+                        (string) (
                             $subject->subject_code
                             ?? ''
                         )

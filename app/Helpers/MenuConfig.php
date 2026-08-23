@@ -67,59 +67,59 @@ return [
 
     'Examination' => [
 
-    [
-        'name'  => 'Exam Progress Dashboard',
-        'route' => 'exam-progress.index'
+        [
+            'name'  => 'Exam Progress Dashboard',
+            'route' => 'exam-progress.index'
+        ],
+
+        [
+            'name'  => 'Exam Master',
+            'route' => 'exam-masters.index'
+        ],
+
+        // [
+        //     'name'  => 'Exam Pattern',
+        //     'route' => 'exam-patterns.index'
+        // ],
+
+        // [
+        //     'name'  => 'Exam Pattern Subject Allocation',
+        //     'route' => 'exam-pattern-details.index'
+        // ],
+
+        // [
+        //     'name'  => 'Exam Subject Configuration',
+        //     'route' => 'exam-subjects.index'
+        // ],
+        //     [
+        //         'name'  => 'Teacher Class Allocation',
+        //         'route' => 'teacher-class-allocation.index'
+        //     ],
+
+        //     [
+        //         'name'  => 'Teacher Subject Allocation',
+        //         'route' => 'teacher-subject-allocation.index'
+        //     ],
+
+        [
+            'name'  => 'Teacher Bulk Allocation',
+            'route' => 'teacher-bulk-allocation.index'
+        ],
+
+        // [
+        //     'name'  => 'Teacher Bulk Allocation',
+        //     'route' => 'teacher-bulk-allocation.create'
+        // ],
+        [
+            'name'  => 'Student Skill Subject Allocation',
+            'route' => 'student-skill-subject-allocation.index'
+        ],
+
+        [
+            'name'  => 'Marks Entry',
+            'route' => 'marks-entry.index'
+        ]
     ],
-
-    [
-        'name'  => 'Exam Master',
-        'route' => 'exam-masters.index'
-    ],
-
-    // [
-    //     'name'  => 'Exam Pattern',
-    //     'route' => 'exam-patterns.index'
-    // ],
-
-    // [
-    //     'name'  => 'Exam Pattern Subject Allocation',
-    //     'route' => 'exam-pattern-details.index'
-    // ],
-
-// [
-//     'name'  => 'Exam Subject Configuration',
-//     'route' => 'exam-subjects.index'
-// ],
-//     [
-//         'name'  => 'Teacher Class Allocation',
-//         'route' => 'teacher-class-allocation.index'
-//     ],
-
-//     [
-//         'name'  => 'Teacher Subject Allocation',
-//         'route' => 'teacher-subject-allocation.index'
-//     ],
-
-[
-    'name'  => 'Teacher Bulk Allocation',
-    'route' => 'teacher-bulk-allocation.index'
-],
-
-// [
-//     'name'  => 'Teacher Bulk Allocation',
-//     'route' => 'teacher-bulk-allocation.create'
-// ],
-    [
-        'name'  => 'Student Skill Subject Allocation',
-        'route' => 'student-skill-subject-allocation.index'
-    ],
-
-    [
-        'name'  => 'Marks Entry',
-        'route' => 'marks-entry.index'
-    ]
-],
 
     'Reports' => [
 
@@ -139,8 +139,8 @@ return [
         ],
 
         [
-        'name'  => 'Result Analytics',
-        'route' => 'analytics.index'
+            'name'  => 'Result Analytics',
+            'route' => 'analytics.index'
         ],
 
         [
@@ -169,6 +169,16 @@ return [
         [
             'name'  => 'Role Permission Master',
             'route' => 'role-permissions.index'
+        ],
+
+        [
+            'name'  => 'Designation Master',
+            'route' => 'designations.index'
+        ],
+
+        [
+            'name'  => 'User Designation Assignment',
+            'route' => 'user-designations.index'
         ]
     ]
 ];

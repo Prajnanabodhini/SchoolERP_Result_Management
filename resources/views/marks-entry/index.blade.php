@@ -128,56 +128,80 @@
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | BUTTONS
-    |--------------------------------------------------------------------------
-    */
+   /*
+|--------------------------------------------------------------------------
+| BUTTONS
+|--------------------------------------------------------------------------
+*/
 
-    .erp-btn {
-        height: 34px;
-        padding: 5px 14px;
-        border: 0;
-        border-radius: 5px;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
+.erp-btn {
+    min-height: 34px;
+    height: auto;
+    min-width: max-content;
+    width: auto;
 
+    padding: 7px 16px;
 
-    .erp-btn-save {
-        background: #2563eb;
-        color: #ffffff;
-    }
+    border: 0;
+    border-radius: 5px;
 
+    font-size: 12px;
+    font-weight: 600;
 
-    .erp-btn-save:hover {
-        background: #1d4ed8;
-    }
+    cursor: pointer;
+    text-decoration: none;
 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
-    .erp-btn-green {
-        background: #16a34a;
-        color: #ffffff;
-    }
+    white-space: nowrap;
+    line-height: 1.2;
+}
 
 
-    .erp-btn-green:hover {
-        background: #15803d;
-    }
+/*
+|--------------------------------------------------------------------------
+| SAVE BUTTON
+|--------------------------------------------------------------------------
+*/
+
+.erp-btn-save {
+    background: #2563eb;
+    color: #ffffff;
+}
 
 
-    .erp-btn-green:disabled {
-        background: #9ca3af !important;
-        color: #ffffff !important;
-        cursor: not-allowed !important;
-        opacity: 0.85;
-    }
+.erp-btn-save:hover {
+    background: #1d4ed8;
+}
 
+
+/*
+|--------------------------------------------------------------------------
+| GREEN BUTTON
+|--------------------------------------------------------------------------
+*/
+
+.erp-btn-green {
+    background: #16a34a;
+    color: #ffffff;
+
+    min-width: 150px;
+}
+
+
+.erp-btn-green:hover {
+    background: #15803d;
+}
+
+
+.erp-btn-green:disabled {
+    background: #9ca3af !important;
+    color: #ffffff !important;
+    cursor: not-allowed !important;
+    opacity: 0.85;
+}
 
     /*
     |--------------------------------------------------------------------------
@@ -333,6 +357,28 @@
         border-radius: 4px;
         text-align: center;
         font-size: 13px;
+
+        /*
+        |----------------------------------------------------------------------
+        | Remove browser number spinner arrows
+        |----------------------------------------------------------------------
+        */
+
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | REMOVE NUMBER INPUT UP / DOWN ARROWS
+    |--------------------------------------------------------------------------
+    */
+
+    .mark-input::-webkit-outer-spin-button,
+    .mark-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
 
 
@@ -1092,7 +1138,7 @@
                         {{-- ==================================================
                              IMPORTANT:
                              SORT STUDENTS BY NUMERIC ROLL NUMBER
-                             ================================================== --}}
+                        =================================================== --}}
 
                         @foreach(
                             $students->sortBy(function ($student) {
@@ -1104,13 +1150,6 @@
                                 |--------------------------------------------------
                                 | Numeric roll number
                                 |--------------------------------------------------
-                                |
-                                | Example:
-                                | 1, 2, 3, 9, 10, 11
-                                |
-                                | Instead of:
-                                | 1, 10, 11, 2, 3, 9
-                                |
                                 */
 
                                 return is_numeric($rollNo)

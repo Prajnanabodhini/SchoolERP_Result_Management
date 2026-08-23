@@ -11,17 +11,57 @@ return new class extends Migration
      */
     public function up(): void
     {
+        /*
+        |--------------------------------------------------------------------------
+        | EXISTING DATABASE COMPATIBILITY
+        |--------------------------------------------------------------------------
+        |
+        | The exam_master_subjects table already exists in the current
+        | school_management database.
+        |
+        | Do not try to create it again.
+        |
+        */
+
+        if (Schema::hasTable('exam_master_subjects')) {
+            return;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE TABLE FOR A NEW DATABASE
+        |--------------------------------------------------------------------------
+        |
+        | This is only used when installing the application on a completely
+        | new database where the table does not already exist.
+        |
+        */
+
         Schema::create('exam_master_subjects', function (Blueprint $table) {
+
             $table->id();
+
             $table->timestamps();
         });
     }
+
 
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::dropIfExists('exam_master_subjects');
+        /*
+        |--------------------------------------------------------------------------
+        | DO NOT DROP EXISTING TABLE
+        |--------------------------------------------------------------------------
+        |
+        | This database already contains exam_master_subjects and the table
+        | is part of the working ERP.
+        |
+        */
+
+        // Intentionally left empty.
     }
 };

@@ -11,6 +11,7 @@ use App\Models\ExamMaster;
 use App\Models\Standard;
 use App\Models\Division;
 use App\Models\AcademicYear;
+use App\Models\UserDesignation;
 
 class ResultSheetController extends Controller
 {
@@ -61,6 +62,24 @@ class ResultSheetController extends Controller
                 'academicYear' =>
                     null,
 
+                /*
+                |--------------------------------------------------------------------------
+                | CLASS TEACHER
+                |--------------------------------------------------------------------------
+                */
+
+                'classTeacher' =>
+                    null,
+
+                /*
+                |--------------------------------------------------------------------------
+                | PRINCIPAL
+                |--------------------------------------------------------------------------
+                */
+
+                'principal' =>
+                    null,
+
                 'overallGradeAnalysis' =>
                     [],
 
@@ -72,6 +91,7 @@ class ResultSheetController extends Controller
             ]
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -112,6 +132,7 @@ class ResultSheetController extends Controller
                     'Selected Exam was not found.'
                 );
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -156,6 +177,7 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         $data =
             $this->buildResultSheetData(
                 (int) $request->academic_year_id,
@@ -163,6 +185,7 @@ class ResultSheetController extends Controller
                 $standardId,
                 (int) $request->division_id
             );
+
 
         if (!empty($data['error'])) {
 
@@ -174,11 +197,209 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         return view(
             'administrator.result-sheet.index',
             $data['viewData']
         );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD CLASS TEACHER + PRINCIPAL
+    |--------------------------------------------------------------------------
+    |
+    | CLASS TEACHER:
+    |
+    | academic_year_id
+    | standard_id
+    | division_id
+    |
+    | PRINCIPAL:
+    |
+    | academic_year_id
+    | designation.section_id = selected standard.section_id
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    private function getResultSheetDesignations(
+        int $academicYearId,
+        int $standardId,
+        int $divisionId
+    ): array {
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD STANDARD
+        |--------------------------------------------------------------------------
+        */
+
+        $standard =
+            Standard::find(
+                $standardId
+            );
+
+        if (!$standard) {
+
+            return [
+                'classTeacher' =>
+                    null,
+
+                'principal' =>
+                    null,
+            ];
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARD SECTION
+        |--------------------------------------------------------------------------
+        */
+
+        $sectionId =
+            (int) (
+                $standard->section_id
+                ?? 0
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CLASS TEACHER
+        |--------------------------------------------------------------------------
+        |
+        | Exact class assignment:
+        |
+        | Academic Year + Standard + Division
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        $classTeacher =
+            UserDesignation::query()
+                ->with([
+                    'user',
+                    'designation',
+                ])
+                ->where(
+                    'academic_year_id',
+                    $academicYearId
+                )
+                ->where(
+                    'standard_id',
+                    $standardId
+                )
+                ->where(
+                    'division_id',
+                    $divisionId
+                )
+                ->whereHas(
+                    'designation',
+                    function ($query) {
+
+                        $query->where(
+                            function ($q) {
+
+                                $q->whereRaw(
+                                    'UPPER(TRIM(designation_name)) = ?',
+                                    [
+                                        'CLASS TEACHER'
+                                    ]
+                                )
+                                ->orWhereRaw(
+                                    'UPPER(TRIM(designation_code)) = ?',
+                                    [
+                                        'CLASS_TEACHER'
+                                    ]
+                                )
+                                ->orWhereRaw(
+                                    'UPPER(TRIM(designation_code)) = ?',
+                                    [
+                                        'CLASS-TEACHER'
+                                    ]
+                                );
+
+                            }
+                        );
+                    }
+                )
+                ->orderByDesc('id')
+                ->first();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRINCIPAL
+        |--------------------------------------------------------------------------
+        |
+        | Principal is section-specific.
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        $principal = null;
+
+        if ($sectionId > 0) {
+
+            $principal =
+                UserDesignation::query()
+                    ->with([
+                        'user',
+                        'designation',
+                        'designation.section',
+                    ])
+                    ->where(
+                        'academic_year_id',
+                        $academicYearId
+                    )
+                    ->whereHas(
+                        'designation',
+                        function ($query) use (
+                            $sectionId
+                        ) {
+
+                            $query
+                                ->where(
+                                    'section_id',
+                                    $sectionId
+                                )
+                                ->where(
+                                    function ($q) {
+
+                                        $q->whereRaw(
+                                            'UPPER(TRIM(designation_name)) LIKE ?',
+                                            [
+                                                '%PRINCIPAL%'
+                                            ]
+                                        )
+                                        ->orWhereRaw(
+                                            'UPPER(TRIM(designation_code)) LIKE ?',
+                                            [
+                                                '%PRINCIPAL%'
+                                            ]
+                                        );
+
+                                    }
+                                );
+                        }
+                    )
+                    ->orderByDesc('id')
+                    ->first();
+        }
+
+
+        return [
+            'classTeacher' =>
+                $classTeacher,
+
+            'principal' =>
+                $principal,
+        ];
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -192,6 +413,7 @@ class ResultSheetController extends Controller
         int $canonicalSubjectId,
         int $mappingId
     ) {
+
         $config =
             DB::table(
                 'exam_master_subjects'
@@ -213,6 +435,7 @@ class ResultSheetController extends Controller
         if ($config) {
             return $config;
         }
+
 
         if ($mappingId > 0) {
 
@@ -239,8 +462,10 @@ class ResultSheetController extends Controller
             }
         }
 
+
         return null;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -273,6 +498,7 @@ class ResultSheetController extends Controller
         $academicYears =
             AcademicYear::orderByDesc('id')->get();
 
+
         $academicYear =
             AcademicYear::find(
                 $academicYearId
@@ -293,6 +519,7 @@ class ResultSheetController extends Controller
                 $divisionId
             );
 
+
         if (
             !$academicYear ||
             !$exam ||
@@ -312,6 +539,31 @@ class ResultSheetController extends Controller
             ];
         }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | CLASS TEACHER + PRINCIPAL
+        |--------------------------------------------------------------------------
+        */
+
+        $designationData =
+            $this->getResultSheetDesignations(
+                $academicYearId,
+                $standardId,
+                $divisionId
+            );
+
+
+        $classTeacher =
+            $designationData['classTeacher']
+            ?? null;
+
+
+        $principal =
+            $designationData['principal']
+            ?? null;
+
+
         /*
         |--------------------------------------------------------------------------
         | PASSING PERCENTAGE
@@ -322,6 +574,7 @@ class ResultSheetController extends Controller
             $this->getOverallPassPercentage(
                 $standard->standard_name
             );
+
 
         /*
         |--------------------------------------------------------------------------
@@ -372,6 +625,7 @@ class ResultSheetController extends Controller
             ])
             ->get();
 
+
         if (
             $standardSubjects->isEmpty()
         ) {
@@ -390,6 +644,7 @@ class ResultSheetController extends Controller
             ];
         }
 
+
         /*
         |--------------------------------------------------------------------------
         | BUILD DISPLAY COLUMNS
@@ -398,6 +653,7 @@ class ResultSheetController extends Controller
 
         $displayColumns =
             collect();
+
 
         foreach (
             $standardSubjects as $subject
@@ -423,12 +679,14 @@ class ResultSheetController extends Controller
                     )
                 );
 
+
             if (
                 $subjectId <= 0 ||
                 $subjectName === ''
             ) {
                 continue;
             }
+
 
             /*
             |--------------------------------------------------------------------------
@@ -442,11 +700,13 @@ class ResultSheetController extends Controller
                     ?? 1
                 );
 
+
             if (
                 $subjectTypeId !== 1
             ) {
                 continue;
             }
+
 
             /*
             |--------------------------------------------------------------------------
@@ -462,6 +722,7 @@ class ResultSheetController extends Controller
                     )
                 );
 
+
             if (
                 $subjectCode === ''
             ) {
@@ -473,6 +734,7 @@ class ResultSheetController extends Controller
                             ?? ''
                         )
                     );
+
 
                 if (
                     $short !== ''
@@ -496,6 +758,7 @@ class ResultSheetController extends Controller
                 }
             }
 
+
             if (
                 $subjectCode === ''
             ) {
@@ -517,10 +780,12 @@ class ResultSheetController extends Controller
                     );
             }
 
+
             $normalizedName =
                 $this->normalizeSubjectText(
                     $subjectName
                 );
+
 
             if (
                 $normalizedName === 'HISTORY'
@@ -530,6 +795,7 @@ class ResultSheetController extends Controller
                     'HIST';
             }
 
+
             if (
                 $normalizedName === 'GEOGRAPHY'
             ) {
@@ -537,6 +803,7 @@ class ResultSheetController extends Controller
                 $subjectCode =
                     'GEO';
             }
+
 
             /*
             |--------------------------------------------------------------------------
@@ -552,6 +819,7 @@ class ResultSheetController extends Controller
                     $mappingId
                 );
 
+
             $maxMarks =
                 $examConfig
                     ? (float) (
@@ -560,6 +828,7 @@ class ResultSheetController extends Controller
                     )
                     : 0;
 
+
             $passingMarks =
                 $examConfig
                     ? (float) (
@@ -567,6 +836,7 @@ class ResultSheetController extends Controller
                         ?? 0
                     )
                     : 0;
+
 
             $displayColumns->push(
                 (object) [
@@ -614,6 +884,7 @@ class ResultSheetController extends Controller
             );
         }
 
+
         /*
         |--------------------------------------------------------------------------
         | SUBJECT ORDER
@@ -639,6 +910,7 @@ class ResultSheetController extends Controller
                                 )
                             );
 
+
                         if (
                             $name === 'ENGLISH' ||
                             $code === 'ENG'
@@ -646,6 +918,7 @@ class ResultSheetController extends Controller
 
                             return 10;
                         }
+
 
                         if (
                             $name === 'HINDI' ||
@@ -655,6 +928,7 @@ class ResultSheetController extends Controller
                             return 20;
                         }
 
+
                         if (
                             $name === 'SANSKRIT' ||
                             $code === 'SAN'
@@ -662,6 +936,7 @@ class ResultSheetController extends Controller
 
                             return 20;
                         }
+
 
                         if (
                             $name === 'MARATHI' ||
@@ -671,6 +946,7 @@ class ResultSheetController extends Controller
                             return 30;
                         }
 
+
                         return
                             1000
                             +
@@ -679,9 +955,10 @@ class ResultSheetController extends Controller
                 )
                 ->values();
 
+
         /*
         |--------------------------------------------------------------------------
-        | FIXED TOTAL MAX
+        | TOTAL MAX MARKS
         |--------------------------------------------------------------------------
         */
 
@@ -696,6 +973,7 @@ class ResultSheetController extends Controller
                 )
             );
 
+
         /*
         |--------------------------------------------------------------------------
         | LOAD ALL MARKS
@@ -709,6 +987,7 @@ class ResultSheetController extends Controller
                 $standardId,
                 $divisionId
             );
+
 
         if (
             $allMarks->isEmpty()
@@ -726,6 +1005,7 @@ class ResultSheetController extends Controller
             ];
         }
 
+
         /*
         |--------------------------------------------------------------------------
         | SUBJECT MATCH MAP
@@ -738,6 +1018,7 @@ class ResultSheetController extends Controller
                 $displayColumns
             );
 
+
         /*
         |--------------------------------------------------------------------------
         | MARKS BY STUDENT / SUBJECT
@@ -746,6 +1027,7 @@ class ResultSheetController extends Controller
 
         $marksByStudent =
             [];
+
 
         foreach (
             $allMarks as $markRow
@@ -757,11 +1039,13 @@ class ResultSheetController extends Controller
                     ?? 0
                 );
 
+
             if (
                 $studentId <= 0
             ) {
                 continue;
             }
+
 
             $displaySubjectId =
                 $this->resolveMarkSubjectId(
@@ -769,11 +1053,13 @@ class ResultSheetController extends Controller
                     $subjectMatchMap
                 );
 
+
             if (
                 $displaySubjectId === null
             ) {
                 continue;
             }
+
 
             if (
                 !isset(
@@ -787,6 +1073,7 @@ class ResultSheetController extends Controller
                     $studentId
                 ] = [];
             }
+
 
             /*
             |--------------------------------------------------------------------------
@@ -809,9 +1096,10 @@ class ResultSheetController extends Controller
             }
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | UNIQUE STUDENT LIST
+        | UNIQUE STUDENTS
         |--------------------------------------------------------------------------
         */
 
@@ -819,6 +1107,7 @@ class ResultSheetController extends Controller
             array_keys(
                 $marksByStudent
             );
+
 
         if (
             empty($studentIds)
@@ -836,6 +1125,7 @@ class ResultSheetController extends Controller
             ];
         }
 
+
         /*
         |--------------------------------------------------------------------------
         | ERP STUDENTS
@@ -847,6 +1137,7 @@ class ResultSheetController extends Controller
                 $studentIds
             );
 
+
         /*
         |--------------------------------------------------------------------------
         | BUILD STUDENTS
@@ -855,6 +1146,7 @@ class ResultSheetController extends Controller
 
         $results =
             collect();
+
 
         foreach (
             $studentIds as $studentId
@@ -865,10 +1157,12 @@ class ResultSheetController extends Controller
                     $studentId
                 ] ?? [];
 
+
             $erp =
                 $erpStudents[
                     $studentId
                 ] ?? null;
+
 
             /*
             |--------------------------------------------------------------------------
@@ -886,9 +1180,11 @@ class ResultSheetController extends Controller
                     )
                 );
 
+
             $rollNo =
                 $erp->rollno
                 ?? '';
+
 
             $studentName =
                 trim(
@@ -898,6 +1194,7 @@ class ResultSheetController extends Controller
                     )
                 );
 
+
             $fatherName =
                 trim(
                     (string) (
@@ -906,12 +1203,14 @@ class ResultSheetController extends Controller
                     )
                 );
 
+
             $fullName =
                 trim(
                     $studentName
                     . ' '
                     . $fatherName
                 );
+
 
             if (
                 $fullName === ''
@@ -921,6 +1220,7 @@ class ResultSheetController extends Controller
                     'Student ID : '
                     . $studentId;
             }
+
 
             /*
             |--------------------------------------------------------------------------
@@ -980,9 +1280,10 @@ class ResultSheetController extends Controller
                         false,
                 ];
 
+
             /*
             |--------------------------------------------------------------------------
-            | PROCESS EVERY FIXED SUBJECT
+            | PROCESS SUBJECTS
             |--------------------------------------------------------------------------
             */
 
@@ -993,47 +1294,34 @@ class ResultSheetController extends Controller
                 $subjectId =
                     (int) $column->subject_id;
 
-                /*
-                |--------------------------------------------------------------------------
-                | DEFAULT DISPLAY
-                |--------------------------------------------------------------------------
-                */
 
                 $student->subject_marks[
                     $column->key
                 ] = '-';
 
+
                 $student->subject_grades[
                     $column->key
                 ] = '-';
+
 
                 $student->subject_results[
                     $column->key
                 ] = '-';
 
-                /*
-                |--------------------------------------------------------------------------
-                | FIND MARK ROW
-                |--------------------------------------------------------------------------
-                */
 
                 $markRow =
                     $studentMarks[
                         $subjectId
                     ] ?? null;
 
-                /*
-                |--------------------------------------------------------------------------
-                | NO MARK
-                |--------------------------------------------------------------------------
-                */
 
                 if (
                     !$markRow
                 ) {
-
                     continue;
                 }
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1051,22 +1339,27 @@ class ResultSheetController extends Controller
                         $column->key
                     ] = 'AB';
 
+
                     $student->subject_grades[
                         $column->key
                     ] = 'AB';
+
 
                     $student->subject_results[
                         $column->key
                     ] = 'ABSENT';
 
+
                     $student->has_absent =
                         true;
+
 
                     $student->academic_max_used +=
                         (float) (
                             $column->max_marks
                             ?? 0
                         );
+
 
                     $student->subject_max_used[
                         $column->key
@@ -1076,8 +1369,10 @@ class ResultSheetController extends Controller
                             ?? 0
                         );
 
+
                     continue;
                 }
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1090,12 +1385,13 @@ class ResultSheetController extends Controller
                         $markRow
                     );
 
+
                 if (
                     $obtained === null
                 ) {
-
                     continue;
                 }
+
 
                 $maxMarks =
                     (float) (
@@ -1103,15 +1399,17 @@ class ResultSheetController extends Controller
                         ?? 0
                     );
 
+
                 $passingMarks =
                     (float) (
                         $column->passing_marks
                         ?? 0
                     );
 
+
                 /*
                 |--------------------------------------------------------------------------
-                | STUDENT MARK
+                | DISPLAY MARK
                 |--------------------------------------------------------------------------
                 */
 
@@ -1122,19 +1420,22 @@ class ResultSheetController extends Controller
                         $obtained
                     );
 
+
                 /*
                 |--------------------------------------------------------------------------
-                | SUBJECT MAX USED
+                | MAX USED
                 |--------------------------------------------------------------------------
                 */
 
                 $student->academic_max_used +=
                     $maxMarks;
 
+
                 $student->subject_max_used[
                     $column->key
                 ] =
                     $maxMarks;
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1144,6 +1445,7 @@ class ResultSheetController extends Controller
 
                 $student->academic_total +=
                     $obtained;
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1159,6 +1461,7 @@ class ResultSheetController extends Controller
                         ) * 100
                         : 0;
 
+
                 /*
                 |--------------------------------------------------------------------------
                 | SUBJECT GRADE
@@ -1171,6 +1474,7 @@ class ResultSheetController extends Controller
                     $this->getGradeFromPercentage(
                         $subjectPercentage
                     );
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1186,6 +1490,7 @@ class ResultSheetController extends Controller
                         : 'FAIL';
             }
 
+
             /*
             |--------------------------------------------------------------------------
             | FORMAT TOTAL
@@ -1197,12 +1502,14 @@ class ResultSheetController extends Controller
                     $student->academic_total
                 );
 
+
             $student->academic_max_used =
                 (float) $student->academic_max_used;
 
+
             /*
             |--------------------------------------------------------------------------
-            | NO MARKS AT ALL
+            | NO MARKS
             |--------------------------------------------------------------------------
             */
 
@@ -1223,7 +1530,7 @@ class ResultSheetController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | DYNAMIC PERCENTAGE
+                | PERCENTAGE
                 |--------------------------------------------------------------------------
                 */
 
@@ -1235,20 +1542,16 @@ class ResultSheetController extends Controller
                     )
                     * 100;
 
-                /*
-                |--------------------------------------------------------------------------
-                | ROUND %
-                |--------------------------------------------------------------------------
-                */
 
                 $student->calculated_percentage =
                     (int) round(
                         $student->calculated_percentage
                     );
 
+
                 /*
                 |--------------------------------------------------------------------------
-                | OVERALL GRADE
+                | GRADE
                 |--------------------------------------------------------------------------
                 */
 
@@ -1257,14 +1560,16 @@ class ResultSheetController extends Controller
                         $student->calculated_percentage
                     );
 
+
                 /*
                 |--------------------------------------------------------------------------
-                | CHECK FAILED SUBJECT
+                | FAILED SUBJECT
                 |--------------------------------------------------------------------------
                 */
 
                 $hasFailedSubject =
                     false;
+
 
                 foreach (
                     $displayColumns as $column
@@ -1281,6 +1586,7 @@ class ResultSheetController extends Controller
                             )
                         );
 
+
                     if (
                         $subjectResult === 'FAIL'
                     ) {
@@ -1291,6 +1597,7 @@ class ResultSheetController extends Controller
                         break;
                     }
                 }
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1328,10 +1635,12 @@ class ResultSheetController extends Controller
                 }
             }
 
+
             $results->push(
                 $student
             );
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1355,6 +1664,7 @@ class ResultSheetController extends Controller
                 )
                 ->values();
 
+
         /*
         |--------------------------------------------------------------------------
         | ANALYSIS
@@ -1366,6 +1676,7 @@ class ResultSheetController extends Controller
                 $results
             );
 
+
         $girlsSubjectAnalysis =
             $this->buildSubjectAnalysis(
                 $results,
@@ -1373,12 +1684,14 @@ class ResultSheetController extends Controller
                 'FEMALE'
             );
 
+
         $boysSubjectAnalysis =
             $this->buildSubjectAnalysis(
                 $results,
                 $displayColumns,
                 'MALE'
             );
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1431,6 +1744,24 @@ class ResultSheetController extends Controller
                 'academicYear' =>
                     $academicYear,
 
+                /*
+                |--------------------------------------------------------------------------
+                | CLASS TEACHER
+                |--------------------------------------------------------------------------
+                */
+
+                'classTeacher' =>
+                    $classTeacher,
+
+                /*
+                |--------------------------------------------------------------------------
+                | PRINCIPAL
+                |--------------------------------------------------------------------------
+                */
+
+                'principal' =>
+                    $principal,
+
                 'overallGradeAnalysis' =>
                     $overallGradeAnalysis,
 
@@ -1442,6 +1773,7 @@ class ResultSheetController extends Controller
             ],
         ];
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -1461,10 +1793,12 @@ class ResultSheetController extends Controller
                 'student_marks'
             );
 
+
         $query =
             DB::table(
                 'student_marks'
             );
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1481,6 +1815,7 @@ class ResultSheetController extends Controller
                 ]
             );
 
+
         if ($yearColumn) {
 
             $query->where(
@@ -1488,6 +1823,7 @@ class ResultSheetController extends Controller
                 $academicYearId
             );
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1504,6 +1840,7 @@ class ResultSheetController extends Controller
                 ]
             );
 
+
         if ($examColumn) {
 
             $query->where(
@@ -1511,6 +1848,7 @@ class ResultSheetController extends Controller
                 $examMasterId
             );
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1526,6 +1864,7 @@ class ResultSheetController extends Controller
                 ]
             );
 
+
         if ($standardColumn) {
 
             $query->where(
@@ -1533,6 +1872,7 @@ class ResultSheetController extends Controller
                 $standardId
             );
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1548,6 +1888,7 @@ class ResultSheetController extends Controller
                 ]
             );
 
+
         if ($divisionColumn) {
 
             $query->where(
@@ -1555,6 +1896,7 @@ class ResultSheetController extends Controller
                 $divisionId
             );
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1575,8 +1917,10 @@ class ResultSheetController extends Controller
             );
         }
 
+
         return $query->get();
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -1604,6 +1948,7 @@ class ResultSheetController extends Controller
                 [],
         ];
 
+
         foreach (
             $displayColumns as $column
         ) {
@@ -1611,8 +1956,10 @@ class ResultSheetController extends Controller
             $subjectId =
                 (int) $column->subject_id;
 
+
             $mappingId =
                 (int) $column->mapping_id;
+
 
             $code =
                 strtoupper(
@@ -1624,12 +1971,16 @@ class ResultSheetController extends Controller
                     )
                 );
 
+
             $name =
                 $this->normalizeSubjectText(
                     $column->subject_name
                 );
 
-            if ($subjectId > 0) {
+
+            if (
+                $subjectId > 0
+            ) {
 
                 $map['canonical'][
                     $subjectId
@@ -1637,7 +1988,10 @@ class ResultSheetController extends Controller
                     $subjectId;
             }
 
-            if ($mappingId > 0) {
+
+            if (
+                $mappingId > 0
+            ) {
 
                 $map['mapping'][
                     $mappingId
@@ -1645,7 +1999,10 @@ class ResultSheetController extends Controller
                     $subjectId;
             }
 
-            if ($code !== '') {
+
+            if (
+                $code !== ''
+            ) {
 
                 $map['code'][
                     $code
@@ -1653,7 +2010,10 @@ class ResultSheetController extends Controller
                     $subjectId;
             }
 
-            if ($name !== '') {
+
+            if (
+                $name !== ''
+            ) {
 
                 $map['name'][
                     $name
@@ -1662,8 +2022,10 @@ class ResultSheetController extends Controller
             }
         }
 
+
         return $map;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -1682,9 +2044,10 @@ class ResultSheetController extends Controller
                 ?? 0
             );
 
+
         /*
         |--------------------------------------------------------------------------
-        | 1. EXACT CANONICAL SUBJECT ID
+        | 1. CANONICAL
         |--------------------------------------------------------------------------
         */
 
@@ -1702,9 +2065,10 @@ class ResultSheetController extends Controller
                 ];
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | 2. LEGACY MAPPING ID
+        | 2. LEGACY MAPPING
         |--------------------------------------------------------------------------
         */
 
@@ -1721,6 +2085,7 @@ class ResultSheetController extends Controller
                     $storedSubjectId
                 ];
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1748,6 +2113,7 @@ class ResultSheetController extends Controller
                         )
                     );
 
+
                 if (
                     isset(
                         $subjectMatchMap['code'][
@@ -1763,6 +2129,7 @@ class ResultSheetController extends Controller
                 }
             }
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1788,6 +2155,7 @@ class ResultSheetController extends Controller
                         $markRow->{$field}
                     );
 
+
                 if (
                     isset(
                         $subjectMatchMap['name'][
@@ -1804,9 +2172,10 @@ class ResultSheetController extends Controller
             }
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | 5. LEGACY STRING SUBJECT ID
+        | 5. LEGACY STRING ID
         |--------------------------------------------------------------------------
         */
 
@@ -1817,6 +2186,7 @@ class ResultSheetController extends Controller
                     ?? ''
                 )
             );
+
 
         if (
             $storedSubjectString !== ''
@@ -1836,6 +2206,7 @@ class ResultSheetController extends Controller
                 }
             }
 
+
             foreach (
                 $subjectMatchMap['mapping']
                 as $mappingId => $targetId
@@ -1851,8 +2222,10 @@ class ResultSheetController extends Controller
             }
         }
 
+
         return null;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -1871,6 +2244,7 @@ class ResultSheetController extends Controller
                 )
             );
 
+
         $value =
             preg_replace(
                 '/[^A-Z0-9]+/',
@@ -1878,23 +2252,14 @@ class ResultSheetController extends Controller
                 $value
             );
 
+
         return $value;
     }
+
 
     /*
     |--------------------------------------------------------------------------
     | NORMALIZE GENDER
-    |--------------------------------------------------------------------------
-    |
-    | Returns:
-    | FEMALE
-    | MALE
-    | UNKNOWN
-    |
-    | Handles:
-    | FEMALE / F / GIRL / GIRLS
-    | MALE   / M / BOY  / BOYS
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -1909,12 +2274,14 @@ class ResultSheetController extends Controller
                 )
             );
 
+
         $gender =
             preg_replace(
                 '/[^A-Z]/',
                 '',
                 $gender
             );
+
 
         if (
             in_array(
@@ -1932,6 +2299,7 @@ class ResultSheetController extends Controller
             return 'FEMALE';
         }
 
+
         if (
             in_array(
                 $gender,
@@ -1948,8 +2316,10 @@ class ResultSheetController extends Controller
             return 'MALE';
         }
 
+
         return 'UNKNOWN';
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -1963,7 +2333,7 @@ class ResultSheetController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | DIRECT TOTAL MARK
+        | DIRECT
         |--------------------------------------------------------------------------
         */
 
@@ -1994,6 +2364,7 @@ class ResultSheetController extends Controller
             }
         }
 
+
         /*
         |--------------------------------------------------------------------------
         | COMPONENT MARKS
@@ -2003,8 +2374,10 @@ class ResultSheetController extends Controller
         $found =
             false;
 
+
         $total =
             0;
+
 
         foreach (
             [
@@ -2031,16 +2404,19 @@ class ResultSheetController extends Controller
                 $found =
                     true;
 
+
                 $total +=
                     (float) $row->{$field};
             }
         }
+
 
         return
             $found
                 ? $total
                 : null;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2062,6 +2438,7 @@ class ResultSheetController extends Controller
 
             return true;
         }
+
 
         foreach (
             [
@@ -2087,6 +2464,7 @@ class ResultSheetController extends Controller
             }
         }
 
+
         foreach (
             [
                 'obtained_marks',
@@ -2110,8 +2488,10 @@ class ResultSheetController extends Controller
             }
         }
 
+
         return false;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2126,12 +2506,14 @@ class ResultSheetController extends Controller
         $students =
             [];
 
+
         if (
             empty($studentIds)
         ) {
 
             return $students;
         }
+
 
         try {
 
@@ -2164,6 +2546,7 @@ class ResultSheetController extends Controller
                 )
                 ->get();
 
+
             foreach (
                 $rows as $row
             ) {
@@ -2180,13 +2563,15 @@ class ResultSheetController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Keep result usable even when ERP connection fails.
+            | Keep result usable if ERP connection fails.
             |--------------------------------------------------------------------------
             */
         }
 
+
         return $students;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2215,8 +2600,10 @@ class ResultSheetController extends Controller
             }
         }
 
+
         return null;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2231,6 +2618,7 @@ class ResultSheetController extends Controller
         $mark =
             (float) $mark;
 
+
         if (
             floor($mark) === $mark
         ) {
@@ -2238,11 +2626,13 @@ class ResultSheetController extends Controller
             return (int) $mark;
         }
 
+
         return round(
             $mark,
             2
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2260,6 +2650,7 @@ class ResultSheetController extends Controller
                     $standardName
                 )
             );
+
 
         if (
             in_array(
@@ -2279,8 +2670,10 @@ class ResultSheetController extends Controller
             return 35;
         }
 
+
         return 40;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2295,50 +2688,70 @@ class ResultSheetController extends Controller
         $percentage =
             (float) $percentage;
 
-        if ($percentage >= 91) {
+
+        if (
+            $percentage >= 91
+        ) {
+
             return 'A1';
         }
 
-        if ($percentage >= 81) {
+
+        if (
+            $percentage >= 81
+        ) {
+
             return 'A2';
         }
 
-        if ($percentage >= 71) {
+
+        if (
+            $percentage >= 71
+        ) {
+
             return 'B1';
         }
 
-        if ($percentage >= 61) {
+
+        if (
+            $percentage >= 61
+        ) {
+
             return 'B2';
         }
 
-        if ($percentage >= 51) {
+
+        if (
+            $percentage >= 51
+        ) {
+
             return 'C1';
         }
 
-        if ($percentage >= 41) {
+
+        if (
+            $percentage >= 41
+        ) {
+
             return 'C2';
         }
 
-        if ($percentage >= 33) {
+
+        if (
+            $percentage >= 33
+        ) {
+
             return 'D';
         }
+
 
         return 'F';
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | OVERALL ANALYSIS
-    |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    |
-    | Grade counts are based ONLY on calculated_grade.
-    |
-    | PASS / FAIL counts are based ONLY on final student result.
-    |
-    | TOTAL is based on all result students.
-    |
+    | OVERALL GRADE ANALYSIS
     |--------------------------------------------------------------------------
     */
 
@@ -2418,12 +2831,6 @@ class ResultSheetController extends Controller
                 'total' => 0,
             ],
 
-            /*
-            |--------------------------------------------------------------------------
-            | TOTAL ROW
-            |--------------------------------------------------------------------------
-            */
-
             'TOTAL' => [
                 'range' => 'TOTAL',
                 'girls' => 0,
@@ -2432,21 +2839,17 @@ class ResultSheetController extends Controller
             ],
         ];
 
+
         foreach (
             $results as $student
         ) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | GENDER
-            |--------------------------------------------------------------------------
-            */
 
             $normalizedGender =
                 $this->normalizeGender(
                     $student->gender
                     ?? ''
                 );
+
 
             if (
                 $normalizedGender === 'FEMALE'
@@ -2464,21 +2867,10 @@ class ResultSheetController extends Controller
 
             } else {
 
-                /*
-                |--------------------------------------------------------------------------
-                | Unknown gender is not forced into Boys.
-                |--------------------------------------------------------------------------
-                */
-
                 $genderKey =
                     null;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | FINAL RESULT
-            |--------------------------------------------------------------------------
-            */
 
             $result =
                 strtoupper(
@@ -2490,11 +2882,6 @@ class ResultSheetController extends Controller
                     )
                 );
 
-            /*
-            |--------------------------------------------------------------------------
-            | IGNORE COMPLETELY EMPTY RESULT
-            |--------------------------------------------------------------------------
-            */
 
             if (
                 !in_array(
@@ -2510,17 +2897,9 @@ class ResultSheetController extends Controller
                 continue;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | TOTAL STUDENTS
-            |--------------------------------------------------------------------------
-            |
-            | Count each student exactly once.
-            |
-            |--------------------------------------------------------------------------
-            */
 
             $analysis['TOTAL']['total']++;
+
 
             if (
                 $genderKey !== null
@@ -2531,11 +2910,6 @@ class ResultSheetController extends Controller
                 ]++;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | OVERALL GRADE
-            |--------------------------------------------------------------------------
-            */
 
             $grade =
                 strtoupper(
@@ -2546,6 +2920,7 @@ class ResultSheetController extends Controller
                         )
                     )
                 );
+
 
             if (
                 isset(
@@ -2577,14 +2952,10 @@ class ResultSheetController extends Controller
                     ]++;
                 }
 
+
                 $analysis[$grade]['total']++;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | PASS / FAIL
-            |--------------------------------------------------------------------------
-            */
 
             if (
                 $result === 'PASS'
@@ -2598,6 +2969,7 @@ class ResultSheetController extends Controller
                         $genderKey
                     ]++;
                 }
+
 
                 $analysis['PASS']['total']++;
 
@@ -2614,17 +2986,15 @@ class ResultSheetController extends Controller
                     ]++;
                 }
 
+
                 $analysis['FAIL']['total']++;
             }
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | SAFETY CHECK
-        |--------------------------------------------------------------------------
-        |
-        | TOTAL is independently calculated from PASS + FAIL.
-        |
+        | FINAL TOTAL
         |--------------------------------------------------------------------------
         */
 
@@ -2633,18 +3003,22 @@ class ResultSheetController extends Controller
             +
             $analysis['FAIL']['total'];
 
+
         $analysis['TOTAL']['girls'] =
             $analysis['PASS']['girls']
             +
             $analysis['FAIL']['girls'];
+
 
         $analysis['TOTAL']['boys'] =
             $analysis['PASS']['boys']
             +
             $analysis['FAIL']['boys'];
 
+
         return $analysis;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2661,10 +3035,12 @@ class ResultSheetController extends Controller
         $analysis =
             [];
 
+
         $requestedGender =
             $this->normalizeGender(
                 $gender
             );
+
 
         foreach (
             $subjects as $subject
@@ -2690,9 +3066,12 @@ class ResultSheetController extends Controller
                 'D' => 0,
 
                 'fail' => 0,
+
                 'absent' => 0,
+
                 'total' => 0,
             ];
+
 
             foreach (
                 $results as $student
@@ -2704,6 +3083,7 @@ class ResultSheetController extends Controller
                         ?? ''
                     );
 
+
                 if (
                     $studentGender !==
                     $requestedGender
@@ -2712,21 +3092,18 @@ class ResultSheetController extends Controller
                     continue;
                 }
 
+
                 $mark =
                     $student->subject_marks[
                         $subject->key
                     ] ?? '-';
+
 
                 $grade =
                     $student->subject_grades[
                         $subject->key
                     ] ?? '-';
 
-                /*
-                |--------------------------------------------------------------------------
-                | NO MARK
-                |--------------------------------------------------------------------------
-                */
 
                 if (
                     $mark === '-'
@@ -2735,11 +3112,6 @@ class ResultSheetController extends Controller
                     continue;
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | ABSENT
-                |--------------------------------------------------------------------------
-                */
 
                 if (
                     strtoupper(
@@ -2754,11 +3126,6 @@ class ResultSheetController extends Controller
                     continue;
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | FAIL
-                |--------------------------------------------------------------------------
-                */
 
                 if (
                     strtoupper(
@@ -2773,11 +3140,6 @@ class ResultSheetController extends Controller
                     continue;
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | GRADE
-                |--------------------------------------------------------------------------
-                */
 
                 if (
                     isset(
@@ -2789,11 +3151,6 @@ class ResultSheetController extends Controller
                 }
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | ANALYSIS TOTAL
-            |--------------------------------------------------------------------------
-            */
 
             $row['total'] =
                 $row['A1']
@@ -2806,12 +3163,15 @@ class ResultSheetController extends Controller
                 + $row['fail']
                 + $row['absent'];
 
+
             $analysis[] =
                 $row;
         }
 
+
         return $analysis;
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2840,10 +3200,12 @@ class ResultSheetController extends Controller
             ],
         ]);
 
+
         $exam =
             ExamMaster::find(
                 (int) $request->exam_master_id
             );
+
 
         if (!$exam) {
 
@@ -2857,11 +3219,13 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         $standardId =
             (int) (
                 $exam->standard_id
                 ?? 0
             );
+
 
         if (
             $standardId <= 0
@@ -2886,6 +3250,7 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         if (
             $standardId <= 0
         ) {
@@ -2900,6 +3265,7 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         $data =
             $this->buildResultSheetData(
                 (int) $request->academic_year_id,
@@ -2907,6 +3273,7 @@ class ResultSheetController extends Controller
                 $standardId,
                 (int) $request->division_id
             );
+
 
         if (
             !empty(
@@ -2924,19 +3291,17 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         return view(
             'administrator.result-sheet.print',
             $data['viewData']
         );
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | EXPORT EXCEL
-    |--------------------------------------------------------------------------
-    |
-    | This creates an Excel-compatible .xls file directly.
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -2961,6 +3326,7 @@ class ResultSheetController extends Controller
             ],
         ]);
 
+
         /*
         |--------------------------------------------------------------------------
         | EXAM
@@ -2971,6 +3337,7 @@ class ResultSheetController extends Controller
             ExamMaster::find(
                 (int) $request->exam_master_id
             );
+
 
         if (!$exam) {
 
@@ -2984,6 +3351,7 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         /*
         |--------------------------------------------------------------------------
         | STANDARD
@@ -2995,6 +3363,7 @@ class ResultSheetController extends Controller
                 $exam->standard_id
                 ?? 0
             );
+
 
         if (
             $standardId <= 0
@@ -3019,6 +3388,7 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         if (
             $standardId <= 0
         ) {
@@ -3033,9 +3403,10 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | BUILD SAME RESULT DATA
+        | BUILD RESULT DATA
         |--------------------------------------------------------------------------
         */
 
@@ -3046,6 +3417,7 @@ class ResultSheetController extends Controller
                 $standardId,
                 (int) $request->division_id
             );
+
 
         if (
             !empty(
@@ -3063,8 +3435,10 @@ class ResultSheetController extends Controller
                 );
         }
 
+
         $viewData =
             $data['viewData'];
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3078,35 +3452,58 @@ class ResultSheetController extends Controller
                 ?? []
             );
 
+
         $displayColumns =
             collect(
                 $viewData['displayColumns']
                 ?? []
             );
 
+
         $exam =
             $viewData['exam']
             ?? null;
+
 
         $standard =
             $viewData['standard']
             ?? null;
 
+
         $division =
             $viewData['division']
             ?? null;
+
 
         $academicYear =
             $viewData['academicYear']
             ?? null;
 
+
         $totalMaxMarks =
             $viewData['totalMaxMarks']
             ?? 0;
 
+
         /*
         |--------------------------------------------------------------------------
-        | SORT BY ROLL NUMBER
+        | CLASS TEACHER + PRINCIPAL
+        |--------------------------------------------------------------------------
+        */
+
+        $classTeacher =
+            $viewData['classTeacher']
+            ?? null;
+
+
+        $principal =
+            $viewData['principal']
+            ?? null;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SORT
         |--------------------------------------------------------------------------
         */
 
@@ -3126,6 +3523,7 @@ class ResultSheetController extends Controller
                 )
                 ->values();
 
+
         /*
         |--------------------------------------------------------------------------
         | DISPLAY NAMES
@@ -3137,18 +3535,52 @@ class ResultSheetController extends Controller
             ?? $academicYear->name
             ?? 'Year';
 
+
         $examName =
             $exam->display_exam_name
             ?? $exam->exam_name
             ?? 'Exam';
 
+
         $standardName =
             $standard->standard_name
             ?? 'Standard';
 
+
         $divisionName =
             $division->division_name
             ?? 'Division';
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CLASS TEACHER NAME
+        |--------------------------------------------------------------------------
+        */
+
+        $classTeacherName =
+            (
+                $classTeacher &&
+                $classTeacher->user
+            )
+                ? $classTeacher->user->name
+                : '-';
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRINCIPAL NAME
+        |--------------------------------------------------------------------------
+        */
+
+        $principalName =
+            (
+                $principal &&
+                $principal->user
+            )
+                ? $principal->user->name
+                : '-';
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3175,6 +3607,7 @@ class ResultSheetController extends Controller
             )
             . '.xls';
 
+
         /*
         |--------------------------------------------------------------------------
         | COLUMN COUNT
@@ -3185,6 +3618,7 @@ class ResultSheetController extends Controller
             4
             + $displayColumns->count()
             + 5;
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3205,11 +3639,6 @@ class ResultSheetController extends Controller
             >
         ';
 
-        /*
-        |--------------------------------------------------------------------------
-        | EXCEL CSS
-        |--------------------------------------------------------------------------
-        */
 
         $html .= '
             <style>
@@ -3274,9 +3703,11 @@ class ResultSheetController extends Controller
             </style>
         ';
 
+
         $html .= '</head>';
 
         $html .= '<body>';
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3298,6 +3729,7 @@ class ResultSheetController extends Controller
 
         $html .= '</tr>';
 
+
         $html .= '<tr>';
 
         $html .= '<td colspan="' . $columnCount . '" class="subtitle">';
@@ -3309,6 +3741,7 @@ class ResultSheetController extends Controller
         $html .= '</td>';
 
         $html .= '</tr>';
+
 
         $html .= '<tr>';
 
@@ -3325,6 +3758,7 @@ class ResultSheetController extends Controller
         $html .= '</table>';
 
         $html .= '<br>';
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3346,6 +3780,7 @@ class ResultSheetController extends Controller
 
         $html .= '</td>';
 
+
         $html .= '<td><strong>Exam</strong></td>';
 
         $html .= '<td>';
@@ -3357,6 +3792,7 @@ class ResultSheetController extends Controller
         $html .= '</td>';
 
         $html .= '</tr>';
+
 
         $html .= '<tr>';
 
@@ -3370,6 +3806,7 @@ class ResultSheetController extends Controller
 
         $html .= '</td>';
 
+
         $html .= '<td><strong>Division</strong></td>';
 
         $html .= '<td>';
@@ -3381,6 +3818,33 @@ class ResultSheetController extends Controller
         $html .= '</td>';
 
         $html .= '</tr>';
+
+
+        $html .= '<tr>';
+
+        $html .= '<td><strong>Class Teacher</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            $classTeacherName
+        );
+
+        $html .= '</td>';
+
+
+        $html .= '<td><strong>Principal</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            $principalName
+        );
+
+        $html .= '</td>';
+
+        $html .= '</tr>';
+
 
         $html .= '<tr>';
 
@@ -3395,6 +3859,7 @@ class ResultSheetController extends Controller
         );
 
         $html .= '</td>';
+
 
         $html .= '<td><strong>Overall Pass %</strong></td>';
 
@@ -3415,6 +3880,7 @@ class ResultSheetController extends Controller
 
         $html .= '<br>';
 
+
         /*
         |--------------------------------------------------------------------------
         | RESULT TABLE
@@ -3427,11 +3893,6 @@ class ResultSheetController extends Controller
 
         $html .= '<tr>';
 
-        /*
-        |--------------------------------------------------------------------------
-        | BASIC COLUMNS
-        |--------------------------------------------------------------------------
-        */
 
         $html .= '<th>Sr. No.</th>';
 
@@ -3441,11 +3902,6 @@ class ResultSheetController extends Controller
 
         $html .= '<th>Gender</th>';
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT COLUMNS
-        |--------------------------------------------------------------------------
-        */
 
         foreach (
             $displayColumns as $column
@@ -3456,6 +3912,7 @@ class ResultSheetController extends Controller
                     $column->max_marks
                     ?? 0
                 );
+
 
             $html .= '<th>';
 
@@ -3474,11 +3931,6 @@ class ResultSheetController extends Controller
             $html .= '</th>';
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | FINAL COLUMNS
-        |--------------------------------------------------------------------------
-        */
 
         $html .= '<th>Total</th>';
 
@@ -3496,13 +3948,9 @@ class ResultSheetController extends Controller
 
         $html .= '<tbody>';
 
-        /*
-        |--------------------------------------------------------------------------
-        | STUDENTS
-        |--------------------------------------------------------------------------
-        */
 
         $srNo = 1;
+
 
         foreach (
             $results as $student
@@ -3510,11 +3958,6 @@ class ResultSheetController extends Controller
 
             $html .= '<tr>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | SR NO
-            |--------------------------------------------------------------------------
-            */
 
             $html .= '<td class="center">';
 
@@ -3522,11 +3965,6 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | ROLL NO
-            |--------------------------------------------------------------------------
-            */
 
             $html .= '<td class="center">';
 
@@ -3539,11 +3977,6 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | STUDENT NAME
-            |--------------------------------------------------------------------------
-            */
 
             $html .= '<td>';
 
@@ -3554,11 +3987,6 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | GENDER
-            |--------------------------------------------------------------------------
-            */
 
             $html .= '<td class="center">';
 
@@ -3569,11 +3997,6 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | SUBJECT MARKS
-            |--------------------------------------------------------------------------
-            */
 
             foreach (
                 $displayColumns as $column
@@ -3584,6 +4007,7 @@ class ResultSheetController extends Controller
                         $column->key
                     ] ?? '-';
 
+
                 $markText =
                     strtoupper(
                         trim(
@@ -3591,7 +4015,9 @@ class ResultSheetController extends Controller
                         )
                     );
 
+
                 $html .= '<td class="center">';
+
 
                 if (
                     $markText === 'AB'
@@ -3609,14 +4035,10 @@ class ResultSheetController extends Controller
                     );
                 }
 
+
                 $html .= '</td>';
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | TOTAL
-            |--------------------------------------------------------------------------
-            */
 
             $html .= '<td class="center">';
 
@@ -3629,16 +4051,12 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | MAX TOTAL
-            |--------------------------------------------------------------------------
-            */
 
             $studentMaxTotal =
                 $student->academic_max_display
                 ?? $totalMaxMarks
                 ?? 0;
+
 
             $html .= '<td class="center">';
 
@@ -3650,13 +4068,9 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | PERCENTAGE
-            |--------------------------------------------------------------------------
-            */
 
             $html .= '<td class="center">';
+
 
             if (
                 $student->calculated_percentage
@@ -3677,13 +4091,9 @@ class ResultSheetController extends Controller
                 $html .= '-';
             }
 
+
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | GRADE
-            |--------------------------------------------------------------------------
-            */
 
             $html .= '<td class="center">';
 
@@ -3696,11 +4106,6 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
-            /*
-            |--------------------------------------------------------------------------
-            | RESULT
-            |--------------------------------------------------------------------------
-            */
 
             $studentResult =
                 strtoupper(
@@ -3712,6 +4117,7 @@ class ResultSheetController extends Controller
                     )
                 );
 
+
             $resultClass =
                 $studentResult === 'PASS'
                     ? 'pass'
@@ -3720,6 +4126,7 @@ class ResultSheetController extends Controller
                             ? 'fail'
                             : ''
                     );
+
 
             $html .= '<td class="center '
                 . $resultClass
@@ -3731,14 +4138,10 @@ class ResultSheetController extends Controller
 
             $html .= '</td>';
 
+
             $html .= '</tr>';
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | NO RESULTS
-        |--------------------------------------------------------------------------
-        */
 
         if (
             $results->isEmpty()
@@ -3756,9 +4159,11 @@ class ResultSheetController extends Controller
             $html .= '</tr>';
         }
 
+
         $html .= '</tbody>';
 
         $html .= '</table>';
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3771,6 +4176,7 @@ class ResultSheetController extends Controller
                 'overallGradeAnalysis'
             ]
             ?? [];
+
 
         if (
             !empty(
@@ -3809,6 +4215,7 @@ class ResultSheetController extends Controller
 
             $html .= '<tbody>';
 
+
             foreach (
                 $overallGradeAnalysis
                 as $grade => $analysis
@@ -3819,7 +4226,9 @@ class ResultSheetController extends Controller
                         ? ' style="font-weight:bold;"'
                         : '';
 
+
                 $html .= '<tr' . $rowClass . '>';
+
 
                 $html .= '<td class="center">';
 
@@ -3828,6 +4237,7 @@ class ResultSheetController extends Controller
                 );
 
                 $html .= '</td>';
+
 
                 $html .= '<td>';
 
@@ -3838,6 +4248,7 @@ class ResultSheetController extends Controller
 
                 $html .= '</td>';
 
+
                 $html .= '<td class="center">';
 
                 $html .= e(
@@ -3846,6 +4257,7 @@ class ResultSheetController extends Controller
                 );
 
                 $html .= '</td>';
+
 
                 $html .= '<td class="center">';
 
@@ -3856,6 +4268,7 @@ class ResultSheetController extends Controller
 
                 $html .= '</td>';
 
+
                 $html .= '<td class="center">';
 
                 $html .= e(
@@ -3865,13 +4278,16 @@ class ResultSheetController extends Controller
 
                 $html .= '</td>';
 
+
                 $html .= '</tr>';
             }
+
 
             $html .= '</tbody>';
 
             $html .= '</table>';
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3884,6 +4300,7 @@ class ResultSheetController extends Controller
                 'girlsSubjectAnalysis'
             ]
             ?? [];
+
 
         if (
             !empty(
@@ -3925,12 +4342,14 @@ class ResultSheetController extends Controller
 
             $html .= '<tbody>';
 
+
             foreach (
                 $girlsSubjectAnalysis
                 as $analysis
             ) {
 
                 $html .= '<tr>';
+
 
                 $html .= '<td>';
 
@@ -3943,6 +4362,7 @@ class ResultSheetController extends Controller
                 );
 
                 $html .= '</td>';
+
 
                 foreach (
                     [
@@ -3969,13 +4389,16 @@ class ResultSheetController extends Controller
                     $html .= '</td>';
                 }
 
+
                 $html .= '</tr>';
             }
+
 
             $html .= '</tbody>';
 
             $html .= '</table>';
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3988,6 +4411,7 @@ class ResultSheetController extends Controller
                 'boysSubjectAnalysis'
             ]
             ?? [];
+
 
         if (
             !empty(
@@ -4029,12 +4453,14 @@ class ResultSheetController extends Controller
 
             $html .= '<tbody>';
 
+
             foreach (
                 $boysSubjectAnalysis
                 as $analysis
             ) {
 
                 $html .= '<tr>';
+
 
                 $html .= '<td>';
 
@@ -4047,6 +4473,7 @@ class ResultSheetController extends Controller
                 );
 
                 $html .= '</td>';
+
 
                 foreach (
                     [
@@ -4073,23 +4500,27 @@ class ResultSheetController extends Controller
                     $html .= '</td>';
                 }
 
+
                 $html .= '</tr>';
             }
+
 
             $html .= '</tbody>';
 
             $html .= '</table>';
         }
 
+
         /*
         |--------------------------------------------------------------------------
-        | END HTML
+        | CLOSE HTML
         |--------------------------------------------------------------------------
         */
 
         $html .= '</body>';
 
         $html .= '</html>';
+
 
         /*
         |--------------------------------------------------------------------------
@@ -4118,6 +4549,7 @@ class ResultSheetController extends Controller
         );
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | CLEAN EXCEL FILE NAME
@@ -4135,11 +4567,13 @@ class ResultSheetController extends Controller
                 $value
             );
 
+
         return trim(
             $value,
             '_'
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -4154,6 +4588,7 @@ class ResultSheetController extends Controller
         $value =
             (float) $value;
 
+
         if (
             floor($value) === $value
         ) {
@@ -4162,6 +4597,7 @@ class ResultSheetController extends Controller
                 (int) $value
             );
         }
+
 
         return number_format(
             $value,
