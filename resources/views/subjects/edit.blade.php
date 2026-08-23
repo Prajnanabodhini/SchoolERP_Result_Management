@@ -71,12 +71,47 @@
 
 
         {{-- =========================================================
+             SUBJECT MASTER INFORMATION
+        ========================================================== --}}
+
+        @php
+
+            $masterSubject =
+                $subject->subject ?? null;
+
+            $masterSubjectId =
+                $subject->subject_id
+                ?? $masterSubject?->id
+                ?? null;
+
+            $masterSubjectName =
+                $masterSubject?->subject_name
+                ?? $subject->subject_name
+                ?? '';
+
+            $masterSubjectCode =
+                $masterSubject?->subject_code
+                ?? '';
+
+            $masterShortName =
+                $masterSubject?->short_name
+                ?? '';
+
+            $masterSubjectTypeId =
+                $masterSubject?->subject_type_id
+                ?? '';
+
+        @endphp
+
+
+        {{-- =========================================================
              FORM
         ========================================================== --}}
 
         <form
             method="POST"
             action="{{ route('subjects.update', $subject->id) }}"
+            id="subjectEditForm"
         >
 
             @csrf
@@ -112,10 +147,10 @@
 
                         <option
                             value="{{ $standard->id }}"
-                            {{ old(
+                            {{ (string)old(
                                 'standard_id',
                                 $subject->standard_id
-                            ) == $standard->id
+                            ) === (string)$standard->id
                                 ? 'selected'
                                 : '' }}
                         >
@@ -127,6 +162,32 @@
                 </select>
 
             </div>
+
+
+            {{-- =====================================================
+                 SUBJECT MASTER ID
+            ====================================================== --}}
+
+            @if($masterSubjectId)
+
+                <div class="mb-4">
+
+                    <label
+                        class="block font-semibold mb-2"
+                    >
+                        Subject Master ID
+                    </label>
+
+                    <input
+                        type="text"
+                        value="{{ $masterSubjectId }}"
+                        readonly
+                        class="w-full border rounded p-2 bg-gray-100"
+                    >
+
+                </div>
+
+            @endif
 
 
             {{-- =====================================================
@@ -149,8 +210,7 @@
                     class="w-full border rounded p-2"
                     value="{{ old(
                         'subject_name',
-                        $subject->subject->subject_name
-                            ?? $subject->subject_name
+                        $masterSubjectName
                     ) }}"
                     maxlength="255"
                     placeholder="Enter Subject Name"
@@ -180,7 +240,7 @@
                     class="w-full border rounded p-2"
                     value="{{ old(
                         'subject_code',
-                        $subject->subject->subject_code ?? ''
+                        $masterSubjectCode
                     ) }}"
                     maxlength="50"
                     placeholder="Enter Subject Code"
@@ -210,7 +270,7 @@
                     class="w-full border rounded p-2"
                     value="{{ old(
                         'short_name',
-                        $subject->subject->short_name ?? ''
+                        $masterShortName
                     ) }}"
                     maxlength="20"
                     placeholder="Enter Short Name"
@@ -247,10 +307,10 @@
 
                         <option
                             value="{{ $subjectType->id }}"
-                            {{ old(
+                            {{ (string)old(
                                 'subject_type_id',
-                                $subject->subject->subject_type_id ?? ''
-                            ) == $subjectType->id
+                                $masterSubjectTypeId
+                            ) === (string)$subjectType->id
                                 ? 'selected'
                                 : '' }}
                         >
@@ -258,6 +318,7 @@
                             {{ $subjectType->name
                                 ?? $subjectType->subject_type
                                 ?? $subjectType->type_name
+                                ?? $subjectType->description
                                 ?? 'Type ' . $subjectType->id
                             }}
 
@@ -354,28 +415,54 @@
 
 
             {{-- =====================================================
-                 INFORMATION
+                 SHARED MASTER WARNING
             ====================================================== --}}
 
             <div
                 style="
-                    background:#fffbeb;
-                    border:1px solid #fde68a;
-                    color:#92400e;
-                    padding:10px 12px;
+                    background:#fff7ed;
+                    border:1px solid #fed7aa;
+                    color:#9a3412;
+                    padding:11px 13px;
                     border-radius:6px;
                     font-size:13px;
                     margin-top:15px;
+                    line-height:1.55;
                 "
             >
 
-                <strong>Note:</strong>
+                <strong>Important:</strong>
 
-                Updating this subject will update both the
-                <strong>Subject Master</strong> and its
-                <strong>Standard Wise Subject Mapping</strong>.
+                This record contains a
 
-                The Subject ID remains unchanged.
+                <strong>Subject Master</strong>
+
+                and a
+
+                <strong>Standard-wise Mapping</strong>.
+
+                <br><br>
+
+                The same Subject Master can be used by multiple standards.
+
+                <br>
+
+                Subject Master ID:
+
+                <strong>
+                    {{ $masterSubjectId ?? '-' }}
+                </strong>
+
+                <br><br>
+
+                Changing the Subject Name, Subject Code, Short Name or
+                Subject Type can affect other standards using the same
+                Subject Master.
+
+                <br><br>
+
+                Display Order, Optional and Active are maintained for the
+                selected Standard mapping.
 
             </div>
 
@@ -389,6 +476,7 @@
                 <button
                     type="submit"
                     class="erp-btn erp-btn-save"
+                    id="updateSubjectButton"
                 >
                     Update
                 </button>
@@ -408,5 +496,178 @@
     </div>
 
 </div>
+
+
+<script>
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const form =
+            document.getElementById(
+                'subjectEditForm'
+            );
+
+        const subjectName =
+            document.getElementById(
+                'subject_name'
+            );
+
+        const subjectCode =
+            document.getElementById(
+                'subject_code'
+            );
+
+        const standard =
+            document.getElementById(
+                'standard_id'
+            );
+
+        const subjectType =
+            document.getElementById(
+                'subject_type_id'
+            );
+
+        const updateButton =
+            document.getElementById(
+                'updateSubjectButton'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPPERCASE SUBJECT CODE
+        |--------------------------------------------------------------------------
+        */
+
+        subjectCode.addEventListener(
+            'input',
+            function () {
+
+                this.value =
+                    this.value.toUpperCase();
+
+            }
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BASIC VALIDATION
+        |--------------------------------------------------------------------------
+        */
+
+        form.addEventListener(
+            'submit',
+            function (event) {
+
+                /*
+                |--------------------------------------------------------------
+                | Standard
+                |--------------------------------------------------------------
+                */
+
+                if (
+                    !standard.value
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please select Standard.'
+                    );
+
+                    standard.focus();
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------
+                | Subject Name
+                |--------------------------------------------------------------
+                */
+
+                if (
+                    !subjectName.value.trim()
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please enter Subject Name.'
+                    );
+
+                    subjectName.focus();
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------
+                | Subject Code
+                |--------------------------------------------------------------
+                */
+
+                if (
+                    !subjectCode.value.trim()
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please enter Subject Code.'
+                    );
+
+                    subjectCode.focus();
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------
+                | Subject Type
+                |--------------------------------------------------------------
+                */
+
+                if (
+                    !subjectType.value
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please select Subject Type.'
+                    );
+
+                    subjectType.focus();
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------
+                | Prevent double submission
+                |--------------------------------------------------------------
+                */
+
+                updateButton.disabled =
+                    true;
+
+                updateButton.innerText =
+                    'Updating...';
+
+            }
+        );
+
+    }
+);
+
+</script>
 
 </x-app-layout>

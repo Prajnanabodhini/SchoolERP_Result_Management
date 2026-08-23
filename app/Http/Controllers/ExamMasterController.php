@@ -37,139 +37,135 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | PASSING PERCENTAGE
     |--------------------------------------------------------------------------
+    |
+    | 9th  = 35%
+    | 10th = 35%
+    | Other standards = 40%
+    |
+    |--------------------------------------------------------------------------
     */
 
-    private function getPassingPercentage($standardId)
+    private function getPassingPercentage($standardId): float
     {
-        return in_array((int) $standardId, [9, 10])
-            ? 35
-            : 40;
+        return in_array(
+            (int) $standardId,
+            [9, 10],
+            true
+        )
+            ? 35.0
+            : 40.0;
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | RESOLVE ACTUAL SUBJECT
+    | CALCULATE PASSING MARKS
+    |--------------------------------------------------------------------------
+    */
+
+    private function calculatePassingMarks(
+        $maxMarks,
+        $standardId
+    ): int {
+
+        $maxMarks =
+            (float) $maxMarks;
+
+        if ($maxMarks <= 0) {
+            return 0;
+        }
+
+        $percentage =
+            $this->getPassingPercentage(
+                $standardId
+            );
+
+        return (int) ceil(
+            $maxMarks *
+            (
+                $percentage / 100
+            )
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD AUTHORITATIVE STANDARD SUBJECTS
     |--------------------------------------------------------------------------
     |
-    | IMPORTANT:
+    | standard_wise_subjects + subjects
     |
-    | Form may send:
+    | The actual subject ID ALWAYS comes from:
     |
-    |     standard_wise_subjects.id
-    |
-    | OR
-    |
-    |     subjects.id
-    |
-    | We always convert it to:
-    |
-    |     subjects.id
+    | subjects.id
     |
     |--------------------------------------------------------------------------
     */
 
-    private function resolveSubject(
-        $formSubjectId,
-        $standardId
+    private function getStandardSubjects(
+        int $standardId
     ) {
-        if (empty($formSubjectId)) {
-            return null;
-        }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | FIRST: Treat submitted ID as StandardWiseSubject.id
-        |--------------------------------------------------------------------------
-        */
-
-        $sws = StandardWiseSubject::where(
-            'id',
-            $formSubjectId
+        return DB::table(
+            'standard_wise_subjects as sws'
         )
-            ->where(
-                'standard_id',
-                $standardId
-            )
-            ->first();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | If found, use its actual subject_id
-        |--------------------------------------------------------------------------
-        */
-
-        if ($sws && !empty($sws->subject_id)) {
-
-            $subject = Subject::where(
-                'id',
-                $sws->subject_id
-            )
-                ->where(
-                    'is_active',
-                    1
-                )
-                ->first();
-
-            if ($subject) {
-                return [
-                    'sws'     => $sws,
-                    'subject' => $subject,
-                ];
-            }
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SECOND: Submitted ID may already be subjects.id
-        |--------------------------------------------------------------------------
-        */
-
-        $subject = Subject::where(
-            'id',
-            $formSubjectId
+        ->join(
+            'subjects as s',
+            's.id',
+            '=',
+            'sws.subject_id'
         )
-            ->where(
-                'is_active',
-                1
-            )
-            ->first();
-
-
-        if (!$subject) {
-            return null;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Find StandardWiseSubject mapping
-        |--------------------------------------------------------------------------
-        */
-
-        $sws = StandardWiseSubject::where(
-            'standard_id',
+        ->where(
+            'sws.standard_id',
             $standardId
         )
-            ->where(
-                'subject_id',
-                $subject->id
-            )
-            ->first();
+        ->where(
+            'sws.is_active',
+            1
+        )
+        ->where(
+            's.is_active',
+            1
+        )
+        ->orderBy(
+            'sws.sort_order'
+        )
+        ->orderBy(
+            's.id'
+        )
+        ->select([
 
+            /*
+            | Actual Subject Master ID
+            */
 
-        if (!$sws) {
-            return null;
-        }
+            's.id as subject_id',
 
+            /*
+            | Subject Master
+            */
 
-        return [
-            'sws'     => $sws,
-            'subject' => $subject,
-        ];
+            's.subject_name',
+
+            's.subject_code',
+
+            's.short_name',
+
+            /*
+            | Standard-wise mapping
+            */
+
+            'sws.id as standard_wise_subject_id',
+
+            'sws.standard_id',
+
+            'sws.sort_order',
+
+            'sws.is_optional',
+
+        ])
+        ->get();
     }
 
 
@@ -181,10 +177,11 @@ class ExamMasterController extends Controller
 
     public function create()
     {
-        $standards = Standard::where(
-            'is_active',
-            1
-        )
+        $standards =
+            Standard::where(
+                'is_active',
+                1
+            )
             ->orderBy(
                 'display_order'
             )
@@ -192,7 +189,11 @@ class ExamMasterController extends Controller
 
 
         $nextDisplayOrder =
-            (ExamMaster::max('display_order') ?? 0) + 1;
+            (
+                ExamMaster::max(
+                    'display_order'
+                ) ?? 0
+            ) + 1;
 
 
         return view(
@@ -207,19 +208,54 @@ class ExamMasterController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | STORE EXAM MASTER
+    | STORE
+    |--------------------------------------------------------------------------
+    |
+    | ALL active subjects of selected Standard are automatically saved.
+    |
     |--------------------------------------------------------------------------
     */
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'exam_name' =>
-                'required|max:100',
+    public function store(
+        Request $request
+    ) {
 
-            'standard_id' =>
-                'required|exists:standards,id',
+        $request->validate([
+
+            'exam_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'standard_id' => [
+                'required',
+                'integer',
+                'exists:standards,id',
+            ],
+
+            'display_order' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+
+            /*
+            | The Blade sends the Max Marks configuration.
+            | Subject IDs are keys and are already actual subjects.id.
+            */
+
+            'subjects' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
         ]);
+
+
+        $standardId =
+            (int) $request->standard_id;
 
 
         $examName =
@@ -230,16 +266,22 @@ class ExamMasterController extends Controller
             );
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | DUPLICATE EXAM CHECK
+        |--------------------------------------------------------------------------
+        */
+
         $exists =
             ExamMaster::where(
                 'standard_id',
-                $request->standard_id
+                $standardId
             )
-                ->where(
-                    'exam_name',
-                    $examName
-                )
-                ->exists();
+            ->where(
+                'exam_name',
+                $examName
+            )
+            ->exists();
 
 
         if ($exists) {
@@ -253,143 +295,212 @@ class ExamMasterController extends Controller
         }
 
 
-        DB::transaction(
-            function () use (
-                $request,
-                $examName
-            ) {
+        try {
 
-                $examMaster =
-                    ExamMaster::create([
-
-                        'exam_name' =>
-                            $examName,
-
-                        'standard_id' =>
-                            $request->standard_id,
-
-                        'max_marks' =>
-                            0,
-
-                        'passing_marks' =>
-                            0,
-
-                        'display_order' =>
-                            $request->display_order ?? 0,
-
-                        'is_active' =>
-                            $request->has('is_active'),
-                    ]);
-
-
-                foreach (
-                    $request->input(
-                        'subjects',
-                        []
-                    ) as $row
+            DB::transaction(
+                function () use (
+                    $request,
+                    $examName,
+                    $standardId
                 ) {
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Ignore unselected subjects
+                    | CREATE EXAM MASTER
                     |--------------------------------------------------------------------------
                     */
+
+                    $examMaster =
+                        ExamMaster::create([
+
+                            'exam_name' =>
+                                $examName,
+
+                            'standard_id' =>
+                                $standardId,
+
+                            'max_marks' =>
+                                0,
+
+                            'passing_marks' =>
+                                0,
+
+                            'display_order' =>
+                                $request->filled(
+                                    'display_order'
+                                )
+                                    ? (int)
+                                        $request->display_order
+                                    : 0,
+
+                            'is_active' =>
+                                $request->boolean(
+                                    'is_active'
+                                ),
+
+                        ]);
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | LOAD AUTHORITATIVE SUBJECTS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $standardSubjects =
+                        $this->getStandardSubjects(
+                            $standardId
+                        );
+
 
                     if (
-                        !isset($row['selected']) ||
-                        $row['selected'] != 1
+                        $standardSubjects->isEmpty()
                     ) {
-                        continue;
+
+                        throw new \RuntimeException(
+                            'No active subjects are mapped to the selected Standard.'
+                        );
                     }
 
 
-                    if (
-                        empty(
-                            $row['subject_id']
-                        )
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SAVE ALL SUBJECTS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    foreach (
+                        $standardSubjects as
+                        $standardSubject
                     ) {
-                        continue;
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | GET CONFIGURATION SUBMITTED FOR THIS SUBJECT
+                        |--------------------------------------------------------------------------
+                        |
+                        | subjects[actual_subject_id][max_marks]
+                        |
+                        */
+
+                        $subjectConfig =
+                            $request->input(
+                                'subjects.' .
+                                $standardSubject->subject_id,
+                                []
+                            );
+
+
+                        $maxMarks =
+                            isset(
+                                $subjectConfig['max_marks']
+                            )
+                                ? (float)
+                                    $subjectConfig['max_marks']
+                                : 40.0;
+
+
+                        if (
+                            $maxMarks < 0
+                        ) {
+                            $maxMarks = 0;
+                        }
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | PASSING MARKS
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $passingMarks =
+                            $this->calculatePassingMarks(
+                                $maxMarks,
+                                $standardId
+                            );
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | DISPLAY ORDER
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $displayOrder =
+                            isset(
+                                $subjectConfig['display_order']
+                            )
+                                ? (int)
+                                    $subjectConfig['display_order']
+                                : (
+                                    (int)
+                                    (
+                                        $standardSubject->sort_order
+                                        ?? 0
+                                    )
+                                );
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | CREATE EXAM SUBJECT CONFIGURATION
+                        |--------------------------------------------------------------------------
+                        */
+
+                        ExamMasterSubject::create([
+
+                            'exam_master_id' =>
+                                $examMaster->id,
+
+                            'standard_id' =>
+                                $standardId,
+
+                            /*
+                            | IMPORTANT:
+                            | ACTUAL subjects.id
+                            */
+
+                            'subject_id' =>
+                                $standardSubject->subject_id,
+
+                            'subject_name' =>
+                                $standardSubject->subject_name,
+
+                            'max_marks' =>
+                                $maxMarks,
+
+                            'passing_marks' =>
+                                $passingMarks,
+
+                            'display_order' =>
+                                $displayOrder,
+                        ]);
                     }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Resolve subject
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $resolved =
-                        $this->resolveSubject(
-                            $row['subject_id'],
-                            $request->standard_id
-                        );
-
-
-                    if (!$resolved) {
-                        continue;
-                    }
-
-
-                    $subject =
-                        $resolved['subject'];
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Marks
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $maxMarks =
-                        (float) (
-                            $row['max_marks']
-                            ?? 0
-                        );
-
-
-                    $percentage =
-                        $this->getPassingPercentage(
-                            $request->standard_id
-                        );
-
-
-                    $passingMarks =
-                        (int) ceil(
-                            $maxMarks *
-                            ($percentage / 100)
-                        );
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SAVE ACTUAL subjects.id
-                    |--------------------------------------------------------------------------
-                    */
-
-                    ExamMasterSubject::create([
-    'exam_master_id' => $examMaster->id,
-    'standard_id'    => $request->standard_id,
-    'subject_id'     => $subject->id,
-    'subject_name'   => $subject->subject_name,
-    'max_marks'      => $maxMarks,
-    'passing_marks'  => $passingMarks,
-    'display_order'  => $row['display_order']
-        ?? $resolved['sws']->sort_order
-        ?? 0,
-]);
                 }
-            }
-        );
-
-
-        return redirect()
-            ->route(
-                'exam-masters.index'
-            )
-            ->with(
-                'success',
-                'Exam Saved Successfully'
             );
+
+
+            return redirect()
+                ->route(
+                    'exam-masters.index'
+                )
+                ->with(
+                    'success',
+                    'Exam Saved Successfully.'
+                );
+
+        } catch (\Throwable $e) {
+
+            report($e);
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Exam save failed: ' .
+                    $e->getMessage()
+                );
+        }
     }
 
 
@@ -408,23 +519,15 @@ class ExamMasterController extends Controller
                 'is_active',
                 1
             )
-                ->orderBy(
-                    'display_order'
-                )
-                ->get();
+            ->orderBy(
+                'display_order'
+            )
+            ->get();
 
 
         /*
         |--------------------------------------------------------------------------
-        | Load current Subject Master subjects
-        |--------------------------------------------------------------------------
-        |
-        | standard_wise_subjects is only used as the mapping table.
-        |
-        | Actual subject:
-        |
-        | sws.subject_id -> subjects.id
-        |
+        | LOAD ALL SUBJECTS OF SELECTED STANDARD
         |--------------------------------------------------------------------------
         */
 
@@ -432,94 +535,142 @@ class ExamMasterController extends Controller
             DB::table(
                 'standard_wise_subjects as sws'
             )
+            ->join(
+                'subjects as s',
+                's.id',
+                '=',
+                'sws.subject_id'
+            )
+            ->leftJoin(
+                'exam_master_subjects as ems',
+                function ($join) use (
+                    $examMaster
+                ) {
 
-                ->join(
-                    'subjects as s',
-                    's.id',
-                    '=',
-                    'sws.subject_id'
-                )
-
-                ->leftJoin(
-                    'exam_master_subjects as ems',
-                    function ($join) use (
-                        $examMaster
-                    ) {
-
-                        $join->on(
-                            'ems.subject_id',
-                            '=',
-                            's.id'
-                        )
-                            ->where(
-                                'ems.exam_master_id',
-                                '=',
-                                $examMaster->id
-                            );
-                    }
-                )
-
-                ->where(
-                    'sws.standard_id',
-                    $examMaster->standard_id
-                )
-
-                ->where(
-                    'sws.is_active',
-                    1
-                )
-
-                ->where(
-                    's.is_active',
-                    1
-                )
-
-                ->select(
-
-                    /*
-                    | Mapping ID
-                    */
-
-                    'sws.id as standard_wise_subject_id',
-
-                    /*
-                    | Actual Subject Master ID
-                    */
-
-                    's.id as subject_id',
-
-                    /*
-                    | Current Subject Master Name
-                    */
-
-                    's.subject_name',
-
-                    'sws.sort_order',
-
-                    'sws.is_optional',
-
-                    DB::raw(
-                        'COALESCE(ems.max_marks,40) as max_marks'
-                    ),
-
-                    DB::raw(
-                        'COALESCE(ems.passing_marks,0) as passing_marks'
-                    ),
-
-                    DB::raw(
-                        'COALESCE(ems.display_order,sws.sort_order,0) as display_order'
-                    ),
-
-                    DB::raw(
-                        'CASE WHEN ems.id IS NULL THEN 0 ELSE 1 END as selected'
+                    $join->on(
+                        'ems.subject_id',
+                        '=',
+                        's.id'
                     )
-                )
+                    ->where(
+                        'ems.exam_master_id',
+                        '=',
+                        $examMaster->id
+                    )
+                    ->where(
+                        'ems.standard_id',
+                        '=',
+                        $examMaster->standard_id
+                    );
+                }
+            )
+            ->where(
+                'sws.standard_id',
+                $examMaster->standard_id
+            )
+            ->where(
+                'sws.is_active',
+                1
+            )
+            ->where(
+                's.is_active',
+                1
+            )
+            ->select([
 
-                ->orderBy(
-                    'sws.sort_order'
-                )
+                /*
+                | Mapping reference only
+                */
 
-                ->get();
+                'sws.id as standard_wise_subject_id',
+
+                /*
+                | ACTUAL subject master ID
+                */
+
+                's.id as subject_id',
+
+                's.subject_name',
+
+                's.subject_code',
+
+                's.short_name',
+
+                'sws.sort_order',
+
+                'sws.is_optional',
+
+                /*
+                | Existing max marks
+                */
+
+                DB::raw(
+                    'COALESCE(
+                        ems.max_marks,
+                        40
+                    ) as max_marks'
+                ),
+
+                /*
+                | Existing passing marks.
+                | If no exam configuration exists,
+                | calculate according to Standard.
+                */
+
+                DB::raw(
+                    '
+                    CASE
+                        WHEN ems.id IS NOT NULL
+                            THEN ems.passing_marks
+
+                        WHEN sws.standard_id IN (9,10)
+                            THEN CEIL(
+                                40 * 0.35
+                            )
+
+                        ELSE CEIL(
+                                40 * 0.40
+                            )
+                    END AS passing_marks
+                    '
+                ),
+
+                /*
+                | Existing display order
+                */
+
+                DB::raw(
+                    '
+                    COALESCE(
+                        ems.display_order,
+                        sws.sort_order,
+                        0
+                    ) AS display_order
+                    '
+                ),
+
+                /*
+                | Existing exam configuration
+                */
+
+                DB::raw(
+                    '
+                    CASE
+                        WHEN ems.id IS NULL
+                            THEN 0
+                        ELSE 1
+                    END AS configured
+                    '
+                ),
+
+            ])
+            ->orderBy(
+                'sws.sort_order'
+            )
+            ->orderBy(
+                's.id'
+            )
+            ->get();
 
 
         return view(
@@ -537,6 +688,11 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | UPDATE
     |--------------------------------------------------------------------------
+    |
+    | All active subjects for the Standard are rebuilt into
+    | exam_master_subjects.
+    |
+    |--------------------------------------------------------------------------
     */
 
     public function update(
@@ -545,11 +701,31 @@ class ExamMasterController extends Controller
     ) {
 
         $request->validate([
-            'exam_name' =>
-                'required|max:100',
 
-            'standard_id' =>
-                'required|exists:standards,id',
+            'exam_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'standard_id' => [
+                'required',
+                'integer',
+                'exists:standards,id',
+            ],
+
+            'display_order' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+
+            'subjects' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
         ]);
 
 
@@ -559,158 +735,256 @@ class ExamMasterController extends Controller
             );
 
 
-        DB::transaction(
-            function () use (
-                $request,
-                $examMaster
-            ) {
-
-                $examMaster->update([
-
-                    'exam_name' =>
-                        strtoupper(
-                            trim(
-                                $request->exam_name
-                            )
-                        ),
-
-                    'standard_id' =>
-                        $request->standard_id,
-
-                    'display_order' =>
-                        $request->display_order
-                        ?: $examMaster->display_order,
-
-                    'is_active' =>
-                        $request->has('is_active'),
-                ]);
+        $standardId =
+            (int)$request->standard_id;
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Remove old configuration
-                |--------------------------------------------------------------------------
-                |
-                | We are only removing the configuration belonging
-                | to this Exam Master.
-                |
-                |--------------------------------------------------------------------------
-                */
-
-                ExamMasterSubject::where(
-                    'exam_master_id',
-                    $examMaster->id
-                )->delete();
+        $examName =
+            strtoupper(
+                trim(
+                    $request->exam_name
+                )
+            );
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Rebuild configuration
-                |--------------------------------------------------------------------------
-                */
+        /*
+        |--------------------------------------------------------------------------
+        | DUPLICATE CHECK
+        |--------------------------------------------------------------------------
+        */
 
-                foreach (
-                    $request->input(
-                        'subjects',
-                        []
-                    ) as $row
+        $duplicate =
+            ExamMaster::where(
+                'standard_id',
+                $standardId
+            )
+            ->where(
+                'exam_name',
+                $examName
+            )
+            ->where(
+                'id',
+                '!=',
+                $examMaster->id
+            )
+            ->exists();
+
+
+        if ($duplicate) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Another Exam Master already exists for this Standard.'
+                );
+        }
+
+
+        try {
+
+            DB::transaction(
+                function () use (
+                    $request,
+                    $examMaster,
+                    $standardId,
+                    $examName
                 ) {
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | UPDATE EXAM MASTER
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $examMaster->update([
+
+                        'exam_name' =>
+                            $examName,
+
+                        'standard_id' =>
+                            $standardId,
+
+                        'display_order' =>
+                            $request->filled(
+                                'display_order'
+                            )
+                                ? (int)
+                                    $request->display_order
+                                : $examMaster->display_order,
+
+                        'is_active' =>
+                            $request->boolean(
+                                'is_active'
+                            ),
+
+                    ]);
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | LOAD ALL ACTIVE SUBJECTS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $standardSubjects =
+                        $this->getStandardSubjects(
+                            $standardId
+                        );
+
+
                     if (
-                        !isset($row['selected']) ||
-                        $row['selected'] != 1
+                        $standardSubjects->isEmpty()
                     ) {
-                        continue;
+
+                        throw new \RuntimeException(
+                            'No active subjects are mapped to the selected Standard.'
+                        );
                     }
 
 
-                    if (
-                        empty(
-                            $row['subject_id']
-                        )
+                    /*
+                    |--------------------------------------------------------------------------
+                    | REMOVE OLD EXAM SUBJECT CONFIGURATION
+                    |--------------------------------------------------------------------------
+                    */
+
+                    ExamMasterSubject::where(
+                        'exam_master_id',
+                        $examMaster->id
+                    )
+                    ->delete();
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SAVE ALL CURRENT STANDARD SUBJECTS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    foreach (
+                        $standardSubjects as
+                        $standardSubject
                     ) {
-                        continue;
+
+                        $subjectConfig =
+                            $request->input(
+                                'subjects.' .
+                                $standardSubject->subject_id,
+                                []
+                            );
+
+
+                        $maxMarks =
+                            isset(
+                                $subjectConfig['max_marks']
+                            )
+                                ? (float)
+                                    $subjectConfig['max_marks']
+                                : 40.0;
+
+
+                        if (
+                            $maxMarks < 0
+                        ) {
+                            $maxMarks = 0;
+                        }
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | PASSING MARKS
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $passingMarks =
+                            $this->calculatePassingMarks(
+                                $maxMarks,
+                                $standardId
+                            );
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | DISPLAY ORDER
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $displayOrder =
+                            isset(
+                                $subjectConfig[
+                                    'display_order'
+                                ]
+                            )
+                                ? (int)
+                                    $subjectConfig[
+                                        'display_order'
+                                    ]
+                                : (
+                                    (int)
+                                    (
+                                        $standardSubject->sort_order
+                                        ?? 0
+                                    )
+                                );
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | CREATE CONFIGURATION
+                        |--------------------------------------------------------------------------
+                        */
+
+                        ExamMasterSubject::create([
+
+                            'exam_master_id' =>
+                                $examMaster->id,
+
+                            'standard_id' =>
+                                $standardId,
+
+                            'subject_id' =>
+                                $standardSubject->subject_id,
+
+                            'subject_name' =>
+                                $standardSubject->subject_name,
+
+                            'max_marks' =>
+                                $maxMarks,
+
+                            'passing_marks' =>
+                                $passingMarks,
+
+                            'display_order' =>
+                                $displayOrder,
+
+                        ]);
                     }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Resolve mapping -> actual subject
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $resolved =
-                        $this->resolveSubject(
-                            $row['subject_id'],
-                            $request->standard_id
-                        );
-
-
-                    if (!$resolved) {
-                        continue;
-                    }
-
-
-                    $subject =
-                        $resolved['subject'];
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Marks
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $maxMarks =
-                        (float) (
-                            $row['max_marks']
-                            ?? 0
-                        );
-
-
-                    $percentage =
-                        $this->getPassingPercentage(
-                            $request->standard_id
-                        );
-
-
-                    $passingMarks =
-                        (int) ceil(
-                            $maxMarks *
-                            ($percentage / 100)
-                        );
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Save actual Subject Master ID
-                    |--------------------------------------------------------------------------
-                    */
-
-                    ExamMasterSubject::create([
-    'exam_master_id' => $examMaster->id,
-    'standard_id'    => $request->standard_id,
-    'subject_id'     => $subject->id,
-    'subject_name'   => $subject->subject_name,
-    'max_marks'      => $maxMarks,
-    'passing_marks'  => $passingMarks,
-    'display_order'  => $row['display_order']
-        ?? $resolved['sws']->sort_order
-        ?? 0,
-]);
                 }
-            }
-        );
-
-
-        return redirect()
-            ->route(
-                'exam-masters.index'
-            )
-            ->with(
-                'success',
-                'Exam Updated Successfully'
             );
+
+
+            return redirect()
+                ->route(
+                    'exam-masters.index'
+                )
+                ->with(
+                    'success',
+                    'Exam Updated Successfully.'
+                );
+
+        } catch (\Throwable $e) {
+
+            report($e);
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Exam update failed: ' .
+                    $e->getMessage()
+                );
+        }
     }
 
 
@@ -718,25 +992,84 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | LOAD SUBJECTS
     |--------------------------------------------------------------------------
+    |
+    | AJAX endpoint.
+    |
+    | Returns ACTUAL subjects.id.
+    |
+    |--------------------------------------------------------------------------
     */
 
-    public function loadSubjects($standardId)
-{
-    $subjects = StandardWiseSubject::where(
-            'standard_id',
-            $standardId
-        )
-        ->where('is_active', 1)
-        ->orderBy('sort_order')
-        ->get([
-            'id',
-            'subject_name',
-            'sort_order',
-            'is_optional'
-        ]);
+    public function loadSubjects(
+        $standardId
+    ) {
 
-    return response()->json($subjects);
-}
+        $standardId =
+            (int)$standardId;
+
+
+        $subjects =
+            DB::table(
+                'standard_wise_subjects as sws'
+            )
+            ->join(
+                'subjects as s',
+                's.id',
+                '=',
+                'sws.subject_id'
+            )
+            ->where(
+                'sws.standard_id',
+                $standardId
+            )
+            ->where(
+                'sws.is_active',
+                1
+            )
+            ->where(
+                's.is_active',
+                1
+            )
+            ->orderBy(
+                'sws.sort_order'
+            )
+            ->orderBy(
+                's.id'
+            )
+            ->select([
+
+                /*
+                | ACTUAL subjects.id
+                */
+
+                's.id as id',
+
+                's.id as subject_id',
+
+                's.subject_name',
+
+                's.subject_code',
+
+                's.short_name',
+
+                /*
+                | Standard mapping ID
+                */
+
+                'sws.id as standard_wise_subject_id',
+
+                'sws.sort_order',
+
+                'sws.is_optional',
+
+            ])
+            ->get();
+
+
+        return response()->json(
+            $subjects
+        );
+    }
 
 
     /*
@@ -763,24 +1096,26 @@ class ExamMasterController extends Controller
                     DB::table(
                         'student_result_details'
                     )
-                        ->whereIn(
-                            'student_result_id',
-                            function ($query) use (
-                                $id
-                            ) {
+                    ->whereIn(
+                        'student_result_id',
+                        function ($query) use (
+                            $id
+                        ) {
 
-                                $query
-                                    ->select('id')
-                                    ->from(
-                                        'student_results'
-                                    )
-                                    ->where(
-                                        'exam_master_id',
-                                        $id
-                                    );
-                            }
-                        )
-                        ->delete();
+                            $query
+                                ->select(
+                                    'id'
+                                )
+                                ->from(
+                                    'student_results'
+                                )
+                                ->where(
+                                    'exam_master_id',
+                                    $id
+                                );
+                        }
+                    )
+                    ->delete();
 
 
                     /*
@@ -792,37 +1127,51 @@ class ExamMasterController extends Controller
                     DB::table(
                         'student_results'
                     )
-                        ->where(
-                            'exam_master_id',
-                            $id
-                        )
-                        ->delete();
+                    ->where(
+                        'exam_master_id',
+                        $id
+                    )
+                    ->delete();
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | MARKS
+                    | STUDENT MARKS
                     |--------------------------------------------------------------------------
                     */
 
                     DB::table(
                         'student_marks'
                     )
-                        ->where(
-                            'exam_master_id',
-                            $id
-                        )
-                        ->delete();
-
-
-                    DB::table(
-                        'marks_entries'
+                    ->where(
+                        'exam_master_id',
+                        $id
                     )
+                    ->delete();
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | LEGACY MARKS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        DB::getSchemaBuilder()
+                            ->hasTable(
+                                'marks_entries'
+                            )
+                    ) {
+
+                        DB::table(
+                            'marks_entries'
+                        )
                         ->where(
                             'exam_master_id',
                             $id
                         )
                         ->delete();
+                    }
 
 
                     /*
@@ -834,11 +1183,11 @@ class ExamMasterController extends Controller
                     DB::table(
                         'teacher_marks_status'
                     )
-                        ->where(
-                            'exam_master_id',
-                            $id
-                        )
-                        ->delete();
+                    ->where(
+                        'exam_master_id',
+                        $id
+                    )
+                    ->delete();
 
 
                     /*
@@ -847,22 +1196,32 @@ class ExamMasterController extends Controller
                     |--------------------------------------------------------------------------
                     */
 
-                    ExamSubject::where(
-                        'exam_master_id',
-                        $id
-                    )->delete();
+                    if (
+                        DB::getSchemaBuilder()
+                            ->hasTable(
+                                'exam_subjects'
+                            )
+                    ) {
+
+                        ExamSubject::where(
+                            'exam_master_id',
+                            $id
+                        )
+                        ->delete();
+                    }
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | EXAM MASTER SUBJECT CONFIGURATION
+                    | EXAM MASTER SUBJECTS
                     |--------------------------------------------------------------------------
                     */
 
                     ExamMasterSubject::where(
                         'exam_master_id',
                         $id
-                    )->delete();
+                    )
+                    ->delete();
 
 
                     /*
@@ -874,7 +1233,8 @@ class ExamMasterController extends Controller
                     ExamMaster::where(
                         'id',
                         $id
-                    )->delete();
+                    )
+                    ->delete();
                 }
             );
 
@@ -888,9 +1248,9 @@ class ExamMasterController extends Controller
                     'Exam and all related data deleted successfully.'
                 );
 
-        } catch (
-            \Exception $e
-        ) {
+        } catch (\Throwable $e) {
+
+            report($e);
 
             return redirect()
                 ->back()

@@ -25,7 +25,8 @@ class ResultSheetController extends Controller
         return view(
             'administrator.result-sheet.index',
             [
-                'exams' => ExamMaster::orderByDesc('id')->get(),
+                'exams' =>
+                    ExamMaster::orderByDesc('id')->get(),
 
                 'standards' =>
                     Standard::orderBy('display_order')->get(),
@@ -72,7 +73,6 @@ class ResultSheetController extends Controller
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | SEARCH
@@ -98,12 +98,10 @@ class ResultSheetController extends Controller
             ],
         ]);
 
-
         $exam =
             ExamMaster::find(
                 (int) $request->exam_master_id
             );
-
 
         if (!$exam) {
 
@@ -114,7 +112,6 @@ class ResultSheetController extends Controller
                     'Selected Exam was not found.'
                 );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -127,7 +124,6 @@ class ResultSheetController extends Controller
                 $exam->standard_id
                 ?? 0
             );
-
 
         if ($standardId <= 0) {
 
@@ -150,7 +146,6 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         if ($standardId <= 0) {
 
             return back()
@@ -161,7 +156,6 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         $data =
             $this->buildResultSheetData(
                 (int) $request->academic_year_id,
@@ -170,10 +164,7 @@ class ResultSheetController extends Controller
                 (int) $request->division_id
             );
 
-
-        if (
-            !empty($data['error'])
-        ) {
+        if (!empty($data['error'])) {
 
             return back()
                 ->withInput()
@@ -183,13 +174,11 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         return view(
             'administrator.result-sheet.index',
             $data['viewData']
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -203,7 +192,6 @@ class ResultSheetController extends Controller
         int $canonicalSubjectId,
         int $mappingId
     ) {
-
         $config =
             DB::table(
                 'exam_master_subjects'
@@ -222,11 +210,9 @@ class ResultSheetController extends Controller
             )
             ->first();
 
-
         if ($config) {
             return $config;
         }
-
 
         if ($mappingId > 0) {
 
@@ -248,16 +234,13 @@ class ResultSheetController extends Controller
                 )
                 ->first();
 
-
             if ($config) {
                 return $config;
             }
         }
 
-
         return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -290,7 +273,6 @@ class ResultSheetController extends Controller
         $academicYears =
             AcademicYear::orderByDesc('id')->get();
 
-
         $academicYear =
             AcademicYear::find(
                 $academicYearId
@@ -311,7 +293,6 @@ class ResultSheetController extends Controller
                 $divisionId
             );
 
-
         if (
             !$academicYear ||
             !$exam ||
@@ -331,7 +312,6 @@ class ResultSheetController extends Controller
             ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | PASSING PERCENTAGE
@@ -343,13 +323,9 @@ class ResultSheetController extends Controller
                 $standard->standard_name
             );
 
-
         /*
         |--------------------------------------------------------------------------
         | STANDARD WISE SUBJECTS
-        |--------------------------------------------------------------------------
-        |
-        | These determine the fixed columns.
         |--------------------------------------------------------------------------
         */
 
@@ -396,7 +372,6 @@ class ResultSheetController extends Controller
             ])
             ->get();
 
-
         if (
             $standardSubjects->isEmpty()
         ) {
@@ -415,7 +390,6 @@ class ResultSheetController extends Controller
             ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | BUILD DISPLAY COLUMNS
@@ -424,7 +398,6 @@ class ResultSheetController extends Controller
 
         $displayColumns =
             collect();
-
 
         foreach (
             $standardSubjects as $subject
@@ -436,13 +409,11 @@ class ResultSheetController extends Controller
                     ?? 0
                 );
 
-
             $mappingId =
                 (int) (
                     $subject->mapping_id
                     ?? 0
                 );
-
 
             $subjectName =
                 trim(
@@ -452,15 +423,12 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             if (
                 $subjectId <= 0 ||
                 $subjectName === ''
             ) {
-
                 continue;
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -474,14 +442,11 @@ class ResultSheetController extends Controller
                     ?? 1
                 );
 
-
             if (
                 $subjectTypeId !== 1
             ) {
-
                 continue;
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -497,7 +462,6 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             if (
                 $subjectCode === ''
             ) {
@@ -510,7 +474,6 @@ class ResultSheetController extends Controller
                         )
                     );
 
-
                 if (
                     $short !== ''
                 ) {
@@ -521,7 +484,6 @@ class ResultSheetController extends Controller
                             '',
                             $short
                         );
-
 
                     $subjectCode =
                         strtoupper(
@@ -534,7 +496,6 @@ class ResultSheetController extends Controller
                 }
             }
 
-
             if (
                 $subjectCode === ''
             ) {
@@ -546,7 +507,6 @@ class ResultSheetController extends Controller
                         $subjectName
                     );
 
-
                 $subjectCode =
                     strtoupper(
                         substr(
@@ -557,12 +517,10 @@ class ResultSheetController extends Controller
                     );
             }
 
-
             $normalizedName =
                 $this->normalizeSubjectText(
                     $subjectName
                 );
-
 
             if (
                 $normalizedName === 'HISTORY'
@@ -572,7 +530,6 @@ class ResultSheetController extends Controller
                     'HIST';
             }
 
-
             if (
                 $normalizedName === 'GEOGRAPHY'
             ) {
@@ -580,7 +537,6 @@ class ResultSheetController extends Controller
                 $subjectCode =
                     'GEO';
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -596,7 +552,6 @@ class ResultSheetController extends Controller
                     $mappingId
                 );
 
-
             $maxMarks =
                 $examConfig
                     ? (float) (
@@ -605,7 +560,6 @@ class ResultSheetController extends Controller
                     )
                     : 0;
 
-
             $passingMarks =
                 $examConfig
                     ? (float) (
@@ -613,7 +567,6 @@ class ResultSheetController extends Controller
                         ?? 0
                     )
                     : 0;
-
 
             $displayColumns->push(
                 (object) [
@@ -661,7 +614,6 @@ class ResultSheetController extends Controller
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | SUBJECT ORDER
@@ -687,7 +639,6 @@ class ResultSheetController extends Controller
                                 )
                             );
 
-
                         if (
                             $name === 'ENGLISH' ||
                             $code === 'ENG'
@@ -695,7 +646,6 @@ class ResultSheetController extends Controller
 
                             return 10;
                         }
-
 
                         if (
                             $name === 'HINDI' ||
@@ -705,7 +655,6 @@ class ResultSheetController extends Controller
                             return 20;
                         }
 
-
                         if (
                             $name === 'SANSKRIT' ||
                             $code === 'SAN'
@@ -713,7 +662,6 @@ class ResultSheetController extends Controller
 
                             return 20;
                         }
-
 
                         if (
                             $name === 'MARATHI' ||
@@ -723,7 +671,6 @@ class ResultSheetController extends Controller
                             return 30;
                         }
 
-
                         return
                             1000
                             +
@@ -732,13 +679,9 @@ class ResultSheetController extends Controller
                 )
                 ->values();
 
-
         /*
         |--------------------------------------------------------------------------
         | FIXED TOTAL MAX
-        |--------------------------------------------------------------------------
-        |
-        | Header remains the total of all displayed subject max marks.
         |--------------------------------------------------------------------------
         */
 
@@ -753,7 +696,6 @@ class ResultSheetController extends Controller
                 )
             );
 
-
         /*
         |--------------------------------------------------------------------------
         | LOAD ALL MARKS
@@ -767,7 +709,6 @@ class ResultSheetController extends Controller
                 $standardId,
                 $divisionId
             );
-
 
         if (
             $allMarks->isEmpty()
@@ -785,7 +726,6 @@ class ResultSheetController extends Controller
             ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | SUBJECT MATCH MAP
@@ -798,7 +738,6 @@ class ResultSheetController extends Controller
                 $displayColumns
             );
 
-
         /*
         |--------------------------------------------------------------------------
         | MARKS BY STUDENT / SUBJECT
@@ -807,7 +746,6 @@ class ResultSheetController extends Controller
 
         $marksByStudent =
             [];
-
 
         foreach (
             $allMarks as $markRow
@@ -819,20 +757,11 @@ class ResultSheetController extends Controller
                     ?? 0
                 );
 
-
             if (
                 $studentId <= 0
             ) {
-
                 continue;
             }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | FIND DISPLAY SUBJECT
-            |--------------------------------------------------------------------------
-            */
 
             $displaySubjectId =
                 $this->resolveMarkSubjectId(
@@ -840,14 +769,11 @@ class ResultSheetController extends Controller
                     $subjectMatchMap
                 );
 
-
             if (
                 $displaySubjectId === null
             ) {
-
                 continue;
             }
-
 
             if (
                 !isset(
@@ -861,7 +787,6 @@ class ResultSheetController extends Controller
                     $studentId
                 ] = [];
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -884,7 +809,6 @@ class ResultSheetController extends Controller
             }
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | UNIQUE STUDENT LIST
@@ -895,7 +819,6 @@ class ResultSheetController extends Controller
             array_keys(
                 $marksByStudent
             );
-
 
         if (
             empty($studentIds)
@@ -913,7 +836,6 @@ class ResultSheetController extends Controller
             ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | ERP STUDENTS
@@ -925,7 +847,6 @@ class ResultSheetController extends Controller
                 $studentIds
             );
 
-
         /*
         |--------------------------------------------------------------------------
         | BUILD STUDENTS
@@ -934,7 +855,6 @@ class ResultSheetController extends Controller
 
         $results =
             collect();
-
 
         foreach (
             $studentIds as $studentId
@@ -945,12 +865,10 @@ class ResultSheetController extends Controller
                     $studentId
                 ] ?? [];
 
-
             $erp =
                 $erpStudents[
                     $studentId
                 ] ?? null;
-
 
             /*
             |--------------------------------------------------------------------------
@@ -968,11 +886,9 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $rollNo =
                 $erp->rollno
                 ?? '';
-
 
             $studentName =
                 trim(
@@ -982,7 +898,6 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $fatherName =
                 trim(
                     (string) (
@@ -991,14 +906,12 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $fullName =
                 trim(
                     $studentName
                     . ' '
                     . $fatherName
                 );
-
 
             if (
                 $fullName === ''
@@ -1008,7 +921,6 @@ class ResultSheetController extends Controller
                     'Student ID : '
                     . $studentId;
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -1068,7 +980,6 @@ class ResultSheetController extends Controller
                         false,
                 ];
 
-
             /*
             |--------------------------------------------------------------------------
             | PROCESS EVERY FIXED SUBJECT
@@ -1082,7 +993,6 @@ class ResultSheetController extends Controller
                 $subjectId =
                     (int) $column->subject_id;
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | DEFAULT DISPLAY
@@ -1093,16 +1003,13 @@ class ResultSheetController extends Controller
                     $column->key
                 ] = '-';
 
-
                 $student->subject_grades[
                     $column->key
                 ] = '-';
 
-
                 $student->subject_results[
                     $column->key
                 ] = '-';
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1114,7 +1021,6 @@ class ResultSheetController extends Controller
                     $studentMarks[
                         $subjectId
                     ] ?? null;
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1128,7 +1034,6 @@ class ResultSheetController extends Controller
 
                     continue;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1146,31 +1051,22 @@ class ResultSheetController extends Controller
                         $column->key
                     ] = 'AB';
 
-
                     $student->subject_grades[
                         $column->key
                     ] = 'AB';
-
 
                     $student->subject_results[
                         $column->key
                     ] = 'ABSENT';
 
-
                     $student->has_absent =
                         true;
-
-
-                    /*
-                    | AB is included in applicable max.
-                    */
 
                     $student->academic_max_used +=
                         (float) (
                             $column->max_marks
                             ?? 0
                         );
-
 
                     $student->subject_max_used[
                         $column->key
@@ -1180,10 +1076,8 @@ class ResultSheetController extends Controller
                             ?? 0
                         );
 
-
                     continue;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1196,7 +1090,6 @@ class ResultSheetController extends Controller
                         $markRow
                     );
 
-
                 if (
                     $obtained === null
                 ) {
@@ -1204,20 +1097,17 @@ class ResultSheetController extends Controller
                     continue;
                 }
 
-
                 $maxMarks =
                     (float) (
                         $column->max_marks
                         ?? 0
                     );
 
-
                 $passingMarks =
                     (float) (
                         $column->passing_marks
                         ?? 0
                     );
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1232,7 +1122,6 @@ class ResultSheetController extends Controller
                         $obtained
                     );
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | SUBJECT MAX USED
@@ -1242,12 +1131,10 @@ class ResultSheetController extends Controller
                 $student->academic_max_used +=
                     $maxMarks;
 
-
                 $student->subject_max_used[
                     $column->key
                 ] =
                     $maxMarks;
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1257,7 +1144,6 @@ class ResultSheetController extends Controller
 
                 $student->academic_total +=
                     $obtained;
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1273,7 +1159,6 @@ class ResultSheetController extends Controller
                         ) * 100
                         : 0;
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | SUBJECT GRADE
@@ -1286,7 +1171,6 @@ class ResultSheetController extends Controller
                     $this->getGradeFromPercentage(
                         $subjectPercentage
                     );
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1302,7 +1186,6 @@ class ResultSheetController extends Controller
                         : 'FAIL';
             }
 
-
             /*
             |--------------------------------------------------------------------------
             | FORMAT TOTAL
@@ -1314,10 +1197,8 @@ class ResultSheetController extends Controller
                     $student->academic_total
                 );
 
-
             $student->academic_max_used =
                 (float) $student->academic_max_used;
-
 
             /*
             |--------------------------------------------------------------------------
@@ -1344,9 +1225,6 @@ class ResultSheetController extends Controller
                 |--------------------------------------------------------------------------
                 | DYNAMIC PERCENTAGE
                 |--------------------------------------------------------------------------
-                |
-                | Only subjects having marks/AB are included.
-                |--------------------------------------------------------------------------
                 */
 
                 $student->calculated_percentage =
@@ -1356,7 +1234,6 @@ class ResultSheetController extends Controller
                         (float) $student->academic_max_used
                     )
                     * 100;
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1369,7 +1246,6 @@ class ResultSheetController extends Controller
                         $student->calculated_percentage
                     );
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | OVERALL GRADE
@@ -1381,7 +1257,6 @@ class ResultSheetController extends Controller
                         $student->calculated_percentage
                     );
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | CHECK FAILED SUBJECT
@@ -1390,7 +1265,6 @@ class ResultSheetController extends Controller
 
                 $hasFailedSubject =
                     false;
-
 
                 foreach (
                     $displayColumns as $column
@@ -1407,7 +1281,6 @@ class ResultSheetController extends Controller
                             )
                         );
 
-
                     if (
                         $subjectResult === 'FAIL'
                     ) {
@@ -1418,7 +1291,6 @@ class ResultSheetController extends Controller
                         break;
                     }
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1456,41 +1328,32 @@ class ResultSheetController extends Controller
                 }
             }
 
-
             $results->push(
                 $student
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | SORT BY STUDENT NAME
+        | SORT BY ROLL NUMBER
         |--------------------------------------------------------------------------
         */
 
         $results =
             $results
-                ->sort(
-                    function (
-                        $a,
-                        $b
-                    ) {
+                ->sortBy(
+                    function ($student) {
 
-                        return strcmp(
-                            strtoupper(
-                                $a->full_student_name
-                                ?? ''
-                            ),
-                            strtoupper(
-                                $b->full_student_name
-                                ?? ''
-                            )
-                        );
+                        $rollNo =
+                            $student->roll_no
+                            ?? '';
+
+                        return is_numeric($rollNo)
+                            ? (int) $rollNo
+                            : PHP_INT_MAX;
                     }
                 )
                 ->values();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1503,7 +1366,6 @@ class ResultSheetController extends Controller
                 $results
             );
 
-
         $girlsSubjectAnalysis =
             $this->buildSubjectAnalysis(
                 $results,
@@ -1511,14 +1373,12 @@ class ResultSheetController extends Controller
                 'FEMALE'
             );
 
-
         $boysSubjectAnalysis =
             $this->buildSubjectAnalysis(
                 $results,
                 $displayColumns,
                 'MALE'
             );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1553,10 +1413,6 @@ class ResultSheetController extends Controller
                 'displayColumns' =>
                     $displayColumns,
 
-                /*
-                | Header maximum remains all fixed subjects.
-                */
-
                 'totalMaxMarks' =>
                     $totalMaxMarks,
 
@@ -1587,7 +1443,6 @@ class ResultSheetController extends Controller
         ];
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | LOAD MARKS
@@ -1606,12 +1461,10 @@ class ResultSheetController extends Controller
                 'student_marks'
             );
 
-
         $query =
             DB::table(
                 'student_marks'
             );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1628,7 +1481,6 @@ class ResultSheetController extends Controller
                 ]
             );
 
-
         if ($yearColumn) {
 
             $query->where(
@@ -1636,7 +1488,6 @@ class ResultSheetController extends Controller
                 $academicYearId
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1653,7 +1504,6 @@ class ResultSheetController extends Controller
                 ]
             );
 
-
         if ($examColumn) {
 
             $query->where(
@@ -1661,7 +1511,6 @@ class ResultSheetController extends Controller
                 $examMasterId
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1677,7 +1526,6 @@ class ResultSheetController extends Controller
                 ]
             );
 
-
         if ($standardColumn) {
 
             $query->where(
@@ -1685,7 +1533,6 @@ class ResultSheetController extends Controller
                 $standardId
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1701,7 +1548,6 @@ class ResultSheetController extends Controller
                 ]
             );
 
-
         if ($divisionColumn) {
 
             $query->where(
@@ -1709,7 +1555,6 @@ class ResultSheetController extends Controller
                 $divisionId
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1730,10 +1575,8 @@ class ResultSheetController extends Controller
             );
         }
 
-
         return $query->get();
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -1761,7 +1604,6 @@ class ResultSheetController extends Controller
                 [],
         ];
 
-
         foreach (
             $displayColumns as $column
         ) {
@@ -1769,10 +1611,8 @@ class ResultSheetController extends Controller
             $subjectId =
                 (int) $column->subject_id;
 
-
             $mappingId =
                 (int) $column->mapping_id;
-
 
             $code =
                 strtoupper(
@@ -1784,12 +1624,10 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $name =
                 $this->normalizeSubjectText(
                     $column->subject_name
                 );
-
 
             if ($subjectId > 0) {
 
@@ -1799,7 +1637,6 @@ class ResultSheetController extends Controller
                     $subjectId;
             }
 
-
             if ($mappingId > 0) {
 
                 $map['mapping'][
@@ -1808,7 +1645,6 @@ class ResultSheetController extends Controller
                     $subjectId;
             }
 
-
             if ($code !== '') {
 
                 $map['code'][
@@ -1816,7 +1652,6 @@ class ResultSheetController extends Controller
                 ] =
                     $subjectId;
             }
-
 
             if ($name !== '') {
 
@@ -1827,10 +1662,8 @@ class ResultSheetController extends Controller
             }
         }
 
-
         return $map;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -1848,7 +1681,6 @@ class ResultSheetController extends Controller
                 $markRow->subject_id
                 ?? 0
             );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1870,7 +1702,6 @@ class ResultSheetController extends Controller
                 ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | 2. LEGACY MAPPING ID
@@ -1891,10 +1722,9 @@ class ResultSheetController extends Controller
                 ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | 3. SUBJECT CODE FROM MARK ROW
+        | 3. SUBJECT CODE
         |--------------------------------------------------------------------------
         */
 
@@ -1918,7 +1748,6 @@ class ResultSheetController extends Controller
                         )
                     );
 
-
                 if (
                     isset(
                         $subjectMatchMap['code'][
@@ -1935,10 +1764,9 @@ class ResultSheetController extends Controller
             }
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | 4. SUBJECT NAME FROM MARK ROW
+        | 4. SUBJECT NAME
         |--------------------------------------------------------------------------
         */
 
@@ -1960,7 +1788,6 @@ class ResultSheetController extends Controller
                         $markRow->{$field}
                     );
 
-
                 if (
                     isset(
                         $subjectMatchMap['name'][
@@ -1977,10 +1804,9 @@ class ResultSheetController extends Controller
             }
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | 5. SOME LEGACY DATA STORES SUBJECT ID AS STRING
+        | 5. LEGACY STRING SUBJECT ID
         |--------------------------------------------------------------------------
         */
 
@@ -1992,7 +1818,6 @@ class ResultSheetController extends Controller
                 )
             );
 
-
         if (
             $storedSubjectString !== ''
         ) {
@@ -2003,15 +1828,13 @@ class ResultSheetController extends Controller
             ) {
 
                 if (
-                    (string)$canonicalId ===
+                    (string) $canonicalId ===
                     $storedSubjectString
                 ) {
 
-                    return
-                        $targetId;
+                    return $targetId;
                 }
             }
-
 
             foreach (
                 $subjectMatchMap['mapping']
@@ -2019,20 +1842,17 @@ class ResultSheetController extends Controller
             ) {
 
                 if (
-                    (string)$mappingId ===
+                    (string) $mappingId ===
                     $storedSubjectString
                 ) {
 
-                    return
-                        $targetId;
+                    return $targetId;
                 }
             }
         }
 
-
         return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2047,10 +1867,9 @@ class ResultSheetController extends Controller
         $value =
             strtoupper(
                 trim(
-                    (string)$value
+                    (string) $value
                 )
             );
-
 
         $value =
             preg_replace(
@@ -2059,10 +1878,78 @@ class ResultSheetController extends Controller
                 $value
             );
 
-
         return $value;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE GENDER
+    |--------------------------------------------------------------------------
+    |
+    | Returns:
+    | FEMALE
+    | MALE
+    | UNKNOWN
+    |
+    | Handles:
+    | FEMALE / F / GIRL / GIRLS
+    | MALE   / M / BOY  / BOYS
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    private function normalizeGender(
+        $gender
+    ): string {
+
+        $gender =
+            strtoupper(
+                trim(
+                    (string) $gender
+                )
+            );
+
+        $gender =
+            preg_replace(
+                '/[^A-Z]/',
+                '',
+                $gender
+            );
+
+        if (
+            in_array(
+                $gender,
+                [
+                    'F',
+                    'FEMALE',
+                    'GIRL',
+                    'GIRLS',
+                ],
+                true
+            )
+        ) {
+
+            return 'FEMALE';
+        }
+
+        if (
+            in_array(
+                $gender,
+                [
+                    'M',
+                    'MALE',
+                    'BOY',
+                    'BOYS',
+                ],
+                true
+            )
+        ) {
+
+            return 'MALE';
+        }
+
+        return 'UNKNOWN';
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -2103,10 +1990,9 @@ class ResultSheetController extends Controller
             ) {
 
                 return
-                    (float)$row->{$field};
+                    (float) $row->{$field};
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2117,10 +2003,8 @@ class ResultSheetController extends Controller
         $found =
             false;
 
-
         $total =
             0;
-
 
         foreach (
             [
@@ -2148,17 +2032,15 @@ class ResultSheetController extends Controller
                     true;
 
                 $total +=
-                    (float)$row->{$field};
+                    (float) $row->{$field};
             }
         }
-
 
         return
             $found
                 ? $total
                 : null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2175,12 +2057,11 @@ class ResultSheetController extends Controller
                 $row->is_absent
             )
             &&
-            (int)$row->is_absent === 1
+            (int) $row->is_absent === 1
         ) {
 
             return true;
         }
-
 
         foreach (
             [
@@ -2197,7 +2078,7 @@ class ResultSheetController extends Controller
                 &&
                 strtoupper(
                     trim(
-                        (string)$row->{$field}
+                        (string) $row->{$field}
                     )
                 ) === 'AB'
             ) {
@@ -2205,7 +2086,6 @@ class ResultSheetController extends Controller
                 return true;
             }
         }
-
 
         foreach (
             [
@@ -2221,7 +2101,7 @@ class ResultSheetController extends Controller
                 &&
                 strtoupper(
                     trim(
-                        (string)$row->{$field}
+                        (string) $row->{$field}
                     )
                 ) === 'AB'
             ) {
@@ -2230,10 +2110,8 @@ class ResultSheetController extends Controller
             }
         }
 
-
         return false;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2248,14 +2126,12 @@ class ResultSheetController extends Controller
         $students =
             [];
 
-
         if (
             empty($studentIds)
         ) {
 
             return $students;
         }
-
 
         try {
 
@@ -2288,13 +2164,12 @@ class ResultSheetController extends Controller
                 )
                 ->get();
 
-
             foreach (
                 $rows as $row
             ) {
 
                 $students[
-                    (int)$row->Studentid
+                    (int) $row->Studentid
                 ] =
                     $row;
             }
@@ -2302,15 +2177,16 @@ class ResultSheetController extends Controller
         } catch (
             \Throwable $e
         ) {
+
             /*
+            |--------------------------------------------------------------------------
             | Keep result usable even when ERP connection fails.
+            |--------------------------------------------------------------------------
             */
         }
 
-
         return $students;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2339,10 +2215,8 @@ class ResultSheetController extends Controller
             }
         }
 
-
         return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2355,23 +2229,20 @@ class ResultSheetController extends Controller
     ) {
 
         $mark =
-            (float)$mark;
-
+            (float) $mark;
 
         if (
             floor($mark) === $mark
         ) {
 
-            return (int)$mark;
+            return (int) $mark;
         }
-
 
         return round(
             $mark,
             2
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2389,7 +2260,6 @@ class ResultSheetController extends Controller
                     $standardName
                 )
             );
-
 
         if (
             in_array(
@@ -2409,10 +2279,8 @@ class ResultSheetController extends Controller
             return 35;
         }
 
-
         return 40;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2425,8 +2293,7 @@ class ResultSheetController extends Controller
     ): string {
 
         $percentage =
-            (float)$percentage;
-
+            (float) $percentage;
 
         if ($percentage >= 91) {
             return 'A1';
@@ -2459,10 +2326,19 @@ class ResultSheetController extends Controller
         return 'F';
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | OVERALL ANALYSIS
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | Grade counts are based ONLY on calculated_grade.
+    |
+    | PASS / FAIL counts are based ONLY on final student result.
+    |
+    | TOTAL is based on all result students.
+    |
     |--------------------------------------------------------------------------
     */
 
@@ -2541,81 +2417,234 @@ class ResultSheetController extends Controller
                 'boys' => 0,
                 'total' => 0,
             ],
-        ];
 
+            /*
+            |--------------------------------------------------------------------------
+            | TOTAL ROW
+            |--------------------------------------------------------------------------
+            */
+
+            'TOTAL' => [
+                'range' => 'TOTAL',
+                'girls' => 0,
+                'boys' => 0,
+                'total' => 0,
+            ],
+        ];
 
         foreach (
             $results as $student
         ) {
 
+            /*
+            |--------------------------------------------------------------------------
+            | GENDER
+            |--------------------------------------------------------------------------
+            */
+
+            $normalizedGender =
+                $this->normalizeGender(
+                    $student->gender
+                    ?? ''
+                );
+
             if (
-                ($student->result ?? '-') === '-'
+                $normalizedGender === 'FEMALE'
+            ) {
+
+                $genderKey =
+                    'girls';
+
+            } elseif (
+                $normalizedGender === 'MALE'
+            ) {
+
+                $genderKey =
+                    'boys';
+
+            } else {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Unknown gender is not forced into Boys.
+                |--------------------------------------------------------------------------
+                */
+
+                $genderKey =
+                    null;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | FINAL RESULT
+            |--------------------------------------------------------------------------
+            */
+
+            $result =
+                strtoupper(
+                    trim(
+                        (string) (
+                            $student->result
+                            ?? '-'
+                        )
+                    )
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | IGNORE COMPLETELY EMPTY RESULT
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !in_array(
+                    $result,
+                    [
+                        'PASS',
+                        'FAIL',
+                    ],
+                    true
+                )
             ) {
 
                 continue;
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | TOTAL STUDENTS
+            |--------------------------------------------------------------------------
+            |
+            | Count each student exactly once.
+            |
+            |--------------------------------------------------------------------------
+            */
 
-            $gender =
-                strtoupper(
-                    trim(
-                        $student->gender
-                        ?? ''
-                    )
-                ) === 'FEMALE'
-                    ? 'girls'
-                    : 'boys';
+            $analysis['TOTAL']['total']++;
 
+            if (
+                $genderKey !== null
+            ) {
+
+                $analysis['TOTAL'][
+                    $genderKey
+                ]++;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | OVERALL GRADE
+            |--------------------------------------------------------------------------
+            */
 
             $grade =
                 strtoupper(
                     trim(
-                        $student->calculated_grade
-                        ?? '-'
+                        (string) (
+                            $student->calculated_grade
+                            ?? '-'
+                        )
                     )
                 );
-
 
             if (
                 isset(
                     $analysis[$grade]
                 )
+                &&
+                in_array(
+                    $grade,
+                    [
+                        'A1',
+                        'A2',
+                        'B1',
+                        'B2',
+                        'C1',
+                        'C2',
+                        'D',
+                        'F',
+                    ],
+                    true
+                )
             ) {
 
-                $analysis[$grade][$gender]++;
+                if (
+                    $genderKey !== null
+                ) {
+
+                    $analysis[$grade][
+                        $genderKey
+                    ]++;
+                }
+
                 $analysis[$grade]['total']++;
             }
 
-
-            $result =
-                strtoupper(
-                    trim(
-                        $student->result
-                        ?? '-'
-                    )
-                );
-
+            /*
+            |--------------------------------------------------------------------------
+            | PASS / FAIL
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 $result === 'PASS'
             ) {
 
-                $analysis['PASS'][$gender]++;
+                if (
+                    $genderKey !== null
+                ) {
+
+                    $analysis['PASS'][
+                        $genderKey
+                    ]++;
+                }
+
                 $analysis['PASS']['total']++;
 
             } elseif (
                 $result === 'FAIL'
             ) {
 
-                $analysis['FAIL'][$gender]++;
+                if (
+                    $genderKey !== null
+                ) {
+
+                    $analysis['FAIL'][
+                        $genderKey
+                    ]++;
+                }
+
                 $analysis['FAIL']['total']++;
             }
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | SAFETY CHECK
+        |--------------------------------------------------------------------------
+        |
+        | TOTAL is independently calculated from PASS + FAIL.
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        $analysis['TOTAL']['total'] =
+            $analysis['PASS']['total']
+            +
+            $analysis['FAIL']['total'];
+
+        $analysis['TOTAL']['girls'] =
+            $analysis['PASS']['girls']
+            +
+            $analysis['FAIL']['girls'];
+
+        $analysis['TOTAL']['boys'] =
+            $analysis['PASS']['boys']
+            +
+            $analysis['FAIL']['boys'];
 
         return $analysis;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2632,6 +2661,10 @@ class ResultSheetController extends Controller
         $analysis =
             [];
 
+        $requestedGender =
+            $this->normalizeGender(
+                $gender
+            );
 
         foreach (
             $subjects as $subject
@@ -2661,40 +2694,33 @@ class ResultSheetController extends Controller
                 'total' => 0,
             ];
 
-
             foreach (
                 $results as $student
             ) {
 
                 $studentGender =
-                    strtoupper(
-                        trim(
-                            $student->gender
-                            ?? ''
-                        )
+                    $this->normalizeGender(
+                        $student->gender
+                        ?? ''
                     );
-
 
                 if (
                     $studentGender !==
-                    strtoupper($gender)
+                    $requestedGender
                 ) {
 
                     continue;
                 }
-
 
                 $mark =
                     $student->subject_marks[
                         $subject->key
                     ] ?? '-';
 
-
                 $grade =
                     $student->subject_grades[
                         $subject->key
                     ] ?? '-';
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -2709,7 +2735,6 @@ class ResultSheetController extends Controller
                     continue;
                 }
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | ABSENT
@@ -2719,7 +2744,7 @@ class ResultSheetController extends Controller
                 if (
                     strtoupper(
                         trim(
-                            (string)$mark
+                            (string) $mark
                         )
                     ) === 'AB'
                 ) {
@@ -2728,7 +2753,6 @@ class ResultSheetController extends Controller
 
                     continue;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -2739,7 +2763,7 @@ class ResultSheetController extends Controller
                 if (
                     strtoupper(
                         trim(
-                            (string)$grade
+                            (string) $grade
                         )
                     ) === 'F'
                 ) {
@@ -2748,7 +2772,6 @@ class ResultSheetController extends Controller
 
                     continue;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -2765,7 +2788,6 @@ class ResultSheetController extends Controller
                     $row[$grade]++;
                 }
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -2784,15 +2806,12 @@ class ResultSheetController extends Controller
                 + $row['fail']
                 + $row['absent'];
 
-
             $analysis[] =
                 $row;
         }
 
-
         return $analysis;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2821,12 +2840,10 @@ class ResultSheetController extends Controller
             ],
         ]);
 
-
         $exam =
             ExamMaster::find(
-                (int)$request->exam_master_id
+                (int) $request->exam_master_id
             );
-
 
         if (!$exam) {
 
@@ -2840,20 +2857,18 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         $standardId =
-            (int)(
+            (int) (
                 $exam->standard_id
                 ?? 0
             );
-
 
         if (
             $standardId <= 0
         ) {
 
             $standardId =
-                (int)(
+                (int) (
                     DB::table(
                         'exam_master_subjects'
                     )
@@ -2871,7 +2886,6 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         if (
             $standardId <= 0
         ) {
@@ -2886,15 +2900,13 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         $data =
             $this->buildResultSheetData(
-                (int)$request->academic_year_id,
-                (int)$request->exam_master_id,
+                (int) $request->academic_year_id,
+                (int) $request->exam_master_id,
                 $standardId,
-                (int)$request->division_id
+                (int) $request->division_id
             );
-
 
         if (
             !empty(
@@ -2912,10 +2924,1250 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         return view(
             'administrator.result-sheet.print',
             $data['viewData']
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXPORT EXCEL
+    |--------------------------------------------------------------------------
+    |
+    | This creates an Excel-compatible .xls file directly.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    public function exportExcel(
+        Request $request
+    ) {
+
+        $request->validate([
+            'academic_year_id' => [
+                'required',
+                'integer',
+            ],
+
+            'exam_master_id' => [
+                'required',
+                'integer',
+            ],
+
+            'division_id' => [
+                'required',
+                'integer',
+            ],
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | EXAM
+        |--------------------------------------------------------------------------
+        */
+
+        $exam =
+            ExamMaster::find(
+                (int) $request->exam_master_id
+            );
+
+        if (!$exam) {
+
+            return redirect()
+                ->route(
+                    'result-sheet.index'
+                )
+                ->with(
+                    'error',
+                    'Selected Exam was not found.'
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | STANDARD
+        |--------------------------------------------------------------------------
+        */
+
+        $standardId =
+            (int) (
+                $exam->standard_id
+                ?? 0
+            );
+
+        if (
+            $standardId <= 0
+        ) {
+
+            $standardId =
+                (int) (
+                    DB::table(
+                        'exam_master_subjects'
+                    )
+                    ->where(
+                        'exam_master_id',
+                        $exam->id
+                    )
+                    ->whereNotNull(
+                        'standard_id'
+                    )
+                    ->value(
+                        'standard_id'
+                    )
+                    ?? 0
+                );
+        }
+
+        if (
+            $standardId <= 0
+        ) {
+
+            return redirect()
+                ->route(
+                    'result-sheet.index'
+                )
+                ->with(
+                    'error',
+                    'The selected Exam is not mapped to a Standard.'
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUILD SAME RESULT DATA
+        |--------------------------------------------------------------------------
+        */
+
+        $data =
+            $this->buildResultSheetData(
+                (int) $request->academic_year_id,
+                (int) $request->exam_master_id,
+                $standardId,
+                (int) $request->division_id
+            );
+
+        if (
+            !empty(
+                $data['error']
+            )
+        ) {
+
+            return redirect()
+                ->route(
+                    'result-sheet.index'
+                )
+                ->with(
+                    'error',
+                    $data['error']
+                );
+        }
+
+        $viewData =
+            $data['viewData'];
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATA
+        |--------------------------------------------------------------------------
+        */
+
+        $results =
+            collect(
+                $viewData['results']
+                ?? []
+            );
+
+        $displayColumns =
+            collect(
+                $viewData['displayColumns']
+                ?? []
+            );
+
+        $exam =
+            $viewData['exam']
+            ?? null;
+
+        $standard =
+            $viewData['standard']
+            ?? null;
+
+        $division =
+            $viewData['division']
+            ?? null;
+
+        $academicYear =
+            $viewData['academicYear']
+            ?? null;
+
+        $totalMaxMarks =
+            $viewData['totalMaxMarks']
+            ?? 0;
+
+        /*
+        |--------------------------------------------------------------------------
+        | SORT BY ROLL NUMBER
+        |--------------------------------------------------------------------------
+        */
+
+        $results =
+            $results
+                ->sortBy(
+                    function ($student) {
+
+                        $rollNo =
+                            $student->roll_no
+                            ?? '';
+
+                        return is_numeric($rollNo)
+                            ? (int) $rollNo
+                            : PHP_INT_MAX;
+                    }
+                )
+                ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | DISPLAY NAMES
+        |--------------------------------------------------------------------------
+        */
+
+        $yearName =
+            $academicYear->year_name
+            ?? $academicYear->name
+            ?? 'Year';
+
+        $examName =
+            $exam->display_exam_name
+            ?? $exam->exam_name
+            ?? 'Exam';
+
+        $standardName =
+            $standard->standard_name
+            ?? 'Standard';
+
+        $divisionName =
+            $division->division_name
+            ?? 'Division';
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILE NAME
+        |--------------------------------------------------------------------------
+        */
+
+        $fileName =
+            'Result_Sheet_'
+            . $this->cleanExcelFileName(
+                $yearName
+            )
+            . '_'
+            . $this->cleanExcelFileName(
+                $examName
+            )
+            . '_'
+            . $this->cleanExcelFileName(
+                $standardName
+            )
+            . '_'
+            . $this->cleanExcelFileName(
+                $divisionName
+            )
+            . '.xls';
+
+        /*
+        |--------------------------------------------------------------------------
+        | COLUMN COUNT
+        |--------------------------------------------------------------------------
+        */
+
+        $columnCount =
+            4
+            + $displayColumns->count()
+            + 5;
+
+        /*
+        |--------------------------------------------------------------------------
+        | START HTML
+        |--------------------------------------------------------------------------
+        */
+
+        $html = '';
+
+        $html .= '<html>';
+
+        $html .= '<head>';
+
+        $html .= '
+            <meta
+                http-equiv="Content-Type"
+                content="text/html; charset=UTF-8"
+            >
+        ';
+
+        /*
+        |--------------------------------------------------------------------------
+        | EXCEL CSS
+        |--------------------------------------------------------------------------
+        */
+
+        $html .= '
+            <style>
+
+                body {
+                    font-family: Arial, sans-serif;
+                    font-size: 11px;
+                }
+
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                }
+
+                th {
+                    background: #dbeafe;
+                    color: #1e3a8a;
+                    border: 1px solid #888888;
+                    padding: 6px;
+                    text-align: center;
+                    font-weight: bold;
+                    vertical-align: middle;
+                }
+
+                td {
+                    border: 1px solid #999999;
+                    padding: 5px;
+                    vertical-align: middle;
+                }
+
+                .title {
+                    font-size: 18px;
+                    font-weight: bold;
+                    text-align: center;
+                }
+
+                .subtitle {
+                    font-size: 14px;
+                    font-weight: bold;
+                    text-align: center;
+                }
+
+                .center {
+                    text-align: center;
+                }
+
+                .pass {
+                    color: green;
+                    font-weight: bold;
+                }
+
+                .fail {
+                    color: red;
+                    font-weight: bold;
+                }
+
+                .absent {
+                    color: red;
+                    font-weight: bold;
+                }
+
+            </style>
+        ';
+
+        $html .= '</head>';
+
+        $html .= '<body>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | SCHOOL TITLE
+        |--------------------------------------------------------------------------
+        */
+
+        $html .= '<table>';
+
+        $html .= '<tr>';
+
+        $html .= '<td colspan="' . $columnCount . '" class="title">';
+
+        $html .= e(
+            'PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE'
+        );
+
+        $html .= '</td>';
+
+        $html .= '</tr>';
+
+        $html .= '<tr>';
+
+        $html .= '<td colspan="' . $columnCount . '" class="subtitle">';
+
+        $html .= e(
+            'SHIRGAON / CHIKHALI'
+        );
+
+        $html .= '</td>';
+
+        $html .= '</tr>';
+
+        $html .= '<tr>';
+
+        $html .= '<td colspan="' . $columnCount . '" class="subtitle">';
+
+        $html .= e(
+            'RESULT SHEET'
+        );
+
+        $html .= '</td>';
+
+        $html .= '</tr>';
+
+        $html .= '</table>';
+
+        $html .= '<br>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | INFORMATION
+        |--------------------------------------------------------------------------
+        */
+
+        $html .= '<table>';
+
+        $html .= '<tr>';
+
+        $html .= '<td><strong>Academic Year</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            $yearName
+        );
+
+        $html .= '</td>';
+
+        $html .= '<td><strong>Exam</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            $examName
+        );
+
+        $html .= '</td>';
+
+        $html .= '</tr>';
+
+        $html .= '<tr>';
+
+        $html .= '<td><strong>Standard</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            $standardName
+        );
+
+        $html .= '</td>';
+
+        $html .= '<td><strong>Division</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            $divisionName
+        );
+
+        $html .= '</td>';
+
+        $html .= '</tr>';
+
+        $html .= '<tr>';
+
+        $html .= '<td><strong>Total Maximum Marks</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            $this->formatExcelNumber(
+                $totalMaxMarks
+            )
+        );
+
+        $html .= '</td>';
+
+        $html .= '<td><strong>Overall Pass %</strong></td>';
+
+        $html .= '<td>';
+
+        $html .= e(
+            (
+                $viewData['passPercentage']
+                ?? 40
+            ) . '%'
+        );
+
+        $html .= '</td>';
+
+        $html .= '</tr>';
+
+        $html .= '</table>';
+
+        $html .= '<br>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | RESULT TABLE
+        |--------------------------------------------------------------------------
+        */
+
+        $html .= '<table>';
+
+        $html .= '<thead>';
+
+        $html .= '<tr>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | BASIC COLUMNS
+        |--------------------------------------------------------------------------
+        */
+
+        $html .= '<th>Sr. No.</th>';
+
+        $html .= '<th>Roll No.</th>';
+
+        $html .= '<th>Student Name</th>';
+
+        $html .= '<th>Gender</th>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT COLUMNS
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (
+            $displayColumns as $column
+        ) {
+
+            $maxMark =
+                $this->formatExcelNumber(
+                    $column->max_marks
+                    ?? 0
+                );
+
+            $html .= '<th>';
+
+            $html .= e(
+                $column->subject_name
+            );
+
+            $html .= '<br>';
+
+            $html .= e(
+                '(Max Mark='
+                . $maxMark
+                . ')'
+            );
+
+            $html .= '</th>';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FINAL COLUMNS
+        |--------------------------------------------------------------------------
+        */
+
+        $html .= '<th>Total</th>';
+
+        $html .= '<th>Max Total</th>';
+
+        $html .= '<th>Percentage</th>';
+
+        $html .= '<th>Grade</th>';
+
+        $html .= '<th>Result</th>';
+
+        $html .= '</tr>';
+
+        $html .= '</thead>';
+
+        $html .= '<tbody>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | STUDENTS
+        |--------------------------------------------------------------------------
+        */
+
+        $srNo = 1;
+
+        foreach (
+            $results as $student
+        ) {
+
+            $html .= '<tr>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | SR NO
+            |--------------------------------------------------------------------------
+            */
+
+            $html .= '<td class="center">';
+
+            $html .= $srNo++;
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | ROLL NO
+            |--------------------------------------------------------------------------
+            */
+
+            $html .= '<td class="center">';
+
+            $html .= e(
+                (string) (
+                    $student->roll_no
+                    ?? ''
+                )
+            );
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | STUDENT NAME
+            |--------------------------------------------------------------------------
+            */
+
+            $html .= '<td>';
+
+            $html .= e(
+                $student->full_student_name
+                ?? ''
+            );
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | GENDER
+            |--------------------------------------------------------------------------
+            */
+
+            $html .= '<td class="center">';
+
+            $html .= e(
+                $student->gender
+                ?? ''
+            );
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | SUBJECT MARKS
+            |--------------------------------------------------------------------------
+            */
+
+            foreach (
+                $displayColumns as $column
+            ) {
+
+                $mark =
+                    $student->subject_marks[
+                        $column->key
+                    ] ?? '-';
+
+                $markText =
+                    strtoupper(
+                        trim(
+                            (string) $mark
+                        )
+                    );
+
+                $html .= '<td class="center">';
+
+                if (
+                    $markText === 'AB'
+                ) {
+
+                    $html .=
+                        '<span class="absent">'
+                        . 'AB'
+                        . '</span>';
+
+                } else {
+
+                    $html .= e(
+                        (string) $mark
+                    );
+                }
+
+                $html .= '</td>';
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | TOTAL
+            |--------------------------------------------------------------------------
+            */
+
+            $html .= '<td class="center">';
+
+            $html .= e(
+                (string) (
+                    $student->academic_total
+                    ?? '-'
+                )
+            );
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | MAX TOTAL
+            |--------------------------------------------------------------------------
+            */
+
+            $studentMaxTotal =
+                $student->academic_max_display
+                ?? $totalMaxMarks
+                ?? 0;
+
+            $html .= '<td class="center">';
+
+            $html .= e(
+                $this->formatExcelNumber(
+                    $studentMaxTotal
+                )
+            );
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | PERCENTAGE
+            |--------------------------------------------------------------------------
+            */
+
+            $html .= '<td class="center">';
+
+            if (
+                $student->calculated_percentage
+                !==
+                null
+            ) {
+
+                $html .= e(
+                    (string) (
+                        $student->calculated_percentage
+                    )
+                );
+
+                $html .= '%';
+
+            } else {
+
+                $html .= '-';
+            }
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | GRADE
+            |--------------------------------------------------------------------------
+            */
+
+            $html .= '<td class="center">';
+
+            $html .= e(
+                (string) (
+                    $student->calculated_grade
+                    ?? '-'
+                )
+            );
+
+            $html .= '</td>';
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESULT
+            |--------------------------------------------------------------------------
+            */
+
+            $studentResult =
+                strtoupper(
+                    trim(
+                        (string) (
+                            $student->result
+                            ?? '-'
+                        )
+                    )
+                );
+
+            $resultClass =
+                $studentResult === 'PASS'
+                    ? 'pass'
+                    : (
+                        $studentResult === 'FAIL'
+                            ? 'fail'
+                            : ''
+                    );
+
+            $html .= '<td class="center '
+                . $resultClass
+                . '">';
+
+            $html .= e(
+                $studentResult
+            );
+
+            $html .= '</td>';
+
+            $html .= '</tr>';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | NO RESULTS
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $results->isEmpty()
+        ) {
+
+            $html .= '<tr>';
+
+            $html .= '<td colspan="' . $columnCount . '">';
+
+            $html .=
+                'No result records found.';
+
+            $html .= '</td>';
+
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody>';
+
+        $html .= '</table>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | OVERALL GRADE ANALYSIS
+        |--------------------------------------------------------------------------
+        */
+
+        $overallGradeAnalysis =
+            $viewData[
+                'overallGradeAnalysis'
+            ]
+            ?? [];
+
+        if (
+            !empty(
+                $overallGradeAnalysis
+            )
+        ) {
+
+            $html .= '<br>';
+
+            $html .= '<h3>';
+
+            $html .=
+                'Overall Grade / Result Analysis';
+
+            $html .= '</h3>';
+
+            $html .= '<table>';
+
+            $html .= '<thead>';
+
+            $html .= '<tr>';
+
+            $html .= '<th>Grade / Result</th>';
+
+            $html .= '<th>Range</th>';
+
+            $html .= '<th>Girls</th>';
+
+            $html .= '<th>Boys</th>';
+
+            $html .= '<th>Total</th>';
+
+            $html .= '</tr>';
+
+            $html .= '</thead>';
+
+            $html .= '<tbody>';
+
+            foreach (
+                $overallGradeAnalysis
+                as $grade => $analysis
+            ) {
+
+                $rowClass =
+                    $grade === 'TOTAL'
+                        ? ' style="font-weight:bold;"'
+                        : '';
+
+                $html .= '<tr' . $rowClass . '>';
+
+                $html .= '<td class="center">';
+
+                $html .= e(
+                    $grade
+                );
+
+                $html .= '</td>';
+
+                $html .= '<td>';
+
+                $html .= e(
+                    $analysis['range']
+                    ?? ''
+                );
+
+                $html .= '</td>';
+
+                $html .= '<td class="center">';
+
+                $html .= e(
+                    $analysis['girls']
+                    ?? 0
+                );
+
+                $html .= '</td>';
+
+                $html .= '<td class="center">';
+
+                $html .= e(
+                    $analysis['boys']
+                    ?? 0
+                );
+
+                $html .= '</td>';
+
+                $html .= '<td class="center">';
+
+                $html .= e(
+                    $analysis['total']
+                    ?? 0
+                );
+
+                $html .= '</td>';
+
+                $html .= '</tr>';
+            }
+
+            $html .= '</tbody>';
+
+            $html .= '</table>';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | GIRLS SUBJECT ANALYSIS
+        |--------------------------------------------------------------------------
+        */
+
+        $girlsSubjectAnalysis =
+            $viewData[
+                'girlsSubjectAnalysis'
+            ]
+            ?? [];
+
+        if (
+            !empty(
+                $girlsSubjectAnalysis
+            )
+        ) {
+
+            $html .= '<br>';
+
+            $html .= '<h3>';
+
+            $html .=
+                'Girls Subject Analysis';
+
+            $html .= '</h3>';
+
+            $html .= '<table>';
+
+            $html .= '<thead>';
+
+            $html .= '<tr>';
+
+            $html .= '<th>Subject</th>';
+
+            $html .= '<th>A1</th>';
+            $html .= '<th>A2</th>';
+            $html .= '<th>B1</th>';
+            $html .= '<th>B2</th>';
+            $html .= '<th>C1</th>';
+            $html .= '<th>C2</th>';
+            $html .= '<th>D</th>';
+            $html .= '<th>Fail</th>';
+            $html .= '<th>Absent</th>';
+            $html .= '<th>Total</th>';
+
+            $html .= '</tr>';
+
+            $html .= '</thead>';
+
+            $html .= '<tbody>';
+
+            foreach (
+                $girlsSubjectAnalysis
+                as $analysis
+            ) {
+
+                $html .= '<tr>';
+
+                $html .= '<td>';
+
+                $html .= e(
+                    $analysis['subject_name']
+                    ??
+                    $analysis['subject']
+                    ??
+                    '-'
+                );
+
+                $html .= '</td>';
+
+                foreach (
+                    [
+                        'A1',
+                        'A2',
+                        'B1',
+                        'B2',
+                        'C1',
+                        'C2',
+                        'D',
+                        'fail',
+                        'absent',
+                        'total',
+                    ] as $field
+                ) {
+
+                    $html .= '<td class="center">';
+
+                    $html .= e(
+                        $analysis[$field]
+                        ?? 0
+                    );
+
+                    $html .= '</td>';
+                }
+
+                $html .= '</tr>';
+            }
+
+            $html .= '</tbody>';
+
+            $html .= '</table>';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | BOYS SUBJECT ANALYSIS
+        |--------------------------------------------------------------------------
+        */
+
+        $boysSubjectAnalysis =
+            $viewData[
+                'boysSubjectAnalysis'
+            ]
+            ?? [];
+
+        if (
+            !empty(
+                $boysSubjectAnalysis
+            )
+        ) {
+
+            $html .= '<br>';
+
+            $html .= '<h3>';
+
+            $html .=
+                'Boys Subject Analysis';
+
+            $html .= '</h3>';
+
+            $html .= '<table>';
+
+            $html .= '<thead>';
+
+            $html .= '<tr>';
+
+            $html .= '<th>Subject</th>';
+
+            $html .= '<th>A1</th>';
+            $html .= '<th>A2</th>';
+            $html .= '<th>B1</th>';
+            $html .= '<th>B2</th>';
+            $html .= '<th>C1</th>';
+            $html .= '<th>C2</th>';
+            $html .= '<th>D</th>';
+            $html .= '<th>Fail</th>';
+            $html .= '<th>Absent</th>';
+            $html .= '<th>Total</th>';
+
+            $html .= '</tr>';
+
+            $html .= '</thead>';
+
+            $html .= '<tbody>';
+
+            foreach (
+                $boysSubjectAnalysis
+                as $analysis
+            ) {
+
+                $html .= '<tr>';
+
+                $html .= '<td>';
+
+                $html .= e(
+                    $analysis['subject_name']
+                    ??
+                    $analysis['subject']
+                    ??
+                    '-'
+                );
+
+                $html .= '</td>';
+
+                foreach (
+                    [
+                        'A1',
+                        'A2',
+                        'B1',
+                        'B2',
+                        'C1',
+                        'C2',
+                        'D',
+                        'fail',
+                        'absent',
+                        'total',
+                    ] as $field
+                ) {
+
+                    $html .= '<td class="center">';
+
+                    $html .= e(
+                        $analysis[$field]
+                        ?? 0
+                    );
+
+                    $html .= '</td>';
+                }
+
+                $html .= '</tr>';
+            }
+
+            $html .= '</tbody>';
+
+            $html .= '</table>';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | END HTML
+        |--------------------------------------------------------------------------
+        */
+
+        $html .= '</body>';
+
+        $html .= '</html>';
+
+        /*
+        |--------------------------------------------------------------------------
+        | DOWNLOAD
+        |--------------------------------------------------------------------------
+        */
+
+        return response(
+            $html,
+            200,
+            [
+                'Content-Type' =>
+                    'application/vnd.ms-excel; charset=UTF-8',
+
+                'Content-Disposition' =>
+                    'attachment; filename="' .
+                    $fileName .
+                    '"',
+
+                'Cache-Control' =>
+                    'max-age=0',
+
+                'Pragma' =>
+                    'public',
+            ]
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CLEAN EXCEL FILE NAME
+    |--------------------------------------------------------------------------
+    */
+
+    private function cleanExcelFileName(
+        string $value
+    ): string {
+
+        $value =
+            preg_replace(
+                '/[^A-Za-z0-9_-]+/',
+                '_',
+                $value
+            );
+
+        return trim(
+            $value,
+            '_'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORMAT EXCEL NUMBER
+    |--------------------------------------------------------------------------
+    */
+
+    private function formatExcelNumber(
+        $value
+    ): string {
+
+        $value =
+            (float) $value;
+
+        if (
+            floor($value) === $value
+        ) {
+
+            return (string) (
+                (int) $value
+            );
+        }
+
+        return number_format(
+            $value,
+            2,
+            '.',
+            ''
         );
     }
 }

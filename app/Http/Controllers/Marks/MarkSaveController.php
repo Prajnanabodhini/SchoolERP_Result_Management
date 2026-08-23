@@ -1029,21 +1029,26 @@ class MarkSaveController extends Controller
         */
 
         return redirect()
-            ->route(
-                'marks-entry.index',
-                [
+    ->route(
+        'marks-entry.index',
+        [
+            'academic_year_id' =>
+                $request->academic_year_id,
 
-                    'exam_master_id' =>
-                        $request->exam_master_id,
+            'exam_master_id' =>
+                $request->exam_master_id,
 
-                    'teacher_subject_allocation_id' =>
-                        $request->teacher_subject_allocation_id,
-                ]
-            )
-            ->with(
-                'success',
-                'Marks Saved Successfully.'
-            );
+            'teacher_subject_allocation_id' =>
+                $request->teacher_subject_allocation_id,
+
+            'marks_saved' =>
+                1,
+        ]
+    )
+    ->with(
+        'success',
+        'Marks Saved Successfully.'
+    );
     }
 
 

@@ -55,7 +55,6 @@ class TeacherSubjectAllocation extends Model
             'teacher_class_allocation_id'
         );
     }
-
     public function standardWiseSubject()
 {
     return $this->belongsTo(

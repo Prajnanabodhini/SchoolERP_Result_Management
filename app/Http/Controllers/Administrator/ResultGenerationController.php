@@ -21,7 +21,103 @@ class ResultGenerationController extends Controller
     | Standard is automatically determined from the selected Exam.
     |
     */
+private function resolveCanonicalSubjectId(
+    $storedSubjectId,
+    $standardId
+) {
+    if (
+        !$storedSubjectId ||
+        !$standardId
+    ) {
+        return null;
+    }
 
+    $storedSubjectId = (int) $storedSubjectId;
+    $standardId = (int) $standardId;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CASE 1
+    | Stored value is already subjects.id
+    |--------------------------------------------------------------------------
+    */
+
+    $directSubjectExists =
+        DB::table('subjects')
+            ->where(
+                'id',
+                $storedSubjectId
+            )
+            ->where(
+                'is_active',
+                1
+            )
+            ->exists();
+
+
+    if ($directSubjectExists) {
+
+        $validMapping =
+            DB::table('standard_wise_subjects')
+                ->where(
+                    'standard_id',
+                    $standardId
+                )
+                ->where(
+                    'subject_id',
+                    $storedSubjectId
+                )
+                ->where(
+                    'is_active',
+                    1
+                )
+                ->exists();
+
+        if ($validMapping) {
+            return $storedSubjectId;
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CASE 2
+    | Stored value is standard_wise_subjects.id
+    |--------------------------------------------------------------------------
+    */
+
+    $mapping =
+        DB::table('standard_wise_subjects')
+            ->where(
+                'id',
+                $storedSubjectId
+            )
+            ->where(
+                'standard_id',
+                $standardId
+            )
+            ->where(
+                'is_active',
+                1
+            )
+            ->first();
+
+
+    if (
+        $mapping &&
+        !empty(
+            $mapping->subject_id
+        )
+    ) {
+
+        return (int)
+            $mapping->subject_id;
+    }
+
+
+    return null;
+}
     public function index()
     {
         $exams = ExamMaster::orderBy('display_order')
@@ -52,97 +148,109 @@ class ResultGenerationController extends Controller
     */
 
     public function generate(Request $request)
-    {
-        /*
-        |--------------------------------------------------------------------------
-        | REQUEST VALUES
-        |--------------------------------------------------------------------------
-        */
+{
+    /*
+    |--------------------------------------------------------------------------
+    | REQUEST VALUES
+    |--------------------------------------------------------------------------
+    */
 
-        $academicYearId = (int) $request->academic_year_id;
-        $examMasterId   = (int) $request->exam_master_id;
-        $divisionId     = (int) $request->division_id;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BASIC VALIDATION
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$academicYearId) {
-
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'Please select Academic Year.'
-                );
-        }
+    $academicYearId = (int) $request->academic_year_id;
+    $examMasterId   = (int) $request->exam_master_id;
+    $divisionId     = (int) $request->division_id;
 
 
-        if (!$examMasterId || !$divisionId) {
+    /*
+    |--------------------------------------------------------------------------
+    | BASIC VALIDATION
+    |--------------------------------------------------------------------------
+    */
 
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'Please select Exam and Division.'
-                );
-        }
+    if (!$academicYearId) {
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET SELECTED EXAM
-        |--------------------------------------------------------------------------
-        */
-
-        $exam = ExamMaster::find($examMasterId);
+        return back()
+            ->withInput()
+            ->with(
+                'error',
+                'Please select Academic Year.'
+            );
+    }
 
 
-        if (!$exam) {
+    if (!$examMasterId || !$divisionId) {
 
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'Selected Exam was not found.'
-                );
-        }
+        return back()
+            ->withInput()
+            ->with(
+                'error',
+                'Please select Exam and Division.'
+            );
+    }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD IS DETERMINED FROM EXAM
-        |--------------------------------------------------------------------------
-        */
+    /*
+    |--------------------------------------------------------------------------
+    | GET EXAM
+    |--------------------------------------------------------------------------
+    */
 
-        $standardId = (int) (
-            $exam->standard_id ?? 0
+    $exam =
+        ExamMaster::where(
+            'id',
+            $examMasterId
+        )
+        ->where(
+            'is_active',
+            1
+        )
+        ->first();
+
+
+    if (!$exam) {
+
+        return back()
+            ->withInput()
+            ->with(
+                'error',
+                'Selected Exam was not found.'
+            );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | STANDARD FROM EXAM
+    |--------------------------------------------------------------------------
+    */
+
+    $standardId =
+        (int) (
+            $exam->standard_id
+            ?? 0
         );
 
 
-        if ($standardId <= 0) {
+    if ($standardId <= 0) {
 
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'Selected Exam does not have a Standard assigned.'
-                );
-        }
+        return back()
+            ->withInput()
+            ->with(
+                'error',
+                'Selected Exam does not have a Standard assigned.'
+            );
+    }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | GENERATE
-        |--------------------------------------------------------------------------
-        */
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE INSIDE TRANSACTION
+    |--------------------------------------------------------------------------
+    */
 
-        try {
+    try {
 
-            DB::transaction(function () use (
+        DB::transaction(
+            function () use (
                 $academicYearId,
                 $examMasterId,
                 $standardId,
@@ -152,18 +260,14 @@ class ResultGenerationController extends Controller
                 /*
                 |--------------------------------------------------------------------------
                 | STEP 1
-                | GET ALL LOCKED MARKS
+                | GET FINALLY LOCKED MARKS
                 |--------------------------------------------------------------------------
-                |
-                | IMPORTANT:
-                |
-                | student_marks.subject_id
-                | =
-                | subjects.id
-                |
                 */
 
-                $lockedMarks = DB::table('student_marks')
+                $lockedMarks =
+                    DB::table(
+                        'student_marks'
+                    )
                     ->where(
                         'academic_year_id',
                         $academicYearId
@@ -184,11 +288,15 @@ class ResultGenerationController extends Controller
                         'is_locked',
                         1
                     )
-                    ->orderByDesc('id')
+                    ->orderBy(
+                        'id'
+                    )
                     ->get();
 
 
-                if ($lockedMarks->isEmpty()) {
+                if (
+                    $lockedMarks->isEmpty()
+                ) {
 
                     throw new \Exception(
                         'No finally submitted marks found for the selected Exam, Standard and Division.'
@@ -199,24 +307,163 @@ class ResultGenerationController extends Controller
                 /*
                 |--------------------------------------------------------------------------
                 | STEP 2
-                | VALIDATE CANONICAL SUBJECT IDS
+                | GET TSA IDS
+                |--------------------------------------------------------------------------
+                */
+
+                $tsaIds =
+                    $lockedMarks
+                        ->pluck(
+                            'teacher_subject_allocation_id'
+                        )
+                        ->filter()
+                        ->map(
+                            fn ($id) =>
+                                (int) $id
+                        )
+                        ->unique()
+                        ->values();
+
+
+                if (
+                    $tsaIds->isEmpty()
+                ) {
+
+                    throw new \Exception(
+                        'Locked marks do not contain valid Teacher Subject Allocation IDs.'
+                    );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 3
+                | LOAD TSA
                 |--------------------------------------------------------------------------
                 |
-                | student_marks.subject_id MUST REFER TO subjects.id
+                | TSA is authoritative for subject identity.
                 |
                 */
 
-                $subjectIds = $lockedMarks
-                    ->pluck('subject_id')
-                    ->filter()
-                    ->map(
-                        fn ($id) => (int) $id
+                $tsaMap =
+                    DB::table(
+                        'teacher_subject_allocations'
                     )
-                    ->unique()
-                    ->values();
+                    ->whereIn(
+                        'id',
+                        $tsaIds->toArray()
+                    )
+                    ->where(
+                        'exam_master_id',
+                        $examMasterId
+                    )
+                    ->get()
+                    ->keyBy(
+                        'id'
+                    );
 
 
-                if ($subjectIds->isEmpty()) {
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 4
+                | NORMALIZE SUBJECT ID
+                |--------------------------------------------------------------------------
+                |
+                | student_marks.subject_id may be an old/stale ID.
+                |
+                | teacher_subject_allocations.subject_id is used as
+                | the authoritative assignment.
+                |
+                */
+
+                foreach (
+                    $lockedMarks as $mark
+                ) {
+
+                    $tsa =
+                        $tsaMap->get(
+                            (int)
+                            $mark->teacher_subject_allocation_id
+                        );
+
+
+                    if (!$tsa) {
+
+                        throw new \Exception(
+                            'Teacher Subject Allocation '
+                            .
+                            $mark->teacher_subject_allocation_id
+                            .
+                            ' was not found for locked mark ID '
+                            .
+                            $mark->id
+                            .
+                            '.'
+                        );
+                    }
+
+
+                    /*
+                    |----------------------------------------------------------------------
+                    | RESOLVE CANONICAL SUBJECT
+                    |---------------------------------------------------------------------- 
+                    */
+
+                    $canonicalSubjectId =
+                        $this->resolveCanonicalSubjectId(
+                            $tsa->subject_id,
+                            $standardId
+                        );
+
+
+                    if (!$canonicalSubjectId) {
+
+                        throw new \Exception(
+                            'Unable to resolve the subject for Teacher Subject Allocation '
+                            .
+                            $tsa->id
+                            .
+                            ' for the selected Standard.'
+                        );
+                    }
+
+
+                    /*
+                    |----------------------------------------------------------------------
+                    | STORE TEMPORARILY ON COLLECTION OBJECT
+                    |----------------------------------------------------------------------
+                    */
+
+                    $mark->canonical_subject_id =
+                        (int)
+                        $canonicalSubjectId;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 5
+                | GET CANONICAL SUBJECT IDS
+                |--------------------------------------------------------------------------
+                */
+
+                $subjectIds =
+                    $lockedMarks
+                        ->pluck(
+                            'canonical_subject_id'
+                        )
+                        ->filter()
+                        ->map(
+                            fn ($id) =>
+                                (int) $id
+                        )
+                        ->unique()
+                        ->values();
+
+
+                if (
+                    $subjectIds->isEmpty()
+                ) {
 
                     throw new \Exception(
                         'No valid subject IDs found in locked marks.'
@@ -226,56 +473,77 @@ class ResultGenerationController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | VERIFY SUBJECTS EXIST IN SUBJECT MASTER
+                | STEP 6
+                | VERIFY SUBJECT MASTER
                 |--------------------------------------------------------------------------
                 */
 
-                $existingSubjectIds = DB::table('subjects')
+                $existingSubjectIds =
+                    DB::table(
+                        'subjects'
+                    )
                     ->whereIn(
                         'id',
                         $subjectIds->toArray()
                     )
-                    ->pluck('id')
-                    ->map(
-                        fn ($id) => (int) $id
+                    ->where(
+                        'is_active',
+                        1
                     )
+                    ->pluck(
+                        'id'
+                    )
+                    ->map(
+                        fn ($id) =>
+                            (int) $id
+                    )
+                    ->unique()
+                    ->values()
                     ->toArray();
 
 
-                $invalidSubjectIds = $subjectIds
-                    ->filter(
-                        fn ($id) =>
-                            !in_array(
-                                (int) $id,
-                                $existingSubjectIds,
-                                true
-                            )
-                    )
-                    ->values();
+                $invalidSubjectIds =
+                    $subjectIds
+                        ->filter(
+                            fn ($id) =>
+                                !in_array(
+                                    (int) $id,
+                                    $existingSubjectIds,
+                                    true
+                                )
+                        )
+                        ->values();
 
 
-                if ($invalidSubjectIds->isNotEmpty()) {
+                if (
+                    $invalidSubjectIds->isNotEmpty()
+                ) {
 
                     throw new \Exception(
                         'Invalid subject IDs found in locked marks: '
-                        . $invalidSubjectIds->implode(', ')
+                        .
+                        $invalidSubjectIds->implode(', ')
                     );
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | OPTIONAL:
+                | STEP 7
                 | VERIFY SUBJECTS BELONG TO STANDARD
                 |--------------------------------------------------------------------------
                 |
-                | This makes the generation safer.
+                | IMPORTANT:
+                |
+                | Use standard_wise_subjects.subject_id
+                | NOT standard_wise_subjects.id.
                 |
                 */
 
-                $validStandardSubjectIds = DB::table(
-                    'standard_wise_subjects'
-                )
+                $validStandardSubjectIds =
+                    DB::table(
+                        'standard_wise_subjects'
+                    )
                     ->where(
                         'standard_id',
                         $standardId
@@ -288,81 +556,355 @@ class ResultGenerationController extends Controller
                         'subject_id',
                         $subjectIds->toArray()
                     )
-                    ->pluck('subject_id')
+                    ->pluck(
+                        'subject_id'
+                    )
                     ->map(
-                        fn ($id) => (int) $id
+                        fn ($id) =>
+                            (int) $id
                     )
                     ->unique()
                     ->values()
                     ->toArray();
 
 
-                $invalidStandardSubjects = $subjectIds
-                    ->filter(
-                        fn ($id) =>
-                            !in_array(
-                                (int) $id,
-                                $validStandardSubjectIds,
-                                true
+                $invalidStandardSubjects =
+                    $subjectIds
+                        ->filter(
+                            fn ($id) =>
+                                !in_array(
+                                    (int) $id,
+                                    $validStandardSubjectIds,
+                                    true
+                                )
+                        )
+                        ->values();
+
+
+                if (
+                    $invalidStandardSubjects->isNotEmpty()
+                ) {
+
+                    /*
+                    |----------------------------------------------------------------------
+                    | GET SUBJECT NAMES FOR A BETTER ERROR
+                    |---------------------------------------------------------------------- 
+                    */
+
+                    $invalidSubjectNames =
+                        DB::table(
+                            'subjects'
+                        )
+                        ->whereIn(
+                            'id',
+                            $invalidStandardSubjects->toArray()
+                        )
+                        ->pluck(
+                            'subject_name',
+                            'id'
+                        );
+
+
+                    $formatted =
+                        $invalidStandardSubjects
+                            ->map(
+                                function ($id) use (
+                                    $invalidSubjectNames
+                                ) {
+
+                                    $name =
+                                        $invalidSubjectNames
+                                            ->get(
+                                                $id
+                                            )
+                                            ?? 'UNKNOWN';
+
+                                    return
+                                        $id
+                                        . ' ('
+                                        . $name
+                                        . ')';
+                                }
                             )
-                    )
-                    ->values();
+                            ->implode(
+                                ', '
+                            );
 
-
-                if ($invalidStandardSubjects->isNotEmpty()) {
 
                     throw new \Exception(
                         'The following subject IDs are not mapped to the selected Standard: '
-                        . $invalidStandardSubjects->implode(', ')
+                        .
+                        $formatted
                     );
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 3
-                | KEEP ONLY LATEST MARK PER STUDENT + SUBJECT
+                | STEP 8
+                | LOAD EXAM SUBJECT CONFIGURATION
                 |--------------------------------------------------------------------------
                 |
-                | This prevents duplicate mark rows from creating duplicate
-                | subject result details.
+                | Use canonical subjects.id.
                 |
                 */
 
-                $uniqueMarks = collect();
+                $examSubjectConfigs =
+                    DB::table(
+                        'exam_master_subjects'
+                    )
+                    ->where(
+                        'exam_master_id',
+                        $examMasterId
+                    )
+                    ->where(
+                        'standard_id',
+                        $standardId
+                    )
+                    ->whereIn(
+                        'subject_id',
+                        $subjectIds->toArray()
+                    )
+                    ->get()
+                    ->keyBy(
+                        'subject_id'
+                    );
 
 
-                foreach ($lockedMarks as $mark) {
+                /*
+                |--------------------------------------------------------------------------
+                | VERIFY EXAM CONFIGURATION
+                |--------------------------------------------------------------------------
+                */
 
-                    $key =
-                        (int) $mark->student_id
-                        . '_'
-                        . (int) $mark->subject_id;
+                foreach (
+                    $subjectIds as $subjectId
+                ) {
+
+                    if (
+                        !$examSubjectConfigs
+                            ->has(
+                                $subjectId
+                            )
+                    ) {
+
+                        $subjectName =
+                            DB::table(
+                                'subjects'
+                            )
+                            ->where(
+                                'id',
+                                $subjectId
+                            )
+                            ->value(
+                                'subject_name'
+                            )
+                            ?? 'UNKNOWN';
 
 
-                    if (!$uniqueMarks->has($key)) {
-
-                        $uniqueMarks->put(
-                            $key,
-                            $mark
+                        throw new \Exception(
+                            'Exam Subject configuration is missing for '
+                            .
+                            $subjectName
+                            .
+                            ' (Subject ID '
+                            .
+                            $subjectId
+                            .
+                            ').'
                         );
                     }
                 }
 
 
-                $uniqueMarks = $uniqueMarks->values();
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 9
+                | NORMALIZE SUBJECT CONFIGURATION ON MARKS
+                |--------------------------------------------------------------------------
+                |
+                | Use exam_master_subjects where available.
+                |
+                */
+
+                foreach (
+                    $lockedMarks as $mark
+                ) {
+
+                    $subjectId =
+                        (int)
+                        $mark->canonical_subject_id;
+
+
+                    $config =
+                        $examSubjectConfigs->get(
+                            $subjectId
+                        );
+
+
+                    /*
+                    |------------------------------------------------------------------
+                    | Theory configuration
+                    |------------------------------------------------------------------
+                    */
+
+                    if (
+                        $config
+                    ) {
+
+                        /*
+                        | NOTE:
+                        | Existing student_marks columns are retained if present.
+                        | Exam configuration is used as fallback.
+                        */
+
+                        if (
+                            !isset(
+                                $mark->theory_max_marks
+                            )
+                            ||
+                            $mark->theory_max_marks === null
+                        ) {
+
+                            $mark->theory_max_marks =
+                                $config->max_marks
+                                ?? 0;
+                        }
+
+
+                        if (
+                            !isset(
+                                $mark->theory_passing_marks
+                            )
+                            ||
+                            $mark->theory_passing_marks === null
+                        ) {
+
+                            $mark->theory_passing_marks =
+                                $config->passing_marks
+                                ?? 0;
+                        }
+                    }
+
+
+                    /*
+                    |------------------------------------------------------------------
+                    | Oral / Practical fallback
+                    |------------------------------------------------------------------
+                    */
+
+                    if (
+                        !isset(
+                            $mark->oral_max_marks
+                        )
+                        ||
+                        $mark->oral_max_marks === null
+                    ) {
+
+                        $mark->oral_max_marks =
+                            0;
+                    }
+
+
+                    if (
+                        !isset(
+                            $mark->oral_passing_marks
+                        )
+                        ||
+                        $mark->oral_passing_marks === null
+                    ) {
+
+                        $mark->oral_passing_marks =
+                            0;
+                    }
+
+
+                    if (
+                        !isset(
+                            $mark->practical_max_marks
+                        )
+                        ||
+                        $mark->practical_max_marks === null
+                    ) {
+
+                        $mark->practical_max_marks =
+                            0;
+                    }
+
+
+                    if (
+                        !isset(
+                            $mark->practical_passing_marks
+                        )
+                        ||
+                        $mark->practical_passing_marks === null
+                    ) {
+
+                        $mark->practical_passing_marks =
+                            0;
+                    }
+                }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 4
-                | DELETE OLD GENERATED RESULTS
+                | STEP 10
+                | KEEP LATEST MARK PER STUDENT + CANONICAL SUBJECT
                 |--------------------------------------------------------------------------
                 */
 
-                $existingResultIds = DB::table(
-                    'student_results'
-                )
+                $uniqueMarks =
+                    collect();
+
+
+                foreach (
+                    $lockedMarks as $mark
+                ) {
+
+                    $key =
+                        (int)
+                        $mark->student_id
+                        .
+                        '_'
+                        .
+                        (int)
+                        $mark->canonical_subject_id;
+
+
+                    /*
+                    |------------------------------------------------------------------
+                    | Ordered ASC above, so replace existing entry.
+                    |------------------------------------------------------------------
+                    */
+
+                    $uniqueMarks->put(
+                        $key,
+                        $mark
+                    );
+                }
+
+
+                $uniqueMarks =
+                    $uniqueMarks
+                        ->values();
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 11
+                | DELETE OLD GENERATED RESULTS
+                |--------------------------------------------------------------------------
+                |
+                | This is inside the transaction.
+                |
+                | If generation fails, the transaction rolls back.
+                |
+                */
+
+                $existingResultIds =
+                    DB::table(
+                        'student_results'
+                    )
                     ->where(
                         'academic_year_id',
                         $academicYearId
@@ -379,50 +921,63 @@ class ResultGenerationController extends Controller
                         'division_id',
                         $divisionId
                     )
-                    ->pluck('id');
+                    ->pluck(
+                        'id'
+                    );
 
 
-                if ($existingResultIds->isNotEmpty()) {
+                if (
+                    $existingResultIds
+                        ->isNotEmpty()
+                ) {
 
                     DB::table(
                         'student_result_details'
                     )
-                        ->whereIn(
-                            'student_result_id',
-                            $existingResultIds
-                        )
-                        ->delete();
+                    ->whereIn(
+                        'student_result_id',
+                        $existingResultIds
+                            ->toArray()
+                    )
+                    ->delete();
 
 
                     DB::table(
                         'student_results'
                     )
-                        ->whereIn(
-                            'id',
-                            $existingResultIds
-                        )
-                        ->delete();
+                    ->whereIn(
+                        'id',
+                        $existingResultIds
+                            ->toArray()
+                    )
+                    ->delete();
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 5
-                | GET STUDENT IDS
+                | STEP 12
+                | STUDENTS
                 |--------------------------------------------------------------------------
                 */
 
-                $studentIds = $uniqueMarks
-                    ->pluck('student_id')
-                    ->filter()
-                    ->map(
-                        fn ($id) => (int) $id
-                    )
-                    ->unique()
-                    ->values();
+                $studentIds =
+                    $uniqueMarks
+                        ->pluck(
+                            'student_id'
+                        )
+                        ->filter()
+                        ->map(
+                            fn ($id) =>
+                                (int) $id
+                        )
+                        ->unique()
+                        ->values();
 
 
-                if ($studentIds->isEmpty()) {
+                if (
+                    $studentIds->isEmpty()
+                ) {
 
                     throw new \Exception(
                         'No students found in locked marks.'
@@ -432,63 +987,103 @@ class ResultGenerationController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 6
+                | STEP 13
                 | GENERATE RESULT STUDENT BY STUDENT
                 |--------------------------------------------------------------------------
                 */
 
-                foreach ($studentIds as $studentId) {
+                foreach (
+                    $studentIds as $studentId
+                ) {
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | MARKS FOR CURRENT STUDENT
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $marks = $uniqueMarks
-                        ->filter(
-                            fn ($mark) =>
-                                (int) $mark->student_id
-                                ===
-                                (int) $studentId
-                        )
-                        ->values();
+                    $marks =
+                        $uniqueMarks
+                            ->filter(
+                                fn ($mark) =>
+                                    (int)
+                                    $mark->student_id
+                                    ===
+                                    (int)
+                                    $studentId
+                            )
+                            ->values();
 
 
-                    if ($marks->isEmpty()) {
+                    if (
+                        $marks->isEmpty()
+                    ) {
                         continue;
                     }
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | TOTAL MAX MARKS
+                    | TOTAL MAX
                     |--------------------------------------------------------------------------
                     */
 
-                    $totalMax = 0;
+                    $totalMax =
+                        0;
 
 
-                    foreach ($marks as $mark) {
+                    foreach (
+                        $marks as $mark
+                    ) {
 
                         $subjectMax =
-                            (float) (
+                            (float)
+                            (
                                 $mark->theory_max_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->oral_max_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->practical_max_marks
                                 ?? 0
                             );
 
 
-                        $totalMax += $subjectMax;
+                        /*
+                        |--------------------------------------------------------------
+                        | FALLBACK IF MAX IS ZERO
+                        |--------------------------------------------------------------
+                        */
+
+                        if (
+                            $subjectMax <= 0
+                        ) {
+
+                            $config =
+                                $examSubjectConfigs
+                                    ->get(
+                                        (int)
+                                        $mark->canonical_subject_id
+                                    );
+
+
+                            if (
+                                $config
+                            ) {
+
+                                $subjectMax =
+                                    (float)
+                                    (
+                                        $config->max_marks
+                                        ?? 0
+                                    );
+                            }
+                        }
+
+
+                        $totalMax +=
+                            $subjectMax;
                     }
 
 
@@ -498,30 +1093,38 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     */
 
-                    $totalObtained = 0;
+                    $totalObtained =
+                        0;
 
 
-                    foreach ($marks as $mark) {
+                    foreach (
+                        $marks as $mark
+                    ) {
 
                         if (
-                            (int) $mark->is_absent === 1
+                            (int)
+                            $mark->is_absent === 1
                         ) {
+
                             continue;
                         }
 
 
                         $totalObtained +=
-                            (float) (
+                            (float)
+                            (
                                 $mark->theory_obtained_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->oral_obtained_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->practical_obtained_marks
                                 ?? 0
                             );
@@ -530,7 +1133,7 @@ class ResultGenerationController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | OVERALL PERCENTAGE
+                    | PERCENTAGE
                     |--------------------------------------------------------------------------
                     */
 
@@ -553,19 +1156,17 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     */
 
-                    $failedSubjects = 0;
+                    $failedSubjects =
+                        0;
 
 
-                    foreach ($marks as $mark) {
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ABSENT = FAIL
-                        |--------------------------------------------------------------------------
-                        */
+                    foreach (
+                        $marks as $mark
+                    ) {
 
                         if (
-                            (int) $mark->is_absent === 1
+                            (int)
+                            $mark->is_absent === 1
                         ) {
 
                             $failedSubjects++;
@@ -575,40 +1176,81 @@ class ResultGenerationController extends Controller
 
 
                         $obtained =
-                            (float) (
+                            (float)
+                            (
                                 $mark->theory_obtained_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->oral_obtained_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->practical_obtained_marks
                                 ?? 0
                             );
 
 
                         $passing =
-                            (float) (
+                            (float)
+                            (
                                 $mark->theory_passing_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->oral_passing_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->practical_passing_marks
                                 ?? 0
                             );
 
 
-                        if ($obtained < $passing) {
+                        /*
+                        |------------------------------------------------------------------
+                        | FALLBACK PASSING MARKS
+                        |------------------------------------------------------------------
+                        */
+
+                        if (
+                            $passing <= 0
+                        ) {
+
+                            $config =
+                                $examSubjectConfigs
+                                    ->get(
+                                        (int)
+                                        $mark->canonical_subject_id
+                                    );
+
+
+                            if (
+                                $config
+                            ) {
+
+                                $passing =
+                                    (float)
+                                    (
+                                        $config->passing_marks
+                                        ?? 0
+                                    );
+                            }
+                        }
+
+
+                        if (
+                            $obtained <
+                            $passing
+                        ) {
 
                             $failedSubjects++;
                         }
@@ -617,7 +1259,7 @@ class ResultGenerationController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | FINAL RESULT
+                    | RESULT
                     |--------------------------------------------------------------------------
                     */
 
@@ -641,7 +1283,6 @@ class ResultGenerationController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | STEP 7
                     | INSERT STUDENT RESULT
                     |--------------------------------------------------------------------------
                     */
@@ -650,118 +1291,188 @@ class ResultGenerationController extends Controller
                         DB::table(
                             'student_results'
                         )
-                            ->insertGetId([
+                        ->insertGetId([
 
-                                'academic_year_id' =>
-                                    $academicYearId,
+                            'academic_year_id' =>
+                                $academicYearId,
 
-                                'exam_master_id' =>
-                                    $examMasterId,
+                            'exam_master_id' =>
+                                $examMasterId,
 
-                                'standard_id' =>
-                                    $standardId,
+                            'standard_id' =>
+                                $standardId,
 
-                                'division_id' =>
-                                    $divisionId,
+                            'division_id' =>
+                                $divisionId,
 
-                                'student_id' =>
-                                    $studentId,
+                            'student_id' =>
+                                $studentId,
 
-                                'total_max_marks' =>
-                                    $totalMax,
+                            'total_max_marks' =>
+                                $totalMax,
 
-                                'total_obtained_marks' =>
-                                    $totalObtained,
+                            'total_obtained_marks' =>
+                                $totalObtained,
 
-                                'percentage' =>
-                                    $percentage,
+                            'percentage' =>
+                                $percentage,
 
-                                'grade' =>
-                                    $grade,
+                            'grade' =>
+                                $grade,
 
-                                'result' =>
-                                    $result,
+                            'result' =>
+                                $result,
 
-                                'rank' =>
-                                    null,
+                            'rank' =>
+                                null,
 
-                                'generated_at' =>
-                                    now(),
+                            'generated_at' =>
+                                now(),
 
-                                'created_at' =>
-                                    now(),
+                            'created_at' =>
+                                now(),
 
-                                'updated_at' =>
-                                    now(),
-                            ]);
+                            'updated_at' =>
+                                now(),
+                        ]);
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | STEP 8
-                    | INSERT SUBJECT RESULT DETAILS
+                    | INSERT RESULT DETAILS
                     |--------------------------------------------------------------------------
                     */
 
-                    foreach ($marks as $mark) {
+                    foreach (
+                        $marks as $mark
+                    ) {
+
+                        $subjectId =
+                            (int)
+                            $mark->canonical_subject_id;
+
 
                         /*
-                        |--------------------------------------------------------------------------
-                        | SUBJECT MAXIMUM
-                        |--------------------------------------------------------------------------
+                        |------------------------------------------------------------------
+                        | MAX MARKS
+                        |------------------------------------------------------------------
                         */
 
                         $maxMarks =
-                            (float) (
+                            (float)
+                            (
                                 $mark->theory_max_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->oral_max_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->practical_max_marks
                                 ?? 0
                             );
 
 
                         /*
-                        |--------------------------------------------------------------------------
-                        | SUBJECT PASSING MARKS
-                        |--------------------------------------------------------------------------
+                        |------------------------------------------------------------------
+                        | FALLBACK MAX
+                        |------------------------------------------------------------------
+                        */
+
+                        if (
+                            $maxMarks <= 0
+                        ) {
+
+                            $config =
+                                $examSubjectConfigs
+                                    ->get(
+                                        $subjectId
+                                    );
+
+
+                            if (
+                                $config
+                            ) {
+
+                                $maxMarks =
+                                    (float)
+                                    (
+                                        $config->max_marks
+                                        ?? 0
+                                    );
+                            }
+                        }
+
+
+                        /*
+                        |------------------------------------------------------------------
+                        | PASSING
+                        |------------------------------------------------------------------
                         */
 
                         $passingMarks =
-                            (float) (
+                            (float)
+                            (
                                 $mark->theory_passing_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->oral_passing_marks
                                 ?? 0
                             )
                             +
-                            (float) (
+                            (float)
+                            (
                                 $mark->practical_passing_marks
                                 ?? 0
                             );
 
 
+                        if (
+                            $passingMarks <= 0
+                        ) {
+
+                            $config =
+                                $examSubjectConfigs
+                                    ->get(
+                                        $subjectId
+                                    );
+
+
+                            if (
+                                $config
+                            ) {
+
+                                $passingMarks =
+                                    (float)
+                                    (
+                                        $config->passing_marks
+                                        ?? 0
+                                    );
+                            }
+                        }
+
+
                         /*
-                        |--------------------------------------------------------------------------
+                        |------------------------------------------------------------------
                         | ABSENT
-                        |--------------------------------------------------------------------------
+                        |------------------------------------------------------------------
                         */
 
                         if (
-                            (int) $mark->is_absent === 1
+                            (int)
+                            $mark->is_absent === 1
                         ) {
 
-                            $obtained = 0;
+                            $obtained =
+                                0;
 
                             $subjectResult =
                                 'ABSENT';
@@ -772,44 +1483,48 @@ class ResultGenerationController extends Controller
                         } else {
 
                             /*
-                            |--------------------------------------------------------------------------
-                            | OBTAINED MARKS
-                            |--------------------------------------------------------------------------
+                            |----------------------------------------------------------------
+                            | OBTAINED
+                            |----------------------------------------------------------------
                             */
 
                             $obtained =
-                                (float) (
+                                (float)
+                                (
                                     $mark->theory_obtained_marks
                                     ?? 0
                                 )
                                 +
-                                (float) (
+                                (float)
+                                (
                                     $mark->oral_obtained_marks
                                     ?? 0
                                 )
                                 +
-                                (float) (
+                                (float)
+                                (
                                     $mark->practical_obtained_marks
                                     ?? 0
                                 );
 
 
                             /*
-                            |--------------------------------------------------------------------------
-                            | SUBJECT RESULT
-                            |--------------------------------------------------------------------------
+                            |----------------------------------------------------------------
+                            | RESULT
+                            |----------------------------------------------------------------
                             */
 
                             $subjectResult =
-                                $obtained >= $passingMarks
+                                $obtained >=
+                                $passingMarks
                                     ? 'PASS'
                                     : 'FAIL';
 
 
                             /*
-                            |--------------------------------------------------------------------------
-                            | SUBJECT GRADE
-                            |--------------------------------------------------------------------------
+                            |----------------------------------------------------------------
+                            | GRADE
+                            |----------------------------------------------------------------
                             */
 
                             $subjectGrade =
@@ -823,52 +1538,54 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | IMPORTANT
-                        |
-                        | student_marks.subject_id is now the canonical
-                        | subjects.id.
+                        | INSERT
                         |--------------------------------------------------------------------------
+                        |
+                        | IMPORTANT:
+                        |
+                        | Use canonical subjects.id.
+                        |
                         */
 
                         DB::table(
                             'student_result_details'
                         )
-                            ->insert([
+                        ->insert([
 
-                                'student_result_id' =>
-                                    $resultId,
+                            'student_result_id' =>
+                                $resultId,
 
-                                'subject_id' =>
-                                    (int) $mark->subject_id,
+                            'subject_id' =>
+                                $subjectId,
 
-                                'max_marks' =>
-                                    $maxMarks,
+                            'max_marks' =>
+                                $maxMarks,
 
-                                'obtained_marks' =>
-                                    $obtained,
+                            'obtained_marks' =>
+                                $obtained,
 
-                                'grade' =>
-                                    $subjectGrade,
+                            'grade' =>
+                                $subjectGrade,
 
-                                'passing_marks' =>
-                                    $passingMarks,
+                            'passing_marks' =>
+                                $passingMarks,
 
-                                'subject_result' =>
-                                    $subjectResult,
+                            'subject_result' =>
+                                $subjectResult,
 
-                                'created_at' =>
-                                    now(),
+                            'created_at' =>
+                                now(),
 
-                                'updated_at' =>
-                                    now(),
-                            ]);
+                            'updated_at' =>
+                                now(),
+                        ]);
                     }
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | STEP 9
+                | STEP 14
                 | CALCULATE RANK
                 |--------------------------------------------------------------------------
                 */
@@ -877,97 +1594,6 @@ class ResultGenerationController extends Controller
                     DB::table(
                         'student_results'
                     )
-                        ->where(
-                            'academic_year_id',
-                            $academicYearId
-                        )
-                        ->where(
-                            'exam_master_id',
-                            $examMasterId
-                        )
-                        ->where(
-                            'standard_id',
-                            $standardId
-                        )
-                        ->where(
-                            'division_id',
-                            $divisionId
-                        )
-                        ->where(
-                            'result',
-                            'PASS'
-                        )
-                        ->orderByDesc(
-                            'percentage'
-                        )
-                        ->orderByDesc(
-                            'total_obtained_marks'
-                        )
-                        ->get();
-
-
-                $rank = 0;
-
-                $position = 0;
-
-                $previousPercentage = null;
-
-                $previousObtained = null;
-
-
-                foreach (
-                    $passStudents
-                    as $studentResult
-                ) {
-
-                    $position++;
-
-
-                    if (
-                        $previousPercentage
-                            !==
-                            $studentResult->percentage
-                        ||
-                        $previousObtained
-                            !==
-                            $studentResult->total_obtained_marks
-                    ) {
-
-                        $rank = $position;
-                    }
-
-
-                    DB::table(
-                        'student_results'
-                    )
-                        ->where(
-                            'id',
-                            $studentResult->id
-                        )
-                        ->update([
-                            'rank' =>
-                                $rank
-                        ]);
-
-
-                    $previousPercentage =
-                        $studentResult->percentage;
-
-                    $previousObtained =
-                        $studentResult->total_obtained_marks;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | STEP 10
-                | FAILED STUDENTS HAVE NO RANK
-                |--------------------------------------------------------------------------
-                */
-
-                DB::table(
-                    'student_results'
-                )
                     ->where(
                         'academic_year_id',
                         $academicYearId
@@ -986,39 +1612,134 @@ class ResultGenerationController extends Controller
                     )
                     ->where(
                         'result',
-                        'FAIL'
+                        'PASS'
+                    )
+                    ->orderByDesc(
+                        'percentage'
+                    )
+                    ->orderByDesc(
+                        'total_obtained_marks'
+                    )
+                    ->get();
+
+
+                $rank =
+                    0;
+
+                $position =
+                    0;
+
+                $previousPercentage =
+                    null;
+
+                $previousObtained =
+                    null;
+
+
+                foreach (
+                    $passStudents as $studentResult
+                ) {
+
+                    $position++;
+
+
+                    if (
+                        $previousPercentage !==
+                            $studentResult->percentage
+                        ||
+                        $previousObtained !==
+                            $studentResult->total_obtained_marks
+                    ) {
+
+                        $rank =
+                            $position;
+                    }
+
+
+                    DB::table(
+                        'student_results'
+                    )
+                    ->where(
+                        'id',
+                        $studentResult->id
                     )
                     ->update([
                         'rank' =>
-                            null
+                            $rank,
                     ]);
-            });
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | SUCCESS
-            |--------------------------------------------------------------------------
-            */
+                    $previousPercentage =
+                        $studentResult->percentage;
 
-            return back()->with(
-                'success',
-                'Results Generated Successfully.'
+                    $previousObtained =
+                        $studentResult->total_obtained_marks;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | STEP 15
+                | FAILED STUDENTS DO NOT GET RANK
+                |--------------------------------------------------------------------------
+                */
+
+                DB::table(
+                    'student_results'
+                )
+                ->where(
+                    'academic_year_id',
+                    $academicYearId
+                )
+                ->where(
+                    'exam_master_id',
+                    $examMasterId
+                )
+                ->where(
+                    'standard_id',
+                    $standardId
+                )
+                ->where(
+                    'division_id',
+                    $divisionId
+                )
+                ->where(
+                    'result',
+                    'FAIL'
+                )
+                ->update([
+                    'rank' =>
+                        null,
+                ]);
+            }
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUCCESS
+        |--------------------------------------------------------------------------
+        */
+
+        return back()->with(
+            'success',
+            'Results Generated Successfully.'
+        );
+
+    } catch (\Throwable $e) {
+
+        report($e);
+
+        return back()
+            ->withInput()
+            ->with(
+                'error',
+                'Result generation failed: '
+                .
+                $e->getMessage()
             );
-
-        } catch (\Throwable $e) {
-
-            report($e);
-
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'Result generation failed: '
-                    . $e->getMessage()
-                );
-        }
     }
+}
 
 
     /*

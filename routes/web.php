@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,15 +56,32 @@ use App\Http\Controllers\ExamPatternDetailController;
 
 /*
 |--------------------------------------------------------------------------
-| PUBLIC ROUTES
+| PUBLIC / EXPORT ROUTES
 |--------------------------------------------------------------------------
 */
+
+Route::get(
+    '/administrator/result-sheet/export-excel',
+    [
+        ResultSheetController::class,
+        'exportExcel'
+    ]
+)->name('result-sheet.export-excel');
+
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC AJAX ROUTE
+|--------------------------------------------------------------------------
+*/
+
 Route::get(
     '/teacher-bulk-allocation/exam-details',
     [TeacherBulkAllocationController::class, 'getExamDetails']
 )->name(
     'teacher-bulk-allocation.exam-details'
 );
+
 
 /*
 |--------------------------------------------------------------------------
@@ -100,11 +118,119 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     | DASHBOARD
     |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | Administrator:
+    |     Opens DashboardController
+    |
+    | Teacher / non-admin:
+    |     Redirects to Exam Progress Dashboard
+    |
+    |--------------------------------------------------------------------------
     */
 
     Route::get(
         '/dashboard',
-        [DashboardController::class, 'index']
+        function () {
+
+            $user = Auth::user();
+
+            if (!$user) {
+                return redirect()->route('login');
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | ADMINISTRATOR DETECTION
+            |--------------------------------------------------------------------------
+            */
+
+            $isAdministrator = false;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | SPATIE ROLE
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                method_exists($user, 'hasRole')
+            ) {
+
+                if (
+                    $user->hasRole('Administrator') ||
+                    $user->hasRole('admin')
+                ) {
+
+                    $isAdministrator = true;
+                }
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | PLAIN ROLE COLUMN
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$isAdministrator) {
+
+                $role =
+                    strtolower(
+                        trim(
+                            (string) (
+                                $user->role
+                                ?? ''
+                            )
+                        )
+                    );
+
+
+                if (
+                    in_array(
+                        $role,
+                        [
+                            'administrator',
+                            'admin',
+                        ],
+                        true
+                    )
+                ) {
+
+                    $isAdministrator = true;
+                }
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | ADMINISTRATOR
+            |--------------------------------------------------------------------------
+            */
+
+            if ($isAdministrator) {
+
+                return app(
+                    DashboardController::class
+                )->index(
+                    request()
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | TEACHER / NON-ADMIN
+            |--------------------------------------------------------------------------
+            */
+
+            return redirect()->route(
+                'exam-progress.index'
+            );
+        }
     )->name('dashboard');
 
 
@@ -386,10 +512,6 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     | TEACHER BULK ALLOCATION
     |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    | These routes match the latest TeacherBulkAllocationController.
-    |
     */
 
     Route::get(
@@ -625,9 +747,9 @@ Route::middleware(['auth'])->group(function () {
             )->name('result-generation.admin-marks.update');
 
             Route::put(
-    '/marks-correction/update',
-    [AdminMarksController::class, 'update']
-)->name('admin-marks.update');
+                '/marks-correction/update',
+                [AdminMarksController::class, 'update']
+            )->name('admin-marks.update');
 
             Route::post(
                 '/marks-correction/reopen',
@@ -638,7 +760,6 @@ Route::middleware(['auth'])->group(function () {
                 '/mark-audit',
                 [MarkAuditController::class, 'index']
             )->name('mark-audit.index');
-
         });
 
 
@@ -774,7 +895,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get(
         '/erp-sync/students/{year}',
         [ErpSyncController::class, 'syncStudents']
-    );
+    )->name('erp-sync.students');
 
 });
 

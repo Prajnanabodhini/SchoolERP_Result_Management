@@ -298,6 +298,23 @@
 
 /*
 |--------------------------------------------------------------------------
+| ANALYSIS TOTAL ROW
+|--------------------------------------------------------------------------
+*/
+
+.analysis-total-row {
+    font-weight: 700 !important;
+    background: #e5e7eb !important;
+}
+
+.analysis-total-row td {
+    font-weight: 700 !important;
+    background: #e5e7eb !important;
+}
+
+
+/*
+|--------------------------------------------------------------------------
 | SUBJECT WISE ANALYSIS
 |--------------------------------------------------------------------------
 */
@@ -424,7 +441,9 @@
 
                 <div class="result-filter-row">
 
-                    {{-- ACADEMIC YEAR --}}
+                    {{-- =====================================================
+                         ACADEMIC YEAR
+                    ====================================================== --}}
 
                     <label class="result-filter-label">
                         Academic Year
@@ -455,7 +474,9 @@
                     </select>
 
 
-                    {{-- EXAM --}}
+                    {{-- =====================================================
+                         EXAM
+                    ====================================================== --}}
 
                     <label class="result-filter-label">
                         Exam
@@ -478,7 +499,10 @@
                                 value="{{ $examItem->id }}"
                                 {{ (string)request('exam_master_id') === (string)$examItem->id ? 'selected' : '' }}
                             >
-                                {{ $examItem->display_exam_name ?? $examItem->exam_name }}
+                                {{
+                                    $examItem->display_exam_name
+                                    ?? $examItem->exam_name
+                                }}
                             </option>
 
                         @endforeach
@@ -486,7 +510,9 @@
                     </select>
 
 
-                    {{-- DIVISION --}}
+                    {{-- =====================================================
+                         DIVISION
+                    ====================================================== --}}
 
                     <label class="result-filter-label">
                         Division
@@ -517,7 +543,9 @@
                     </select>
 
 
-                    {{-- GENERATE --}}
+                    {{-- =====================================================
+                         GENERATE
+                    ====================================================== --}}
 
                     <button
                         type="submit"
@@ -527,7 +555,9 @@
                     </button>
 
 
-                    {{-- PRINT --}}
+                    {{-- =====================================================
+                         PRINT
+                    ====================================================== --}}
 
                     @if($results->count() > 0)
 
@@ -547,7 +577,9 @@
                     @endif
 
 
-                    {{-- STUDENT COUNT --}}
+                    {{-- =====================================================
+                         STUDENT COUNT
+                    ====================================================== --}}
 
                     @if($results->count() > 0)
 
@@ -572,7 +604,9 @@
 </div>
 
 
-{{-- ERROR --}}
+{{-- =========================================================
+     ERROR
+========================================================== --}}
 
 @if(session('error'))
 
@@ -591,7 +625,9 @@
 @endif
 
 
-{{-- SUCCESS --}}
+{{-- =========================================================
+     SUCCESS
+========================================================== --}}
 
 @if(session('success'))
 
@@ -610,7 +646,9 @@
 @endif
 
 
-{{-- RESULT --}}
+{{-- =========================================================
+     RESULT
+========================================================== --}}
 
 @if($results->count() > 0)
 
@@ -618,11 +656,65 @@
 
     @php
 
+        /*
+        |--------------------------------------------------------------------------
+        | DISPLAY COLUMNS
+        |--------------------------------------------------------------------------
+        */
+
         $academicDisplayColumns =
             collect(
                 $displayColumns ?? []
             )->values();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | SORT STUDENTS BY ROLL NUMBER
+        |--------------------------------------------------------------------------
+        */
+
+        $sortedResults =
+            collect($results)
+                ->sortBy(
+                    function ($student) {
+
+                        $rollNo =
+                            trim(
+                                (string)(
+                                    $student->roll_no
+                                    ?? ''
+                                )
+                            );
+
+
+                        if (
+                            $rollNo !== ''
+                            &&
+                            is_numeric($rollNo)
+                        ) {
+
+                            return [
+                                0,
+                                (int)$rollNo,
+                            ];
+                        }
+
+
+                        return [
+                            1,
+                            strtoupper($rollNo),
+                        ];
+                    }
+                )
+                ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | TABLE WIDTH
+        |--------------------------------------------------------------------------
+        */
 
         $subjectCount =
             $academicDisplayColumns->count();
@@ -664,6 +756,7 @@
 
                 <col style="width:15%;">
 
+
                 @foreach(
                     $academicDisplayColumns as $column
                 )
@@ -681,6 +774,7 @@
                     >
 
                 @endforeach
+
 
                 <col style="width:6%;">
 
@@ -710,19 +804,47 @@
                         $academicDisplayColumns as $column
                     )
 
+                        @php
+
+                            $subjectMax =
+                                (float)(
+                                    $column->max_marks
+                                    ?? 0
+                                );
+
+
+                            $subjectMaxDisplay =
+                                floor($subjectMax) === $subjectMax
+
+                                    ? (int)$subjectMax
+
+                                    : number_format(
+                                        $subjectMax,
+                                        2
+                                    );
+
+                        @endphp
+
+
                         <th colspan="2">
 
                             <span class="subject-code">
-                                {{ $column->subject_code ?? '' }}
+                                {{
+                                    $column->subject_code
+                                    ?? ''
+                                }}
                             </span>
 
                             <span class="subject-name">
-                                {{ $column->subject_name ?? '-' }}
+                                {{
+                                    $column->subject_name
+                                    ?? '-'
+                                }}
                             </span>
 
                             <span class="subject-max">
                                 Max =
-                                {{ (int)($column->max_marks ?? 0) }}
+                                {{ $subjectMaxDisplay }}
                             </span>
 
                         </th>
@@ -735,8 +857,22 @@
                         Total
 
                         <span class="subject-max">
+
                             Max =
-                            {{ (int)$displayTotalMaxMarks }}
+                            {{
+                                floor(
+                                    $displayTotalMaxMarks
+                                ) ===
+                                $displayTotalMaxMarks
+
+                                    ? (int)$displayTotalMaxMarks
+
+                                    : number_format(
+                                        $displayTotalMaxMarks,
+                                        2
+                                    )
+                            }}
+
                         </span>
 
                     </th>
@@ -782,24 +918,40 @@
 
             <tbody>
 
+            {{-- =====================================================
+                 STUDENTS SORTED BY ROLL NUMBER
+            ====================================================== --}}
+
             @foreach(
-                $results as $student
+                $sortedResults as $student
             )
 
                 <tr>
 
+                    {{-- ROLL NUMBER --}}
+
                     <td>
-                        {{ $student->roll_no ?: '-' }}
+                        {{
+                            $student->roll_no
+                            ?: '-'
+                        }}
                     </td>
 
+
+                    {{-- STUDENT NAME --}}
 
                     <td
                         class="student-name"
                         title="{{ $student->full_student_name ?? '' }}"
                     >
-                        {{ $student->full_student_name ?? '-' }}
+                        {{
+                            $student->full_student_name
+                            ?? '-'
+                        }}
                     </td>
 
+
+                    {{-- SUBJECTS --}}
 
                     @foreach(
                         $academicDisplayColumns as $column
@@ -810,27 +962,43 @@
                             $subjectKey =
                                 $column->key;
 
+
                             $mark =
                                 $student->subject_marks[
                                     $subjectKey
                                 ] ?? '-';
+
 
                             $grade =
                                 $student->subject_grades[
                                     $subjectKey
                                 ] ?? '-';
 
-                        @endphp
 
-
-                        <td>
-
-                            @if(
+                            $markText =
                                 strtoupper(
                                     trim(
                                         (string)$mark
                                     )
-                                ) === 'AB'
+                                );
+
+
+                            $gradeText =
+                                strtoupper(
+                                    trim(
+                                        (string)$grade
+                                    )
+                                );
+
+                        @endphp
+
+
+                        {{-- MARK --}}
+
+                        <td>
+
+                            @if(
+                                $markText === 'AB'
                             )
 
                                 <span class="absent-mark">
@@ -851,7 +1019,19 @@
                                 is_numeric($mark)
                             )
 
-                                {{ (int)$mark }}
+                                {{
+                                    floor(
+                                        (float)$mark
+                                    ) ===
+                                    (float)$mark
+
+                                    ? (int)$mark
+
+                                    : number_format(
+                                        (float)$mark,
+                                        2
+                                    )
+                                }}
 
                             @else
 
@@ -862,14 +1042,12 @@
                         </td>
 
 
+                        {{-- SUBJECT GRADE --}}
+
                         <td>
 
                             @if(
-                                strtoupper(
-                                    trim(
-                                        (string)$grade
-                                    )
-                                ) === 'AB'
+                                $gradeText === 'AB'
                             )
 
                                 <span class="absent-mark">
@@ -877,11 +1055,7 @@
                                 </span>
 
                             @elseif(
-                                strtoupper(
-                                    trim(
-                                        (string)$grade
-                                    )
-                                ) === 'F'
+                                $gradeText === 'F'
                             )
 
                                 <span class="fail-result">
@@ -909,10 +1083,57 @@
                     @endforeach
 
 
+                    {{-- TOTAL --}}
+
                     <td>
-                        {{ (int)round($student->academic_total ?? 0) }}
+
+                        @php
+
+                            $academicTotal =
+                                $student->academic_total
+                                ?? null;
+
+                        @endphp
+
+
+                        @if(
+                            $academicTotal === null
+                            ||
+                            $academicTotal === ''
+                            ||
+                            $academicTotal === '-'
+                        )
+
+                            -
+
+                        @elseif(
+                            is_numeric($academicTotal)
+                        )
+
+                            {{
+                                floor(
+                                    (float)$academicTotal
+                                ) ===
+                                (float)$academicTotal
+
+                                ? (int)$academicTotal
+
+                                : number_format(
+                                    (float)$academicTotal,
+                                    2
+                                )
+                            }}
+
+                        @else
+
+                            {{ $academicTotal }}
+
+                        @endif
+
                     </td>
 
+
+                    {{-- PERCENTAGE --}}
 
                     <td>
 
@@ -924,12 +1145,18 @@
 
                         @else
 
-                            {{ (int)$student->calculated_percentage }}%
+                            {{
+                                (int)(
+                                    $student->calculated_percentage
+                                )
+                            }}%
 
                         @endif
 
                     </td>
 
+
+                    {{-- OVERALL GRADE --}}
 
                     <td>
 
@@ -979,6 +1206,8 @@
                     </td>
 
 
+                    {{-- RESULT --}}
+
                     <td>
 
                         @php
@@ -988,7 +1217,7 @@
                                     trim(
                                         (string)(
                                             $student->result
-                                            ?? 'PENDING'
+                                            ?? '-'
                                         )
                                     )
                                 );
@@ -1005,6 +1234,14 @@
                             </span>
 
                         @elseif(
+                            $studentResult === 'FAIL'
+                        )
+
+                            <span class="fail-result">
+                                FAIL
+                            </span>
+
+                        @elseif(
                             $studentResult === 'PENDING'
                         )
 
@@ -1012,11 +1249,17 @@
                                 PENDING
                             </span>
 
+                        @elseif(
+                            $studentResult === 'AB'
+                        )
+
+                            <span class="absent-mark">
+                                AB
+                            </span>
+
                         @else
 
-                            <span class="fail-result">
-                                FAIL
-                            </span>
+                            -
 
                         @endif
 
@@ -1035,8 +1278,7 @@
 
     {{-- =========================================================
          OVERALL GRADE / RESULT ANALYSIS
-         
-         PENDING ROW REMOVED IN DISPLAY
+         FIXED ORDER + TOTAL AFTER FAIL
     ========================================================== --}}
 
     <div class="analysis-title">
@@ -1079,51 +1321,184 @@
 
             <tbody>
 
+            @php
+
+                /*
+                |--------------------------------------------------------------------------
+                | FIXED DISPLAY ORDER
+                |--------------------------------------------------------------------------
+                |
+                | TOTAL IS NOT ALLOWED TO APPEAR BEFORE FAIL.
+                |
+                */
+
+                $overallOrder = [
+                    'A1',
+                    'A2',
+                    'B1',
+                    'B2',
+                    'C1',
+                    'C2',
+                    'D',
+                    'F',
+                    'PASS',
+                    'FAIL',
+                ];
+
+            @endphp
+
+
             @if(
                 !empty(
                     $overallGradeAnalysis ?? []
                 )
             )
 
+                {{-- =================================================
+                     GRADES + PASS + FAIL
+                ================================================== --}}
+
                 @foreach(
-                    $overallGradeAnalysis as $grade => $row
+                    $overallOrder as $grade
                 )
 
-                    @if(
-                        strtoupper(
-                            trim(
-                                (string)$grade
-                            )
-                        ) !== 'PENDING'
-                    )
+                    @php
 
-                        <tr>
+                        $row =
+                            $overallGradeAnalysis[$grade]
+                            ??
+                            [
+                                'range' => '-',
+                                'girls' => 0,
+                                'boys' => 0,
+                                'total' => 0,
+                            ];
 
-                            <td>
-                                {{ $grade }}
-                            </td>
+                    @endphp
 
-                            <td>
-                                {{ $row['range'] ?? '-' }}
-                            </td>
 
-                            <td>
-                                {{ $row['girls'] ?? 0 }}
-                            </td>
+                    <tr>
 
-                            <td>
-                                {{ $row['boys'] ?? 0 }}
-                            </td>
+                        <td>
+                            {{ $grade }}
+                        </td>
 
-                            <td>
-                                {{ $row['total'] ?? 0 }}
-                            </td>
+                        <td>
+                            {{
+                                $row['range']
+                                ?? '-'
+                            }}
+                        </td>
 
-                        </tr>
+                        <td>
+                            {{
+                                $row['girls']
+                                ?? 0
+                            }}
+                        </td>
 
-                    @endif
+                        <td>
+                            {{
+                                $row['boys']
+                                ?? 0
+                            }}
+                        </td>
+
+                        <td>
+                            {{
+                                $row['total']
+                                ?? 0
+                            }}
+                        </td>
+
+                    </tr>
 
                 @endforeach
+
+
+                {{-- =================================================
+                     TOTAL
+                     ALWAYS AFTER FAIL
+                ================================================== --}}
+
+                @php
+
+                    $totalRow =
+                        $overallGradeAnalysis['TOTAL']
+                        ??
+                        [
+                            'range' => 'TOTAL',
+
+                            'girls' =>
+                                (
+                                    $overallGradeAnalysis['PASS']['girls']
+                                    ?? 0
+                                )
+                                +
+                                (
+                                    $overallGradeAnalysis['FAIL']['girls']
+                                    ?? 0
+                                ),
+
+                            'boys' =>
+                                (
+                                    $overallGradeAnalysis['PASS']['boys']
+                                    ?? 0
+                                )
+                                +
+                                (
+                                    $overallGradeAnalysis['FAIL']['boys']
+                                    ?? 0
+                                ),
+
+                            'total' =>
+                                (
+                                    $overallGradeAnalysis['PASS']['total']
+                                    ?? 0
+                                )
+                                +
+                                (
+                                    $overallGradeAnalysis['FAIL']['total']
+                                    ?? 0
+                                ),
+                        ];
+
+                @endphp
+
+
+                <tr class="analysis-total-row">
+
+                    <td>
+                        TOTAL
+                    </td>
+
+                    <td>
+                        TOTAL
+                    </td>
+
+                    <td>
+                        {{
+                            $totalRow['girls']
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $totalRow['boys']
+                            ?? 0
+                        }}
+                    </td>
+
+                    <td>
+                        {{
+                            $totalRow['total']
+                            ?? 0
+                        }}
+                    </td>
+
+                </tr>
+
 
             @else
 
@@ -1146,9 +1521,6 @@
 
     {{-- =========================================================
          SUBJECT WISE ANALYSIS
-         
-         PENDING REMOVED
-         SUBJECT COLUMN WIDER
     ========================================================== --}}
 
     <div class="analysis-title">
@@ -1157,6 +1529,12 @@
 
 
     @php
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT ANALYSIS COLLECTIONS
+        |--------------------------------------------------------------------------
+        */
 
         $girlsBySubject =
             collect(
@@ -1174,10 +1552,22 @@
             );
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | SAME SUBJECT ORDER AS RESULT TABLE
+        |--------------------------------------------------------------------------
+        */
+
         $analysisSubjects =
             $academicDisplayColumns
                 ->values();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT ANALYSIS CATEGORIES
+        |--------------------------------------------------------------------------
+        */
 
         $analysisCategories = [
 
@@ -1204,14 +1594,17 @@
 
                 <col style="width:230px;">
 
+
                 @foreach(
                     $analysisCategories as $category
                 )
 
                     <col style="width:48px;">
+
                     <col style="width:48px;">
 
                 @endforeach
+
 
                 <col style="width:58px;">
 
@@ -1268,6 +1661,10 @@
 
             <tbody>
 
+            {{-- =====================================================
+                 SUBJECT ROWS
+            ====================================================== --}}
+
             @foreach(
                 $analysisSubjects as $analysisSubject
             )
@@ -1297,19 +1694,33 @@
                     ) {
 
                         $subjectFullName =
-                            $subjectCode ?: '-';
+                            $subjectCode
+                            ?: '-';
                     }
 
 
                     $defaultAnalysis = [
 
-                        'A1' => 0,
-                        'A2' => 0,
-                        'B1' => 0,
-                        'B2' => 0,
-                        'C1' => 0,
-                        'C2' => 0,
-                        'D'  => 0,
+                        'A1' =>
+                            0,
+
+                        'A2' =>
+                            0,
+
+                        'B1' =>
+                            0,
+
+                        'B2' =>
+                            0,
+
+                        'C1' =>
+                            0,
+
+                        'C2' =>
+                            0,
+
+                        'D' =>
+                            0,
 
                         'fail' =>
                             0,
@@ -1363,7 +1774,9 @@
                     </td>
 
 
-                    {{-- A1 --}}
+                    {{-- =================================================
+                         A1
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['A1'] }}
@@ -1374,7 +1787,9 @@
                     </td>
 
 
-                    {{-- A2 --}}
+                    {{-- =================================================
+                         A2
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['A2'] }}
@@ -1385,7 +1800,9 @@
                     </td>
 
 
-                    {{-- B1 --}}
+                    {{-- =================================================
+                         B1
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['B1'] }}
@@ -1396,7 +1813,9 @@
                     </td>
 
 
-                    {{-- B2 --}}
+                    {{-- =================================================
+                         B2
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['B2'] }}
@@ -1407,7 +1826,9 @@
                     </td>
 
 
-                    {{-- C1 --}}
+                    {{-- =================================================
+                         C1
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['C1'] }}
@@ -1418,7 +1839,9 @@
                     </td>
 
 
-                    {{-- C2 --}}
+                    {{-- =================================================
+                         C2
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['C2'] }}
@@ -1429,7 +1852,9 @@
                     </td>
 
 
-                    {{-- D --}}
+                    {{-- =================================================
+                         D
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['D'] }}
@@ -1440,7 +1865,9 @@
                     </td>
 
 
-                    {{-- FAIL --}}
+                    {{-- =================================================
+                         FAIL
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['fail'] }}
@@ -1451,7 +1878,9 @@
                     </td>
 
 
-                    {{-- ABSENT --}}
+                    {{-- =================================================
+                         ABSENT
+                    ================================================== --}}
 
                     <td>
                         {{ $girls['absent'] }}
@@ -1462,10 +1891,9 @@
                     </td>
 
 
-                    {{-- PENDING INTENTIONALLY NOT DISPLAYED --}}
-
-
-                    {{-- TOTAL --}}
+                    {{-- =================================================
+                         TOTAL
+                    ================================================== --}}
 
                     <td class="analysis-total-column">
                         {{ $rowTotal }}
@@ -1476,13 +1904,42 @@
             @endforeach
 
 
-            {{-- GRAND TOTAL --}}
+            {{-- =====================================================
+                 SUBJECT ANALYSIS GRAND TOTAL
+            ====================================================== --}}
+
+            @php
+
+                /*
+                |--------------------------------------------------------------------------
+                | GRAND CATEGORY TOTALS
+                |--------------------------------------------------------------------------
+                */
+
+                $grandSubjectGirlsTotal =
+                    $girlsBySubject->sum(
+                        fn($row) =>
+                            (int)(
+                                $row['total']
+                                ?? 0
+                            )
+                    );
+
+
+                $grandSubjectBoysTotal =
+                    $boysBySubject->sum(
+                        fn($row) =>
+                            (int)(
+                                $row['total']
+                                ?? 0
+                            )
+                    );
+
+            @endphp
+
 
             <tr
-                style="
-                    font-weight:700;
-                    background:#e5e7eb;
-                "
+                class="analysis-total-row"
             >
 
                 <td class="subject-analysis-name">
@@ -1498,10 +1955,14 @@
 
                         $analysisKey =
                             $category === 'FAIL'
+
                                 ? 'fail'
+
                                 : (
                                     $category === 'ABSENT'
+
                                         ? 'absent'
+
                                         : $category
                                 );
 
@@ -1546,21 +2007,9 @@
                 <td class="analysis-total-column">
 
                     {{
-                        $girlsBySubject->sum(
-                            fn($row) =>
-                                (int)(
-                                    $row['total']
-                                    ?? 0
-                                )
-                        )
+                        $grandSubjectGirlsTotal
                         +
-                        $boysBySubject->sum(
-                            fn($row) =>
-                                (int)(
-                                    $row['total']
-                                    ?? 0
-                                )
-                        )
+                        $grandSubjectBoysTotal
                     }}
 
                 </td>

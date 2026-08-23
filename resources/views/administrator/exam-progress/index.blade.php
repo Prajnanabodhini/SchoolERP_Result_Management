@@ -79,7 +79,10 @@
                             value="{{ $exam->id }}"
                             {{ (string)$examId === (string)$exam->id ? 'selected' : '' }}
                         >
-                            {{ $exam->exam_name }}
+                            {{
+                                $exam->display_exam_name
+                                ?? $exam->exam_name
+                            }}
                         </option>
 
                     @endforeach
@@ -295,7 +298,7 @@
 
 
     {{-- =========================================================
-         TABLE
+         RESULT TABLE
     ========================================================== --}}
 
     <div class="bg-white border rounded shadow p-3 mt-4">
@@ -319,6 +322,8 @@
                         font-weight:700;
                     ">
 
+                        {{-- EXAM --}}
+
                         <th style="
                             border:1px solid #D1D5DB;
                             padding:8px;
@@ -329,25 +334,7 @@
                         </th>
 
 
-                        <th style="
-                            border:1px solid #D1D5DB;
-                            padding:8px;
-                            text-align:left;
-                            white-space:nowrap;
-                        ">
-                            Standard
-                        </th>
-
-
-                        <th style="
-                            border:1px solid #D1D5DB;
-                            padding:8px;
-                            text-align:center;
-                            white-space:nowrap;
-                        ">
-                            Division
-                        </th>
-
+                        {{-- SUBJECT --}}
 
                         <th style="
                             border:1px solid #D1D5DB;
@@ -359,6 +346,32 @@
                         </th>
 
 
+                        {{-- STANDARD --}}
+
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:left;
+                            white-space:nowrap;
+                        ">
+                            Standard
+                        </th>
+
+
+                        {{-- DIVISION --}}
+
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
+                            Division
+                        </th>
+
+
+                        {{-- TEACHER --}}
+
                         <th style="
                             border:1px solid #D1D5DB;
                             padding:8px;
@@ -369,6 +382,8 @@
                         </th>
 
 
+                        {{-- STATUS --}}
+
                         <th style="
                             border:1px solid #D1D5DB;
                             padding:8px;
@@ -376,6 +391,18 @@
                             white-space:nowrap;
                         ">
                             Status
+                        </th>
+
+
+                        {{-- ACTION --}}
+
+                        <th style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
+                            Action
                         </th>
 
                     </tr>
@@ -389,17 +416,98 @@
 
                     @php
 
-                        $currentStatus = strtoupper(
-                            trim(
-                                (string)($status->status ?? '')
-                            )
-                        );
+                        /*
+                        |--------------------------------------------------------------------------
+                        | STATUS
+                        |--------------------------------------------------------------------------
+                        */
 
-                        $subjectName = trim(
-                            (string)($status->subject_name ?? '')
-                        );
+                        $currentStatus =
+                            strtoupper(
+                                trim(
+                                    (string)(
+                                        $status->status
+                                        ?? ''
+                                    )
+                                )
+                            );
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | SUBJECT
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $subjectName =
+                            trim(
+                                (string)(
+                                    $status->subject_name
+                                    ?? ''
+                                )
+                            );
+
+
+                        $subjectCode =
+                            trim(
+                                (string)(
+                                    $status->subject_code
+                                    ?? ''
+                                )
+                            );
+
+
+                        if (
+                            $subjectName === ''
+                        ) {
+
+                            $subjectName =
+                                '-';
+                        }
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | IDs
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $tsaId =
+                            (int)(
+                                $status->teacher_subject_allocation_id
+                                ?? 0
+                            );
+
+
+                        $statusExamId =
+                            (int)(
+                                $status->exam_master_id
+                                ?? 0
+                            );
+
+
+                        $statusStandardId =
+                            (int)(
+                                $status->standard_id
+                                ?? 0
+                            );
+
+
+                        $statusDivisionId =
+                            (int)(
+                                $status->division_id
+                                ?? 0
+                            );
+
+
+                        $resolvedSubjectId =
+                            (int)(
+                                $status->resolved_subject_id
+                                ?? 0
+                            );
 
                     @endphp
+
 
                     <tr>
 
@@ -412,34 +520,12 @@
                             padding:8px;
                             white-space:nowrap;
                         ">
-                            {{ $status->exam_name ?: '-' }}
-                        </td>
 
+                            {{
+                                $status->exam_name
+                                ?: '-'
+                            }}
 
-                        {{-- =================================================
-                             STANDARD
-                        ================================================== --}}
-
-                        <td style="
-                            border:1px solid #D1D5DB;
-                            padding:8px;
-                            white-space:nowrap;
-                        ">
-                            {{ $status->standard_name ?: '-' }}
-                        </td>
-
-
-                        {{-- =================================================
-                             DIVISION
-                        ================================================== --}}
-
-                        <td style="
-                            border:1px solid #D1D5DB;
-                            padding:8px;
-                            text-align:center;
-                            white-space:nowrap;
-                        ">
-                            {{ $status->division_name ?: '-' }}
                         </td>
 
 
@@ -453,7 +539,63 @@
                             white-space:nowrap;
                             font-weight:600;
                         ">
-                            {{ $subjectName !== '' ? $subjectName : '-' }}
+
+                            {{ $subjectName }}
+
+                            @if(
+                                $subjectCode !== ''
+                                &&
+                                $subjectCode !== '-'
+                            )
+
+                                <span style="
+                                    color:#6B7280;
+                                    font-size:11px;
+                                    font-weight:500;
+                                    margin-left:4px;
+                                ">
+                                    ({{ $subjectCode }})
+                                </span>
+
+                            @endif
+
+                        </td>
+
+
+                        {{-- =================================================
+                             STANDARD
+                        ================================================== --}}
+
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            white-space:nowrap;
+                        ">
+
+                            {{
+                                $status->standard_name
+                                ?: '-'
+                            }}
+
+                        </td>
+
+
+                        {{-- =================================================
+                             DIVISION
+                        ================================================== --}}
+
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
+
+                            {{
+                                $status->division_name
+                                ?: '-'
+                            }}
+
                         </td>
 
 
@@ -466,7 +608,12 @@
                             padding:8px;
                             white-space:nowrap;
                         ">
-                            {{ $status->teacher_name ?: '-' }}
+
+                            {{
+                                $status->teacher_name
+                                ?: '-'
+                            }}
+
                         </td>
 
 
@@ -481,7 +628,9 @@
                             white-space:nowrap;
                         ">
 
-                            @if($currentStatus === 'COMPLETED')
+                            @if(
+                                $currentStatus === 'COMPLETED'
+                            )
 
                                 <span style="
                                     background:#DCFCE7;
@@ -495,7 +644,9 @@
                                     COMPLETED
                                 </span>
 
-                            @elseif($currentStatus === 'PENDING')
+                            @elseif(
+                                $currentStatus === 'PENDING'
+                            )
 
                                 <span style="
                                     background:#FEF3C7;
@@ -520,7 +671,124 @@
                                     font-weight:600;
                                     display:inline-block;
                                 ">
-                                    {{ $currentStatus !== '' ? $currentStatus : '-' }}
+                                    {{
+                                        $currentStatus !== ''
+                                            ? $currentStatus
+                                            : '-'
+                                    }}
+                                </span>
+
+                            @endif
+
+                        </td>
+
+
+                        {{-- =================================================
+                             ACTION
+                        ================================================== --}}
+
+                        <td style="
+                            border:1px solid #D1D5DB;
+                            padding:8px;
+                            text-align:center;
+                            white-space:nowrap;
+                        ">
+
+                            {{-- =================================================
+                                 COMPLETED → VIEW MARKS TAB
+                            ================================================== --}}
+
+                            @if(
+                                $currentStatus === 'COMPLETED'
+                                &&
+                                $tsaId > 0
+                                &&
+                                $statusExamId > 0
+                                &&
+                                $statusStandardId > 0
+                                &&
+                                $statusDivisionId > 0
+                                &&
+                                $resolvedSubjectId > 0
+                            )
+
+                                <a
+                                    href="{{ url('/marks-entry/view') . '?' . http_build_query([
+                                        'exam_master_id' =>
+                                            $statusExamId,
+
+                                        'standard_id' =>
+                                            $statusStandardId,
+
+                                        'division_id' =>
+                                            $statusDivisionId,
+
+                                        'subject_id' =>
+                                            $resolvedSubjectId,
+
+                                        'teacher_subject_allocation_id' =>
+                                            $tsaId,
+                                    ]) }}"
+                                    class="erp-btn erp-btn-save"
+                                    style="
+                                        height:32px;
+                                        padding:0 12px;
+                                        display:inline-flex;
+                                        align-items:center;
+                                        justify-content:center;
+                                        font-size:13px;
+                                        text-decoration:none;
+                                    "
+                                >
+                                    View Marks
+                                </a>
+
+
+                            {{-- =================================================
+                                 PENDING → MARKS ENTRY TAB
+                            ================================================== --}}
+
+                            @elseif(
+                                $currentStatus === 'PENDING'
+                                &&
+                                $tsaId > 0
+                                &&
+                                $statusExamId > 0
+                            )
+
+                                <a
+                                    href="{{ url('/marks-entry') . '?' . http_build_query([
+                                        'exam_master_id' =>
+                                            $statusExamId,
+
+                                        'teacher_subject_allocation_id' =>
+                                            $tsaId,
+                                    ]) }}"
+                                    class="erp-btn erp-btn-save"
+                                    style="
+                                        height:32px;
+                                        padding:0 12px;
+                                        display:inline-flex;
+                                        align-items:center;
+                                        justify-content:center;
+                                        font-size:13px;
+                                        text-decoration:none;
+                                    "
+                                >
+                                    Enter Marks
+                                </a>
+
+
+                            {{-- =================================================
+                                 OTHER STATUS
+                            ================================================== --}}
+
+                            @else
+
+                                <span style="
+                                    color:#9CA3AF;
+                                ">
+                                    -
                                 </span>
 
                             @endif
@@ -534,7 +802,7 @@
                     <tr>
 
                         <td
-                            colspan="6"
+                            colspan="7"
                             style="
                                 border:1px solid #D1D5DB;
                                 padding:20px;
@@ -567,7 +835,13 @@
                 display:flex;
                 justify-content:center;
             ">
-                {{ $statuses->onEachSide(5)->links() }}
+
+                {{
+                    $statuses
+                        ->onEachSide(5)
+                        ->links()
+                }}
+
             </div>
 
         @endif
@@ -583,47 +857,38 @@
 
 <script>
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
 
-    const standardSelect =
-        document.getElementById('standard_id');
+        const form =
+            document.getElementById(
+                'examProgressFilterForm'
+            );
 
-    const examSelect =
-        document.getElementById('exam_master_id');
+        const standardSelect =
+            document.getElementById(
+                'standard_id'
+            );
 
-    const form =
-        document.getElementById('examProgressFilterForm');
 
+        if (
+            form &&
+            standardSelect
+        ) {
 
-    if (
-        !standardSelect ||
-        !examSelect ||
-        !form
-    ) {
-        return;
+            standardSelect.addEventListener(
+                'change',
+                function () {
+
+                    form.submit();
+
+                }
+            );
+        }
+
     }
-
-
-    standardSelect.addEventListener('change', function () {
-
-        /*
-         * Standard changed:
-         * clear the selected exam so the
-         * result is recalculated for that standard.
-         */
-
-        examSelect.value = '';
-
-
-        /*
-         * Submit immediately.
-         */
-
-        form.submit();
-
-    });
-
-});
+);
 
 </script>
 

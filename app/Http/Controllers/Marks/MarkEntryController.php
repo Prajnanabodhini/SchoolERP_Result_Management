@@ -22,35 +22,65 @@ class MarkEntryController extends Controller
     |--------------------------------------------------------------------------
     | Resolve Actual Subject ID
     |--------------------------------------------------------------------------
+    |
+    | TeacherSubjectAllocation.subject_id supports:
+    |
+    | CURRENT FORMAT:
+    |     subject_id = subjects.id
+    |
+    | LEGACY FORMAT:
+    |     subject_id = standard_wise_subjects.id
+    |
+    |--------------------------------------------------------------------------
     */
 
     private function resolveActualSubjectId(
         $storedSubjectId,
         $standardId
     ) {
-        if (!$storedSubjectId || !$standardId) {
+        if (
+            $storedSubjectId === null ||
+            $storedSubjectId === '' ||
+            !$standardId
+        ) {
             return null;
         }
 
         $storedSubjectId = (int) $storedSubjectId;
         $standardId = (int) $standardId;
 
+        if (
+            $storedSubjectId <= 0 ||
+            $standardId <= 0
+        ) {
+            return null;
+        }
+
         /*
         |--------------------------------------------------------------------------
         | CURRENT FORMAT
+        | subject_id = subjects.id
         |--------------------------------------------------------------------------
         */
 
-        $subject = DB::table('subjects')
-            ->where('id', $storedSubjectId)
-            ->where('is_active', 1)
-            ->first();
+        $currentSubject =
+            DB::table('subjects')
+                ->where(
+                    'id',
+                    $storedSubjectId
+                )
+                ->where(
+                    'is_active',
+                    1
+                )
+                ->first();
 
-        if ($subject) {
+        if ($currentSubject) {
 
-            $mappingExists = DB::table(
-                'standard_wise_subjects'
-            )
+            $mappingExists =
+                DB::table(
+                    'standard_wise_subjects'
+                )
                 ->where(
                     'standard_id',
                     $standardId
@@ -73,12 +103,14 @@ class MarkEntryController extends Controller
         /*
         |--------------------------------------------------------------------------
         | LEGACY FORMAT
+        | subject_id = standard_wise_subjects.id
         |--------------------------------------------------------------------------
         */
 
-        $mapping = DB::table(
-            'standard_wise_subjects'
-        )
+        $legacyMapping =
+            DB::table(
+                'standard_wise_subjects'
+            )
             ->where(
                 'id',
                 $storedSubjectId
@@ -94,10 +126,25 @@ class MarkEntryController extends Controller
             ->first();
 
         if (
-            $mapping &&
-            !empty($mapping->subject_id)
+            $legacyMapping &&
+            !empty($legacyMapping->subject_id)
         ) {
-            return (int) $mapping->subject_id;
+
+            $actualSubject =
+                DB::table('subjects')
+                    ->where(
+                        'id',
+                        (int) $legacyMapping->subject_id
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->first();
+
+            if ($actualSubject) {
+                return (int) $actualSubject->id;
+            }
         }
 
         return null;
@@ -108,6 +155,16 @@ class MarkEntryController extends Controller
     |--------------------------------------------------------------------------
     | Resolve Display Subject
     |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | 1. TeacherSubjectAllocation.subject_id is PRIMARY.
+    | 2. TeacherMarksStatus.subject_id is ONLY a legacy fallback.
+    |
+    | This prevents an old/conflicting status subject ID from causing
+    | the teacher's assignment to display the wrong subject.
+    |
+    |--------------------------------------------------------------------------
     */
 
     private function resolveDisplaySubject(
@@ -115,20 +172,63 @@ class MarkEntryController extends Controller
         $standardId,
         $tmsSubjectId = null
     ) {
-        if (
-            !$storedSubjectId &&
-            !$tmsSubjectId
-        ) {
+        $standardId = (int) $standardId;
+
+        if ($standardId <= 0) {
             return null;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | TMS SUBJECT HAS PRIORITY
+        | 1. PRIMARY:
+        |    TeacherSubjectAllocation.subject_id
         |--------------------------------------------------------------------------
         */
 
-        if ($tmsSubjectId) {
+        if (
+            $storedSubjectId !== null &&
+            $storedSubjectId !== '' &&
+            (int) $storedSubjectId > 0
+        ) {
+
+            $actualSubjectId =
+                $this->resolveActualSubjectId(
+                    $storedSubjectId,
+                    $standardId
+                );
+
+            if ($actualSubjectId) {
+
+                $subject =
+                    DB::table('subjects')
+                        ->where(
+                            'id',
+                            $actualSubjectId
+                        )
+                        ->where(
+                            'is_active',
+                            1
+                        )
+                        ->first();
+
+                if ($subject) {
+                    return $subject;
+                }
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2. LEGACY FALLBACK:
+        |    TeacherMarksStatus.subject_id
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $tmsSubjectId !== null &&
+            $tmsSubjectId !== '' &&
+            (int) $tmsSubjectId > 0
+        ) {
 
             $tmsSubjectId = (int) $tmsSubjectId;
 
@@ -138,22 +238,24 @@ class MarkEntryController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $subject = DB::table('subjects')
-                ->where(
-                    'id',
-                    $tmsSubjectId
-                )
-                ->where(
-                    'is_active',
-                    1
-                )
-                ->first();
+            $subject =
+                DB::table('subjects')
+                    ->where(
+                        'id',
+                        $tmsSubjectId
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->first();
 
             if ($subject) {
 
-                $mappingExists = DB::table(
-                    'standard_wise_subjects'
-                )
+                $mappingExists =
+                    DB::table(
+                        'standard_wise_subjects'
+                    )
                     ->where(
                         'standard_id',
                         $standardId
@@ -179,9 +281,10 @@ class MarkEntryController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $legacyMapping = DB::table(
-                'standard_wise_subjects as sws'
-            )
+            $legacyMapping =
+                DB::table(
+                    'standard_wise_subjects as sws'
+                )
                 ->leftJoin(
                     'subjects as s',
                     's.id',
@@ -200,6 +303,10 @@ class MarkEntryController extends Controller
                     'sws.is_active',
                     1
                 )
+                ->where(
+                    's.is_active',
+                    1
+                )
                 ->select([
                     's.id',
                     's.subject_name',
@@ -213,32 +320,7 @@ class MarkEntryController extends Controller
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | FALLBACK
-        |--------------------------------------------------------------------------
-        */
-
-        $actualSubjectId =
-            $this->resolveActualSubjectId(
-                $storedSubjectId,
-                $standardId
-            );
-
-        if (!$actualSubjectId) {
-            return null;
-        }
-
-        return DB::table('subjects')
-            ->where(
-                'id',
-                $actualSubjectId
-            )
-            ->where(
-                'is_active',
-                1
-            )
-            ->first();
+        return null;
     }
 
 
@@ -278,11 +360,15 @@ class MarkEntryController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $role = strtolower(
-            trim(
-                (string) ($user->role ?? '')
-            )
-        );
+        $role =
+            strtolower(
+                trim(
+                    (string) (
+                        $user->role
+                        ?? ''
+                    )
+                )
+            );
 
         return in_array(
             $role,
@@ -314,6 +400,7 @@ class MarkEntryController extends Controller
     |
     | No Class / Division filter.
     |
+    |--------------------------------------------------------------------------
     */
 
     public function index(Request $request)
@@ -473,11 +560,10 @@ class MarkEntryController extends Controller
         | TEACHING ASSIGNMENTS
         |--------------------------------------------------------------------------
         |
-        | IMPORTANT:
+        | No is_active condition because the table does not have that
+        | column.
         |
-        | There is NO is_active condition here because
-        | teacher_subject_allocations does not have that column.
-        |
+        |--------------------------------------------------------------------------
         */
 
         $assignmentQuery =
@@ -534,13 +620,6 @@ class MarkEntryController extends Controller
         |--------------------------------------------------------------------------
         | TEACHER SECURITY
         |--------------------------------------------------------------------------
-        |
-        | Administrator:
-        |     all teacher assignments
-        |
-        | Teacher:
-        |     own assignments
-        |
         */
 
         if (!$isAdministrator) {
@@ -625,7 +704,13 @@ class MarkEntryController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | RESOLVE SUBJECTS
+        | RESOLVE SUBJECTS FOR ASSIGNMENT LIST
+        |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        |
+        | TSA subject is primary.
+        | TMS subject is only fallback.
         |--------------------------------------------------------------------------
         */
 
@@ -686,7 +771,7 @@ class MarkEntryController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | Resolve subject
+                | RESOLVE SUBJECT
                 |--------------------------------------------------------------------------
                 */
 
@@ -706,14 +791,13 @@ class MarkEntryController extends Controller
                     );
 
                     $assignment->resolved_subject_id =
-                        (int)
-                        $actualSubject->id;
+                        (int) $actualSubject->id;
                 }
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | Data used by Blade
+                | DATA USED BY BLADE
                 |--------------------------------------------------------------------------
                 */
 
@@ -766,7 +850,7 @@ class MarkEntryController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Selected exam
+            | SELECTED EXAM
             |--------------------------------------------------------------------------
             */
 
@@ -781,7 +865,7 @@ class MarkEntryController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Selected academic year
+            | SELECTED ACADEMIC YEAR
             |--------------------------------------------------------------------------
             */
 
@@ -804,7 +888,7 @@ class MarkEntryController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Teacher security
+            | TEACHER SECURITY
             |--------------------------------------------------------------------------
             */
 
@@ -851,7 +935,6 @@ class MarkEntryController extends Controller
                 $teacherSubjectAllocation
                     ->allocation;
 
-
             if (!$selectedClassAllocation) {
 
                 $teacherSubjectAllocation =
@@ -880,7 +963,6 @@ class MarkEntryController extends Controller
                     $teacherSubjectAllocation
                         ->exam_master_id
                 );
-
 
             if (!$exam) {
 
@@ -926,6 +1008,9 @@ class MarkEntryController extends Controller
         |--------------------------------------------------------------------------
         | RESOLVE SELECTED SUBJECT
         |--------------------------------------------------------------------------
+        |
+        | TSA is PRIMARY.
+        |--------------------------------------------------------------------------
         */
 
         if (
@@ -936,6 +1021,12 @@ class MarkEntryController extends Controller
                 $teacherSubjectAllocation
                     ->allocation;
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | Find status
+            |--------------------------------------------------------------------------
+            */
 
             $status =
                 $allStatuses
@@ -953,7 +1044,7 @@ class MarkEntryController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Fallback direct status query
+            | Direct status fallback
             |--------------------------------------------------------------------------
             */
 
@@ -971,7 +1062,6 @@ class MarkEntryController extends Controller
                                 ->exam_master_id
                         );
 
-
                 if (!$isAdministrator) {
 
                     $statusQuery->where(
@@ -979,7 +1069,6 @@ class MarkEntryController extends Controller
                         $userId
                     );
                 }
-
 
                 $status =
                     $statusQuery->first();
@@ -991,6 +1080,14 @@ class MarkEntryController extends Controller
                     ? $status->subject_id
                     : null;
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | IMPORTANT:
+            |
+            | TeacherSubjectAllocation.subject_id is resolved FIRST.
+            |--------------------------------------------------------------------------
+            */
 
             $actualSubject =
                 $this->resolveDisplaySubject(
@@ -1008,7 +1105,6 @@ class MarkEntryController extends Controller
                         'subject',
                         $actualSubject
                     );
-
 
                 $teacherSubjectAllocation
                     ->resolved_subject_id =
@@ -1042,7 +1138,7 @@ class MarkEntryController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Fallback actual subject
+            | FALLBACK ACTUAL SUBJECT
             |--------------------------------------------------------------------------
             */
 
@@ -1052,8 +1148,7 @@ class MarkEntryController extends Controller
                     $this->resolveActualSubjectId(
                         $teacherSubjectAllocation
                             ->subject_id,
-                        $allocation
-                            ->standard_id
+                        $allocation->standard_id
                     );
             }
 
@@ -1100,19 +1195,19 @@ class MarkEntryController extends Controller
                     DB::table(
                         'standard_wise_subjects'
                     )
-                        ->where(
-                            'standard_id',
-                            $allocation->standard_id
-                        )
-                        ->where(
-                            'subject_id',
-                            $actualSubjectId
-                        )
-                        ->where(
-                            'is_active',
-                            1
-                        )
-                        ->first();
+                    ->where(
+                        'standard_id',
+                        $allocation->standard_id
+                    )
+                    ->where(
+                        'subject_id',
+                        $actualSubjectId
+                    )
+                    ->where(
+                        'is_active',
+                        1
+                    )
+                    ->first();
 
 
                 if ($mapping) {
@@ -1125,7 +1220,8 @@ class MarkEntryController extends Controller
                             )
                             ->where(
                                 'standard_id',
-                                $allocation->standard_id
+                                $allocation
+                                    ->standard_id
                             )
                             ->where(
                                 'subject_id',
@@ -1249,17 +1345,13 @@ class MarkEntryController extends Controller
             $allocation =
                 $selectedClassAllocation;
 
-
             try {
 
                 $students =
                     StudentHelper::getStudentsDirectERP(
-                        $allocation
-                            ->academic_year_id,
-                        $allocation
-                            ->standard_id,
-                        $allocation
-                            ->division_id
+                        $allocation->academic_year_id,
+                        $allocation->standard_id,
+                        $allocation->division_id
                     );
 
 
@@ -1305,12 +1397,12 @@ class MarkEntryController extends Controller
                                             [
                                                 'F',
                                                 'FEMALE'
-                                            ]
+                                            ],
+                                            true
                                         )
                                     ) {
                                         return -1;
                                     }
-
 
                                     if (
                                         in_array(
@@ -1318,7 +1410,8 @@ class MarkEntryController extends Controller
                                             [
                                                 'F',
                                                 'FEMALE'
-                                            ]
+                                            ],
+                                            true
                                         )
                                     ) {
                                         return 1;

@@ -171,6 +171,14 @@
     }
 
 
+    .erp-btn-green:disabled {
+        background: #9ca3af !important;
+        color: #ffffff !important;
+        cursor: not-allowed !important;
+        opacity: 0.85;
+    }
+
+
     /*
     |--------------------------------------------------------------------------
     | MESSAGE BOXES
@@ -206,6 +214,18 @@
         background: #fffbeb;
         border: 1px solid #f59e0b;
         color: #92400e;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+
+    .success-box {
+        margin-top: 15px;
+        padding: 10px 12px;
+        border-radius: 5px;
+        background: #ecfdf5;
+        border: 1px solid #86efac;
+        color: #166534;
         font-size: 12px;
         font-weight: 600;
     }
@@ -447,16 +467,58 @@
 
 
         {{-- ==========================================================
-             ERROR
+             SUCCESS MESSAGE
         =========================================================== --}}
 
-        @if(!empty($error))
+        @if(session('success'))
+
+            <div class="success-box">
+
+                ✓ {{ session('success') }}
+
+            </div>
+
+        @endif
+
+
+        {{-- ==========================================================
+             ERROR MESSAGE
+        =========================================================== --}}
+
+        @if(session('error'))
 
             <div class="error-box">
 
                 <strong>Error:</strong>
 
-                {{ $error }}
+                {{ session('error') }}
+
+            </div>
+
+        @endif
+
+
+        {{-- ==========================================================
+             VALIDATION ERRORS
+        =========================================================== --}}
+
+        @if($errors->any())
+
+            <div class="error-box">
+
+                <strong>Please correct the following:</strong>
+
+                <ul style="margin:6px 0 0 20px;">
+
+                    @foreach($errors->all() as $error)
+
+                        <li>
+                            {{ $error }}
+                        </li>
+
+                    @endforeach
+
+                </ul>
 
             </div>
 
@@ -467,7 +529,10 @@
              SAVED BUT NOT SUBMITTED
         =========================================================== --}}
 
-        @if(request()->boolean('marks_saved'))
+        @if(
+            request()->boolean('marks_saved') &&
+            !$marksLocked
+        )
 
             <div class="saved-box">
 
@@ -523,7 +588,10 @@
 
                 <div class="filter-group">
 
-                    <label class="filter-label">
+                    <label
+                        class="filter-label"
+                        for="academic_year_id"
+                    >
                         Academic Year
                     </label>
 
@@ -545,7 +613,11 @@
                                     value="{{ $year->id }}"
                                     {{ (string)request('academic_year_id') === (string)$year->id ? 'selected' : '' }}
                                 >
-                                    {{ $year->year_name ?? $year->name ?? $year->id }}
+                                    {{
+                                        $year->year_name
+                                        ?? $year->name
+                                        ?? $year->id
+                                    }}
                                 </option>
 
                             @endforeach
@@ -565,7 +637,10 @@
 
                 <div class="filter-group">
 
-                    <label class="filter-label">
+                    <label
+                        class="filter-label"
+                        for="exam_master_id"
+                    >
                         Exam
                     </label>
 
@@ -610,7 +685,10 @@
 
                 <div class="filter-group">
 
-                    <label class="filter-label">
+                    <label
+                        class="filter-label"
+                        for="teacher_subject_allocation_id"
+                    >
                         Teaching Assignment
                     </label>
 
@@ -623,7 +701,11 @@
                             {{ !request()->filled('exam_master_id') ? 'disabled' : '' }}
                         >
 
-                            @if(!request()->filled('exam_master_id'))
+                            @if(
+                                !request()->filled(
+                                    'exam_master_id'
+                                )
+                            )
 
                                 <option value="">
                                     Select Exam First
@@ -735,7 +817,10 @@
              SELECTED INFORMATION
         =========================================================== --}}
 
-        @if($teacherSubjectAllocation && $exam)
+        @if(
+            $teacherSubjectAllocation &&
+            $exam
+        )
 
             <div class="selected-info">
 
@@ -878,9 +963,16 @@
              MARKS TABLE
         =========================================================== --}}
 
-        @if($students->count() > 0)
+        @if(
+            isset($students) &&
+            $students->count() > 0
+        )
 
             <div class="marks-table-wrapper">
+
+                {{-- ==================================================
+                     SAVE MARKS FORM
+                =================================================== --}}
 
                 <form
                     method="POST"
@@ -997,28 +1089,107 @@
 
                         <tbody>
 
-                        @foreach($students as $record)
+                        {{-- ==================================================
+                             IMPORTANT:
+                             SORT STUDENTS BY NUMERIC ROLL NUMBER
+                             ================================================== --}}
+
+                        @foreach(
+                            $students->sortBy(function ($student) {
+
+                                $rollNo =
+                                    $student->rollno ?? null;
+
+                                /*
+                                |--------------------------------------------------
+                                | Numeric roll number
+                                |--------------------------------------------------
+                                |
+                                | Example:
+                                | 1, 2, 3, 9, 10, 11
+                                |
+                                | Instead of:
+                                | 1, 10, 11, 2, 3, 9
+                                |
+                                */
+
+                                return is_numeric($rollNo)
+                                    ? (int) $rollNo
+                                    : PHP_INT_MAX;
+
+                            })->values() as $record
+                        )
 
                             @php
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | STUDENT ID
+                                |--------------------------------------------------------------------------
+                                */
 
                                 $studentId =
                                     $record->Studentid
                                     ?? $record->student_id
                                     ?? $record->id;
 
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | EXISTING MARK
+                                |--------------------------------------------------------------------------
+                                */
+
                                 $studentMark =
                                     $existingMarks[$studentId]
                                     ?? null;
 
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | ABSENT
+                                |--------------------------------------------------------------------------
+                                */
+
                                 $isAbsent =
                                     $studentMark &&
-                                    (int)$studentMark->is_absent === 1;
+                                    (int)
+                                    $studentMark->is_absent === 1;
+
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | NAME
+                                |--------------------------------------------------------------------------
+                                */
+
+                                $studentName =
+                                    trim(
+                                        (string)
+                                        (
+                                            $record->studname
+                                            ?? ''
+                                        )
+                                    );
+
+
+                                $fatherName =
+                                    trim(
+                                        (string)
+                                        (
+                                            $record->fathername
+                                            ?? ''
+                                        )
+                                    );
+
 
                                 $studentFullName =
                                     trim(
-                                        ($record->studname ?? '')
-                                        . ' '
-                                        . ($record->fathername ?? '')
+                                        $studentName
+                                        .
+                                        ' '
+                                        .
+                                        $fatherName
                                     );
 
                             @endphp
@@ -1027,16 +1198,26 @@
                             <tr>
 
 
-                                {{-- GR NO --}}
+                                {{-- ==================================================
+                                     GR NO
+                                =================================================== --}}
 
                                 <td class="center">
 
                                     {{ $record->regno ?? '-' }}
 
+                                    <input
+                                        type="hidden"
+                                        name="student_ids[]"
+                                        value="{{ $studentId }}"
+                                    >
+
                                 </td>
 
 
-                                {{-- ROLL NO --}}
+                                {{-- ==================================================
+                                     ROLL NO
+                                =================================================== --}}
 
                                 <td class="center">
 
@@ -1045,7 +1226,9 @@
                                 </td>
 
 
-                                {{-- FULL NAME --}}
+                                {{-- ==================================================
+                                     STUDENT NAME
+                                =================================================== --}}
 
                                 <td class="student-name-cell">
 
@@ -1054,7 +1237,9 @@
                                 </td>
 
 
-                                {{-- ATTENDANCE --}}
+                                {{-- ==================================================
+                                     ATTENDANCE
+                                =================================================== --}}
 
                                 <td class="center">
 
@@ -1074,15 +1259,17 @@
                                             class="attendance-btn {{ $isAbsent ? 'absent-btn' : 'present-btn' }}"
                                             onclick="toggleAbsent('{{ $studentId }}')"
                                         >
-
                                             {{ $isAbsent ? 'ABSENT' : 'PRESENT' }}
-
                                         </button>
 
                                     @else
 
                                         <span
-                                            class="{{ $isAbsent ? 'status-absent' : 'status-present' }}"
+                                            class="{{
+                                                $isAbsent
+                                                    ? 'status-absent'
+                                                    : 'status-present'
+                                            }}"
                                         >
                                             {{ $isAbsent ? 'ABSENT' : 'PRESENT' }}
                                         </span>
@@ -1092,23 +1279,22 @@
                                 </td>
 
 
-                                <input
-                                    type="hidden"
-                                    name="student_ids[]"
-                                    value="{{ $studentId }}"
-                                >
-
-
-                                {{-- THEORY --}}
+                                {{-- ==================================================
+                                     THEORY
+                                =================================================== --}}
 
                                 @if($showTheory)
 
                                     <td class="center">
+
                                         {{ (int)$theoryMaxMarks }}
+
                                     </td>
 
                                     <td class="center">
+
                                         {{ (int)$theoryPassingMarks }}
+
                                     </td>
 
                                     <td class="center">
@@ -1118,9 +1304,10 @@
                                             name="theory_marks[{{ $studentId }}]"
                                             value="{{
                                                 old(
-                                                    'theory_marks.'.$studentId,
+                                                    'theory_marks.' . $studentId,
                                                     $studentMark
-                                                        ? (int)$studentMark->theory_obtained_marks
+                                                        ? (int)
+                                                          $studentMark->theory_obtained_marks
                                                         : ''
                                                 )
                                             }}"
@@ -1137,16 +1324,22 @@
                                 @endif
 
 
-                                {{-- ORAL --}}
+                                {{-- ==================================================
+                                     ORAL
+                                =================================================== --}}
 
                                 @if($showOral)
 
                                     <td class="center">
+
                                         {{ (int)$oralMaxMarks }}
+
                                     </td>
 
                                     <td class="center">
+
                                         {{ (int)$oralPassingMarks }}
+
                                     </td>
 
                                     <td class="center">
@@ -1156,9 +1349,10 @@
                                             name="oral_marks[{{ $studentId }}]"
                                             value="{{
                                                 old(
-                                                    'oral_marks.'.$studentId,
+                                                    'oral_marks.' . $studentId,
                                                     $studentMark
-                                                        ? (int)$studentMark->oral_obtained_marks
+                                                        ? (int)
+                                                          $studentMark->oral_obtained_marks
                                                         : ''
                                                 )
                                             }}"
@@ -1167,6 +1361,7 @@
                                             step="1"
                                             class="mark-input student-{{ $studentId }}"
                                             {{ $isAbsent || $marksLocked ? 'readonly' : '' }}
+                                            {{ !$isAbsent && !$marksLocked ? 'required' : '' }}
                                         >
 
                                     </td>
@@ -1174,16 +1369,22 @@
                                 @endif
 
 
-                                {{-- PRACTICAL --}}
+                                {{-- ==================================================
+                                     PRACTICAL
+                                =================================================== --}}
 
                                 @if($showPractical)
 
                                     <td class="center">
+
                                         {{ (int)$practicalMaxMarks }}
+
                                     </td>
 
                                     <td class="center">
+
                                         {{ (int)$practicalPassingMarks }}
+
                                     </td>
 
                                     <td class="center">
@@ -1193,9 +1394,10 @@
                                             name="practical_marks[{{ $studentId }}]"
                                             value="{{
                                                 old(
-                                                    'practical_marks.'.$studentId,
+                                                    'practical_marks.' . $studentId,
                                                     $studentMark
-                                                        ? (int)$studentMark->practical_obtained_marks
+                                                        ? (int)
+                                                          $studentMark->practical_obtained_marks
                                                         : ''
                                                 )
                                             }}"
@@ -1204,6 +1406,7 @@
                                             step="1"
                                             class="mark-input student-{{ $studentId }}"
                                             {{ $isAbsent || $marksLocked ? 'readonly' : '' }}
+                                            {{ !$isAbsent && !$marksLocked ? 'required' : '' }}
                                         >
 
                                     </td>
@@ -1211,7 +1414,9 @@
                                 @endif
 
 
-                                {{-- STATUS --}}
+                                {{-- ==================================================
+                                     STATUS
+                                =================================================== --}}
 
                                 <td
                                     class="center"
@@ -1219,7 +1424,11 @@
                                 >
 
                                     <span
-                                        class="{{ $isAbsent ? 'status-absent' : 'status-present' }}"
+                                        class="{{
+                                            $isAbsent
+                                                ? 'status-absent'
+                                                : 'status-present'
+                                        }}"
                                     >
                                         {{ $isAbsent ? 'ABSENT' : 'PRESENT' }}
                                     </span>
@@ -1235,39 +1444,57 @@
                     </table>
 
 
-                    {{-- ==================================================
-                         BUTTON ROW
-                    =================================================== --}}
+                    {{-- ==========================================================
+                         SAVE / FINAL SUBMIT BUTTONS
+                    =========================================================== --}}
 
                     <div class="marks-action-row">
+
+
+                        {{-- ==================================================
+                             SAVE MARKS
+                        =================================================== --}}
 
                         @if(!$marksLocked)
 
                             <button
                                 type="submit"
                                 class="erp-btn erp-btn-save"
+                                id="saveMarksButton"
                             >
                                 Save Marks
                             </button>
 
-
-                            @if(request()->boolean('marks_saved'))
-
-                                <button
-                                    type="button"
-                                    class="erp-btn erp-btn-green"
-                                    id="submitFinalButton"
-                                >
-                                    Submit Final Marks
-                                </button>
-
-                            @endif
-
                         @endif
 
 
+                        {{-- ==================================================
+                             FINAL SUBMIT
+                        =================================================== --}}
+
+                        <button
+                            type="button"
+                            class="erp-btn erp-btn-green"
+                            id="submitFinalButton"
+                            {{ $marksLocked ? 'disabled' : '' }}
+                        >
+                            {{
+                                $marksLocked
+                                    ? 'Marks Submitted'
+                                    : 'Submit Final Marks'
+                            }}
+                        </button>
+
+
+                        {{-- ==================================================
+                             STUDENT COUNT
+                        =================================================== --}}
+
                         <span class="student-count">
-                            {{ $students->count() }} Students
+
+                            {{ $students->count() }}
+                            Students
+
                         </span>
 
                     </div>
@@ -1275,14 +1502,11 @@
                 </form>
 
 
-                {{-- ==================================================
+                {{-- ==========================================================
                      FINAL SUBMIT FORM
-                =================================================== --}}
+                =========================================================== --}}
 
-                @if(
-                    !$marksLocked &&
-                    request()->boolean('marks_saved')
-                )
+                @if($teacherSubjectAllocation)
 
                     <form
                         method="POST"
@@ -1293,20 +1517,17 @@
 
                         @csrf
 
-
                         <input
                             type="hidden"
                             name="academic_year_id"
                             value="{{ request('academic_year_id') }}"
                         >
 
-
                         <input
                             type="hidden"
                             name="exam_master_id"
                             value="{{ request('exam_master_id') }}"
                         >
-
 
                         <input
                             type="hidden"
@@ -1348,9 +1569,16 @@
 
 <script>
 
+/*
+|--------------------------------------------------------------------------
+| PAGE READY
+|--------------------------------------------------------------------------
+*/
+
 document.addEventListener(
     'DOMContentLoaded',
     function () {
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1363,10 +1591,12 @@ document.addEventListener(
                 'academic_year_id'
             );
 
+
         const examSelect =
             document.getElementById(
                 'exam_master_id'
             );
+
 
         const assignmentSelect =
             document.getElementById(
@@ -1380,25 +1610,32 @@ document.addEventListener(
         |--------------------------------------------------------------------------
         */
 
-        yearSelect.addEventListener(
-            'change',
-            function () {
+        if (yearSelect) {
 
-                assignmentSelect.innerHTML =
-                    '<option value="">Select Exam First</option>';
+            yearSelect.addEventListener(
+                'change',
+                function () {
 
-                assignmentSelect.disabled =
-                    true;
+                    if (assignmentSelect) {
+
+                        assignmentSelect.innerHTML =
+                            '<option value="">Select Exam First</option>';
+
+                        assignmentSelect.disabled =
+                            true;
+                    }
 
 
-                document
-                    .getElementById(
-                        'marksFilterForm'
-                    )
-                    .submit();
+                    document
+                        .getElementById(
+                            'marksFilterForm'
+                        )
+                        .submit();
 
-            }
-        );
+                }
+            );
+
+        }
 
 
         /*
@@ -1407,25 +1644,32 @@ document.addEventListener(
         |--------------------------------------------------------------------------
         */
 
-        examSelect.addEventListener(
-            'change',
-            function () {
+        if (examSelect) {
 
-                assignmentSelect.innerHTML =
-                    '<option value="">Loading assignments...</option>';
+            examSelect.addEventListener(
+                'change',
+                function () {
 
-                assignmentSelect.disabled =
-                    true;
+                    if (assignmentSelect) {
+
+                        assignmentSelect.innerHTML =
+                            '<option value="">Loading assignments...</option>';
+
+                        assignmentSelect.disabled =
+                            true;
+                    }
 
 
-                document
-                    .getElementById(
-                        'marksFilterForm'
-                    )
-                    .submit();
+                    document
+                        .getElementById(
+                            'marksFilterForm'
+                        )
+                        .submit();
 
-            }
-        );
+                }
+            );
+
+        }
 
 
         /*
@@ -1439,13 +1683,16 @@ document.addEventListener(
                 '.mark-input'
             )
             .forEach(
-                function(input) {
+                function (input) {
 
                     input.addEventListener(
                         'input',
-                        function() {
+                        function () {
 
-                            if (this.readOnly) {
+                            if (
+                                this.readOnly
+                            ) {
+
                                 return;
                             }
 
@@ -1478,8 +1725,10 @@ document.addEventListener(
 
 
                             if (
-                                isNaN(number) ||
-                                number < 0 ||
+                                isNaN(number)
+                                ||
+                                number < 0
+                                ||
                                 number > max
                             ) {
 
@@ -1502,7 +1751,7 @@ document.addEventListener(
 
         /*
         |--------------------------------------------------------------------------
-        | FINAL SUBMIT
+        | FINAL SUBMISSION
         |--------------------------------------------------------------------------
         */
 
@@ -1519,123 +1768,217 @@ document.addEventListener(
 
 
         if (
-            submitFinalButton &&
-            finalSubmitForm
+            !submitFinalButton
+            ||
+            !finalSubmitForm
         ) {
 
-            submitFinalButton.addEventListener(
-                'click',
-                function() {
+            console.error(
+                'Final submit button or form not found.'
+            );
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | VALIDATE MARKS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    let hasError =
-                        false;
+            return;
+        }
 
 
-                    document
-                        .querySelectorAll(
-                            '.mark-input'
-                        )
-                        .forEach(
-                            function(input) {
+        /*
+        |--------------------------------------------------------------------------
+        | FINAL SUBMIT CLICK
+        |--------------------------------------------------------------------------
+        */
 
-                                if (
-                                    input.readOnly
-                                ) {
-                                    return;
-                                }
+        submitFinalButton.addEventListener(
+            'click',
+            function (event) {
 
-
-                                if (
-                                    input.value.trim() === ''
-                                ) {
-
-                                    hasError =
-                                        true;
-
-                                    input.style.border =
-                                        '2px solid #dc2626';
-
-                                }
-
-                            }
-                        );
+                event.preventDefault();
 
 
-                    if (hasError) {
+                /*
+                |--------------------------------------------------------------------------
+                | LOCKED
+                |--------------------------------------------------------------------------
+                */
 
-                        Swal.fire({
+                if (
+                    submitFinalButton.disabled
+                ) {
 
-                            icon:
-                                'error',
-
-                            title:
-                                'Validation Error',
-
-                            text:
-                                'Please enter marks for all students before final submission.'
-
-                        });
-
-                        return;
-                    }
+                    return;
+                }
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CONFIRM
-                    |--------------------------------------------------------------------------
-                    */
+                /*
+                |--------------------------------------------------------------------------
+                | CHECK MARKS
+                |--------------------------------------------------------------------------
+                */
 
-                    Swal.fire({
+                let hasError =
+                    false;
 
-                        icon:
-                            'warning',
 
-                        title:
-                            'Final Marks Submission',
+                document
+                    .querySelectorAll(
+                        '.mark-input'
+                    )
+                    .forEach(
+                        function (input) {
 
-                        html:
-                            '<div style="text-align:left">' +
-                            '<b>This is final mark submission.</b>' +
-                            '<br><br>' +
-                            'Check all marks carefully before submitting.' +
-                            '<br><br>' +
-                            'After final submission you cannot modify marks.' +
-                            '</div>',
-
-                        showCancelButton:
-                            true,
-
-                        confirmButtonText:
-                            'Submit Final Marks',
-
-                        cancelButtonText:
-                            'Cancel'
-
-                    }).then(
-                        function(result) {
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Absent / locked field
+                            |--------------------------------------------------------------------------
+                            */
 
                             if (
-                                result.isConfirmed
+                                input.readOnly
                             ) {
 
-                                finalSubmitForm.submit();
+                                return;
+                            }
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Blank mark
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                input.value.trim() === ''
+                            ) {
+
+                                hasError =
+                                    true;
+
+                                input.style.border =
+                                    '2px solid #dc2626';
 
                             }
 
                         }
                     );
 
-                }
-            );
 
-        }
+                if (
+                    hasError
+                ) {
+
+                    Swal.fire({
+
+                        icon:
+                            'error',
+
+                        title:
+                            'Validation Error',
+
+                        text:
+                            'Please enter marks for all present students before final submission.',
+
+                        confirmButtonText:
+                            'OK'
+
+                    });
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | CONFIRM
+                |--------------------------------------------------------------------------
+                */
+
+                Swal.fire({
+
+                    icon:
+                        'warning',
+
+                    title:
+                        'Final Marks Submission',
+
+                    html:
+                        '<div style="text-align:left">' +
+
+                        '<b>This is the FINAL submission of marks.</b>' +
+
+                        '<br><br>' +
+
+                        'Please check all marks carefully.' +
+
+                        '<br><br>' +
+
+                        'After final submission:' +
+
+                        '<ul style="margin-top:8px;margin-left:20px;">' +
+
+                        '<li>Marks will be locked.</li>' +
+
+                        '<li>Teacher cannot modify the marks.</li>' +
+
+                        '<li>Administrator intervention will be required for corrections.</li>' +
+
+                        '</ul>' +
+
+                        '</div>',
+
+                    showCancelButton:
+                        true,
+
+                    confirmButtonText:
+                        'Submit Final Marks',
+
+                    cancelButtonText:
+                        'Cancel',
+
+                    confirmButtonColor:
+                        '#16a34a'
+
+                }).then(
+                    function (result) {
+
+                        if (
+                            !result.isConfirmed
+                        ) {
+
+                            return;
+                        }
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | DISABLE BUTTON
+                        |--------------------------------------------------------------------------
+                        */
+
+                        submitFinalButton.disabled =
+                            true;
+
+
+                        submitFinalButton.innerHTML =
+                            'Submitting...';
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | REAL FORM SUBMISSION
+                        |--------------------------------------------------------------------------
+                        */
+
+                        HTMLFormElement
+                            .prototype
+                            .submit
+                            .call(
+                                finalSubmitForm
+                            );
+
+                    }
+                );
+
+            }
+        );
 
     }
 );
@@ -1647,8 +1990,11 @@ document.addEventListener(
 |--------------------------------------------------------------------------
 */
 
-function toggleAbsent(studentId)
+function toggleAbsent(
+    studentId
+)
 {
+
     const flag =
         document.getElementById(
             'absent_' + studentId
@@ -1656,9 +2002,16 @@ function toggleAbsent(studentId)
 
 
     if (!flag) {
+
         return;
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | PRESENT → ABSENT
+    |--------------------------------------------------------------------------
+    */
 
     if (
         flag.value === '0'
@@ -1685,7 +2038,7 @@ function toggleAbsent(studentId)
                 'Cancel'
 
         }).then(
-            function(result) {
+            function (result) {
 
                 if (
                     result.isConfirmed
@@ -1700,44 +2053,52 @@ function toggleAbsent(studentId)
             }
         );
 
-    } else {
+        return;
+    }
 
-        Swal.fire({
 
-            icon:
-                'question',
+    /*
+    |--------------------------------------------------------------------------
+    | ABSENT → PRESENT
+    |--------------------------------------------------------------------------
+    */
 
-            title:
-                'Confirm Present',
+    Swal.fire({
 
-            text:
-                'Change student status back to PRESENT?',
+        icon:
+            'question',
 
-            showCancelButton:
-                true,
+        title:
+            'Confirm Present',
 
-            confirmButtonText:
-                'Yes, Present',
+        text:
+            'Change student status back to PRESENT?',
 
-            cancelButtonText:
-                'Cancel'
+        showCancelButton:
+            true,
 
-        }).then(
-            function(result) {
+        confirmButtonText:
+            'Yes, Present',
 
-                if (
-                    result.isConfirmed
-                ) {
+        cancelButtonText:
+            'Cancel'
 
-                    makePresent(
-                        studentId
-                    );
+    }).then(
+        function (result) {
 
-                }
+            if (
+                result.isConfirmed
+            ) {
+
+                makePresent(
+                    studentId
+                );
 
             }
-        );
-    }
+
+        }
+    );
+
 }
 
 
@@ -1747,22 +2108,28 @@ function toggleAbsent(studentId)
 |--------------------------------------------------------------------------
 */
 
-function makeAbsent(studentId)
+function makeAbsent(
+    studentId
+)
 {
+
     const flag =
         document.getElementById(
             'absent_' + studentId
         );
+
 
     const button =
         document.getElementById(
             'btn_' + studentId
         );
 
+
     const status =
         document.getElementById(
             'status_' + studentId
         );
+
 
     const inputs =
         document.querySelectorAll(
@@ -1771,13 +2138,26 @@ function makeAbsent(studentId)
 
 
     if (!flag) {
+
         return;
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | FLAG
+    |--------------------------------------------------------------------------
+    */
+
     flag.value =
         '1';
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | BUTTON
+    |--------------------------------------------------------------------------
+    */
 
     if (button) {
 
@@ -1795,6 +2175,12 @@ function makeAbsent(studentId)
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | STATUS
+    |--------------------------------------------------------------------------
+    */
+
     if (status) {
 
         status.innerHTML =
@@ -1803,8 +2189,14 @@ function makeAbsent(studentId)
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | MARK INPUTS
+    |--------------------------------------------------------------------------
+    */
+
     inputs.forEach(
-        function(input) {
+        function (input) {
 
             input.value =
                 '0';
@@ -1817,6 +2209,7 @@ function makeAbsent(studentId)
 
         }
     );
+
 }
 
 
@@ -1826,22 +2219,28 @@ function makeAbsent(studentId)
 |--------------------------------------------------------------------------
 */
 
-function makePresent(studentId)
+function makePresent(
+    studentId
+)
 {
+
     const flag =
         document.getElementById(
             'absent_' + studentId
         );
+
 
     const button =
         document.getElementById(
             'btn_' + studentId
         );
 
+
     const status =
         document.getElementById(
             'status_' + studentId
         );
+
 
     const inputs =
         document.querySelectorAll(
@@ -1850,13 +2249,26 @@ function makePresent(studentId)
 
 
     if (!flag) {
+
         return;
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | FLAG
+    |--------------------------------------------------------------------------
+    */
+
     flag.value =
         '0';
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | BUTTON
+    |--------------------------------------------------------------------------
+    */
 
     if (button) {
 
@@ -1874,6 +2286,12 @@ function makePresent(studentId)
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | STATUS
+    |--------------------------------------------------------------------------
+    */
+
     if (status) {
 
         status.innerHTML =
@@ -1882,14 +2300,21 @@ function makePresent(studentId)
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | ENABLE INPUTS
+    |--------------------------------------------------------------------------
+    */
+
     inputs.forEach(
-        function(input) {
+        function (input) {
 
             input.readOnly =
                 false;
 
             input.style.background =
                 '';
+
 
             if (
                 input.value === '0'
@@ -1902,8 +2327,10 @@ function makePresent(studentId)
 
         }
     );
+
 }
 
 </script>
+
 
 </x-app-layout>

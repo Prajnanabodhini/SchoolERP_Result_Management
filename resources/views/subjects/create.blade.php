@@ -73,6 +73,7 @@
         <form
             method="POST"
             action="{{ route('subjects.store') }}"
+            id="subjectCreateForm"
         >
 
             @csrf
@@ -106,7 +107,7 @@
 
                         <option
                             value="{{ $standard->id }}"
-                            {{ old('standard_id') == $standard->id ? 'selected' : '' }}
+                            {{ (string)old('standard_id') === (string)$standard->id ? 'selected' : '' }}
                         >
                             {{ $standard->standard_name }}
                         </option>
@@ -226,13 +227,16 @@
 
                         <option
                             value="{{ $subjectType->id }}"
-                            {{ old('subject_type_id') == $subjectType->id ? 'selected' : '' }}
+                            {{ (string)old('subject_type_id') === (string)$subjectType->id ? 'selected' : '' }}
                         >
+
                             {{ $subjectType->name
                                 ?? $subjectType->subject_type
                                 ?? $subjectType->type_name
+                                ?? $subjectType->description
                                 ?? 'Type ' . $subjectType->id
                             }}
+
                         </option>
 
                     @endforeach
@@ -329,20 +333,28 @@
                     border-radius:6px;
                     font-size:13px;
                     margin-top:15px;
+                    line-height:1.5;
                 "
             >
 
-                <strong>Note:</strong>
+                <strong>Important:</strong>
 
-                Saving this form will create:
+                The same subject can be used for multiple standards.
 
-                <strong>one Subject Master record</strong>
+                <br>
 
-                and
+                If the Subject Master already exists, the system will
+                <strong>reuse the existing Subject ID</strong> and create
+                only a new Standard-wise mapping.
 
-                <strong>one Standard Wise Subject mapping</strong>
+                <br><br>
 
-                automatically using the same Subject ID.
+                Example:
+
+                <strong>GENERAL KNOWLEDGE 1 (GK)</strong>
+
+                can be mapped to Standard 1, Standard 2, Standard 3, etc.
+                using the same Subject Master ID.
 
             </div>
 
@@ -356,6 +368,7 @@
                 <button
                     type="submit"
                     class="erp-btn erp-btn-save"
+                    id="saveSubjectButton"
                 >
                     Save
                 </button>
@@ -375,5 +388,154 @@
     </div>
 
 </div>
+
+
+<script>
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const form =
+            document.getElementById(
+                'subjectCreateForm'
+            );
+
+        const standard =
+            document.getElementById(
+                'standard_id'
+            );
+
+        const subjectName =
+            document.getElementById(
+                'subject_name'
+            );
+
+        const subjectCode =
+            document.getElementById(
+                'subject_code'
+            );
+
+        const subjectType =
+            document.getElementById(
+                'subject_type_id'
+            );
+
+        const saveButton =
+            document.getElementById(
+                'saveSubjectButton'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPPERCASE SUBJECT CODE
+        |--------------------------------------------------------------------------
+        */
+
+        subjectCode.addEventListener(
+            'input',
+            function () {
+
+                this.value =
+                    this.value.toUpperCase();
+
+            }
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BASIC CLIENT VALIDATION
+        |--------------------------------------------------------------------------
+        */
+
+        form.addEventListener(
+            'submit',
+            function (event) {
+
+                if (
+                    !standard.value
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please select Standard.'
+                    );
+
+                    standard.focus();
+
+                    return;
+                }
+
+
+                if (
+                    !subjectName.value.trim()
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please enter Subject Name.'
+                    );
+
+                    subjectName.focus();
+
+                    return;
+                }
+
+
+                if (
+                    !subjectCode.value.trim()
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please enter Subject Code.'
+                    );
+
+                    subjectCode.focus();
+
+                    return;
+                }
+
+
+                if (
+                    !subjectType.value
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please select Subject Type.'
+                    );
+
+                    subjectType.focus();
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | PREVENT DOUBLE SUBMIT
+                |--------------------------------------------------------------------------
+                */
+
+                saveButton.disabled =
+                    true;
+
+                saveButton.innerText =
+                    'Saving...';
+
+            }
+        );
+
+    }
+);
+
+</script>
 
 </x-app-layout>
