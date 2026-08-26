@@ -71,8 +71,10 @@
                 Exam Master
             </h2>
 
-            <a href="{{ route('exam-masters.create') }}"
-               class="erp-btn erp-btn-add">
+            <a
+                href="{{ route('exam-masters.create') }}"
+                class="erp-btn erp-btn-add"
+            >
 
                 + Add Exam
 
@@ -143,21 +145,42 @@
 
                     <tr>
 
+                        {{-- EXAM ID --}}
+
                         <th class="border">
                             Exam ID
                         </th>
+
+
+                        {{-- ACADEMIC YEAR --}}
+
+                        <th class="border">
+                            Academic Year
+                        </th>
+
+
+                        {{-- EXAM NAME --}}
 
                         <th class="border">
                             Exam Name
                         </th>
 
+
+                        {{-- STANDARD ID --}}
+
                         <th class="border">
                             Standard ID
                         </th>
 
+
+                        {{-- STANDARD NAME --}}
+
                         <th class="border">
                             Standard Name
                         </th>
+
+
+                        {{-- ACTION --}}
 
                         <th class="border">
                             Action
@@ -174,28 +197,53 @@
 
                         <tr class="hover:bg-yellow-50">
 
-                            {{-- EXAM ID --}}
+                            {{-- =================================================
+                                 EXAM ID
+                            ================================================== --}}
 
                             <td class="border text-center">
+
                                 {{ $exam->id }}
+
                             </td>
 
 
-                            {{-- EXAM NAME --}}
+                            {{-- =================================================
+                                 ACADEMIC YEAR
+                            ================================================== --}}
+
+                            <td class="border text-center">
+
+                                {{ $exam->academicYear->year_name ?? '-' }}
+
+                            </td>
+
+
+                            {{-- =================================================
+                                 EXAM NAME
+                            ================================================== --}}
 
                             <td class="border">
+
                                 {{ $exam->exam_name }}
+
                             </td>
 
 
-                            {{-- STANDARD ID --}}
+                            {{-- =================================================
+                                 STANDARD ID
+                            ================================================== --}}
 
                             <td class="border text-center">
+
                                 {{ $exam->standard_id }}
+
                             </td>
 
 
-                            {{-- STANDARD NAME --}}
+                            {{-- =================================================
+                                 STANDARD NAME
+                            ================================================== --}}
 
                             <td class="border">
 
@@ -204,7 +252,9 @@
                             </td>
 
 
-                            {{-- ACTION --}}
+                            {{-- =================================================
+                                 ACTION
+                            ================================================== --}}
 
                             <td class="
                                 border
@@ -214,11 +264,13 @@
 
                                 {{-- EDIT --}}
 
-                                <a href="{{ route(
-                                    'exam-masters.edit',
-                                    $exam->id
-                                ) }}"
-                                   class="erp-btn erp-btn-edit">
+                                <a
+                                    href="{{ route(
+                                        'exam-masters.edit',
+                                        $exam->id
+                                    ) }}"
+                                    class="erp-btn erp-btn-edit"
+                                >
 
                                     Edit
 
@@ -262,7 +314,7 @@
                         <tr>
 
                             <td
-                                colspan="5"
+                                colspan="6"
                                 class="
                                     border
                                     p-4

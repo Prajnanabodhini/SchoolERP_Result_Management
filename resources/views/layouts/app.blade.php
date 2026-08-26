@@ -3,219 +3,379 @@
     window.location.href = "{{ route('login') }}";
 </script>
 @endif
+
 <!DOCTYPE html>
-{{-- <div style="background:red;color:white;padding:20px;">
-APP BLADE TEST 123
-</div> --}}
 
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+
 <head>
+
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <meta name="csrf-token"
+          content="{{ csrf_token() }}">
+
+    <title>
+        {{ config('app.name', 'Laravel') }}
+    </title>
+
+    <link rel="preconnect"
+          href="https://fonts.bunny.net">
+
+    <link
+        href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap"
+        rel="stylesheet"
+    />
+
+    @vite([
+        'resources/css/app.css',
+        'resources/css/erp-responsive.css',
+        'resources/js/app.js'
+    ])
 
 
-<title>{{ config('app.name', 'Laravel') }}</title>
+    <style>
 
-<link rel="preconnect" href="https://fonts.bunny.net">
-<link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        /*
+        |--------------------------------------------------------------------------
+        | GLOBAL ERP RESPONSIVE
+        |--------------------------------------------------------------------------
+        */
 
-@vite([
-    'resources/css/app.css',
-    'resources/css/erp-responsive.css',
-    'resources/js/app.js'
-])
+        * {
+            box-sizing: border-box;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .erp-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .erp-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .erp-table th,
+        .erp-table td {
+            padding: 6px;
+            border: 1px solid #ccc;
+        }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | SCHOOL HEADER
+        |--------------------------------------------------------------------------
+        */
 
-<style>
+        .school-header {
+            background: #8B4513;
+            color: white;
+            padding: 10px;
+            width: 100%;
+        }
 
-/* GLOBAL ERP RESPONSIVE */
+        .school-header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
 
-*{
-    box-sizing:border-box;
-}
+        .school-logo {
+            height: 70px;
+            width: auto;
+            flex-shrink: 0;
+        }
 
-img{
-    max-width:100%;
-    height:auto;
-}
+        .school-name {
+            text-align: center;
+            line-height: 1.2;
+        }
 
-.erp-container{
-    width:100%;
-    overflow-x:auto;
-}
+        .school-name h1 {
+            margin: 0;
+            font-size: 30px;
+            font-weight: 800;
+        }
 
-.erp-table{
-    width:100%;
-    border-collapse:collapse;
-}
+        .school-name p {
+            margin: 4px 0 0 0;
+            font-size: 20px;
+            font-weight: 700;
+        }
 
-.erp-table th,
-.erp-table td{
-    padding:6px;
-    border:1px solid #ccc;
-}
 
-/* Mobile */
+        /*
+        |--------------------------------------------------------------------------
+        | MOBILE
+        |--------------------------------------------------------------------------
+        */
 
-@media (max-width:768px){
+        @media (max-width: 768px) {
 
-    body{
-        font-size:14px;
-    }
+            body {
+                font-size: 14px;
+            }
 
-    .max-w-7xl{
-        padding-left:8px !important;
-        padding-right:8px !important;
-    }
+            .max-w-7xl {
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+            }
 
-    .erp-btn{
-        width:100%;
-        margin-bottom:5px;
-    }
+            .erp-btn {
+                width: 100%;
+                margin-bottom: 5px;
+            }
 
-    input,
-    select,
-    textarea{
-        width:100% !important;
-        min-width:auto !important;
-    }
+            input,
+            select,
+            textarea {
+                width: 100% !important;
+                min-width: auto !important;
+            }
 
-    .flex{
-        flex-direction:column;
-        align-items:stretch !important;
-    }
+            .flex {
+                flex-direction: column;
+                align-items: stretch !important;
+            }
 
-    table{
-        display:block;
-        overflow-x:auto;
-        white-space:nowrap;
-    }
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
 
-    .filter-row{
-        flex-direction:column;
-        align-items:stretch;
-    }
-}
+            .filter-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
 
-</style>
+
+            /*
+            |--------------------------------------------------------------------------
+            | MOBILE SCHOOL HEADER
+            |--------------------------------------------------------------------------
+            */
+
+            .school-header {
+                padding: 8px;
+            }
+
+            .school-header-inner {
+                gap: 8px;
+            }
+
+            .school-logo {
+                height: 48px;
+            }
+
+            .school-name h1 {
+                font-size: 15px;
+            }
+
+            .school-name p {
+                font-size: 13px;
+            }
+        }
+
+    </style>
 
 </head>
+
 
 <body class="font-sans antialiased m-0">
 
 
-{{-- <div style="
-    height:98vh;
-    background:#FFFDE7;
-    border:12px solid #8B4513;
-    margin:5px;
-    border-radius:15px;
-    overflow:auto;
-"> --}}
-
 <div class="erp-layout-container">
 
-    <div  style="background:#8B4513; color:white; padding:10px; width:100%;">
+
+    <!-- ==============================================================
+         SCHOOL HEADER
+         ============================================================== -->
+
+    @php
+        $schoolCode = session('school_code', 'shirgaon');
+    @endphp
 
 
-<div class="flex items-center justify-center gap-4">
+    <div class="school-header">
 
-    <img src="{{ asset('images/school-logo.png') }}"
-         alt="School Logo"
-         style="height:70px; width:auto;">
+        <div class="school-header-inner">
 
-    <div class="text-center">
+            <img
+                src="{{ asset('images/school-logo.png') }}"
+                alt="School Logo"
+                class="school-logo"
+            >
 
-        <h1 class="text-3xl font-extrabold">
-            PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE
-        </h1>
 
-        <p class="text-xl font-bold">
-            SHIRGAON / CHIKHALI
-        </p>
+            <div class="school-name">
+
+
+                @if($schoolCode === 'chikhali')
+
+                    <h1>
+                        PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI
+                    </h1>
+
+                @else
+
+                    <h1>
+                        PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE
+                    </h1>
+
+                    <p>
+                        SHIRGAON
+                    </p>
+
+                @endif
+
+
+            </div>
+
+        </div>
 
     </div>
 
-</div>
+
+    <!-- ==============================================================
+         ERROR MESSAGE
+         ============================================================== -->
+
+    @if(session('error'))
+
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: '{{ session('error') }}'
+            });
+        </script>
+
+    @endif
 
 
-</div>
-{{-- <div style="background:yellow;padding:10px;">
-SECTIONID = {{ session('sectionid') }}
-</div> --}}
+    <!-- ==============================================================
+         NAVIGATION
+         ============================================================== -->
 
-@if(session('error'))
-<script>
-Swal.fire({
-    icon: 'error',
-    title: 'Validation Error',
-    text: '{{ session('error') }}'
-});
-</script>
-@endif
-
-    {{-- @include('layouts.navigation') --}}
     @if(auth()->check())
-    @include('layouts.navigation')
-@endif
-    {{-- <div style="background:red;color:white;padding:10px;">
-TEST CONTENT AREA
-</div> --}}
-@if(session('year_name'))
 
-<div class="bg-blue-100 border-b-2 border-blue-300 px-4 py-2 text-center font-bold text-blue-900">
+        @include('layouts.navigation')
 
-    Academic Year : {{ session('year_name') }}
+    @endif
 
-    &nbsp;&nbsp;|&nbsp;&nbsp;
 
-    Section : {{ session('section_name') }}
+    <!-- ==============================================================
+         ACADEMIC YEAR / SECTION
+         ============================================================== -->
 
-</div>
+    @if(session('year_name'))
 
-@endif
+        <div
+            class="bg-blue-100 border-b-2 border-blue-300 px-4 py-2
+                   text-center font-bold text-blue-900"
+        >
+
+            Academic Year :
+            {{ session('year_name') }}
+
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+
+            Section :
+            {{ session('section_name') }}
+
+        </div>
+
+    @endif
+
+
+    <!-- ==============================================================
+         OPTIONAL HEADER SLOT
+         ============================================================== -->
 
     @isset($header)
+
         <header class="bg-white shadow border-b">
+
             <div class="max-w-7xl mx-auto py-2 px-4">
+
                 {{ $header }}
+
             </div>
+
         </header>
+
     @endisset
 
-<main class="min-h-screen bg-gradient-to-br from-red-100 via-yellow-100 to-orange-100 p-4">
-    {{-- @yield('content') --}}
-    @isset($slot)
-        {{ $slot }}
-    @else
-        @yield('content')
-    @endisset
-</main>
+
+    <!-- ==============================================================
+         MAIN CONTENT
+         ============================================================== -->
+
+    <main
+        class="min-h-screen bg-gradient-to-br
+               from-red-100 via-yellow-100 to-orange-100 p-4"
+    >
+
+        @isset($slot)
+
+            {{ $slot }}
+
+        @else
+
+            @yield('content')
+
+        @endisset
+
+    </main>
 
 
 </div>
+
+
 @include('components.toast')
 
+
 <script>
-// setInterval(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | SESSION CHECK
+    |--------------------------------------------------------------------------
+    |
+    | Keep disabled unless required.
+    |
+    */
 
-//     fetch('/check-session')
-//         .then(response => response.json())
-//         .then(data => {
+    // setInterval(function () {
 
-//             if (!data.authenticated) {
+    //     fetch('/check-session')
+    //         .then(response => response.json())
+    //         .then(data => {
 
-//                 alert('Session expired. Please login again.');
+    //             if (!data.authenticated) {
 
-//                 window.location.href = '/login';
-//             }
+    //                 alert('Session expired. Please login again.');
 
-//         });
+    //                 window.location.href = '/login';
+    //             }
 
-// }, 60000);
-// </script>
+    //         });
+
+    // }, 60000);
+</script>
+
 
 </body>
+
 </html>

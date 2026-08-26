@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -30,12 +29,24 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\StudentSkillSubjectController;
 use App\Http\Controllers\ExamProgressController;
 
+/*
+|--------------------------------------------------------------------------
+| ADMINISTRATOR CONTROLLERS
+|--------------------------------------------------------------------------
+*/
+
 use App\Http\Controllers\Administrator\ResultGenerationController;
 use App\Http\Controllers\Administrator\ResultRegisterController;
 use App\Http\Controllers\Administrator\ReportCardController;
 use App\Http\Controllers\Administrator\ResultSheetController;
 use App\Http\Controllers\Administrator\AdminMarksController;
 use App\Http\Controllers\Administrator\MarkAuditController;
+
+/*
+|--------------------------------------------------------------------------
+| OTHER CONTROLLERS
+|--------------------------------------------------------------------------
+*/
 
 use App\Http\Controllers\ErpSyncController;
 use App\Http\Controllers\ErpStudentSyncController;
@@ -55,6 +66,7 @@ use App\Http\Controllers\ExamPatternDetailController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\UserDesignationController;
 
+
 /*
 |--------------------------------------------------------------------------
 | USER DESIGNATION ASSIGNMENT
@@ -67,6 +79,7 @@ Route::resource(
 )->except([
     'show',
 ]);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -81,24 +94,10 @@ Route::resource(
     'show',
 ]);
 
-/*
-|--------------------------------------------------------------------------
-| PUBLIC / EXPORT ROUTES
-|--------------------------------------------------------------------------
-*/
-
-Route::get(
-    '/administrator/result-sheet/export-excel',
-    [
-        ResultSheetController::class,
-        'exportExcel'
-    ]
-)->name('result-sheet.export-excel');
-
 
 /*
 |--------------------------------------------------------------------------
-| PUBLIC AJAX ROUTE
+| TEACHER BULK ALLOCATION - PUBLIC AJAX
 |--------------------------------------------------------------------------
 */
 
@@ -140,125 +139,92 @@ Route::get('/test-page', function () {
 
 Route::middleware(['auth'])->group(function () {
 
-
     /*
     |--------------------------------------------------------------------------
     | DASHBOARD
     |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    |
-    | Administrator:
-    |     Opens DashboardController
-    |
-    | Teacher / non-admin:
-    |     Redirects to Exam Progress Dashboard
-    |
-    |--------------------------------------------------------------------------
     */
 
-    Route::get(
-        '/dashboard',
-        function () {
+    Route::get('/dashboard', function () {
 
-            $user = Auth::user();
+        $user = Auth::user();
 
-            if (!$user) {
-                return redirect()->route('login');
-            }
+        if (!$user) {
+            return redirect()->route('login');
+        }
 
+        $isAdministrator = false;
 
-            /*
-            |--------------------------------------------------------------------------
-            | ADMINISTRATOR DETECTION
-            |--------------------------------------------------------------------------
-            */
+        /*
+        |--------------------------------------------------------------------------
+        | SPATIE ROLE
+        |--------------------------------------------------------------------------
+        */
 
-            $isAdministrator = false;
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SPATIE ROLE
-            |--------------------------------------------------------------------------
-            */
+        if (method_exists($user, 'hasRole')) {
 
             if (
-                method_exists($user, 'hasRole')
+                $user->hasRole('Administrator') ||
+                $user->hasRole('admin')
             ) {
-
-                if (
-                    $user->hasRole('Administrator') ||
-                    $user->hasRole('admin')
-                ) {
-
-                    $isAdministrator = true;
-                }
+                $isAdministrator = true;
             }
+        }
 
+        /*
+        |--------------------------------------------------------------------------
+        | PLAIN ROLE COLUMN
+        |--------------------------------------------------------------------------
+        */
 
-            /*
-            |--------------------------------------------------------------------------
-            | PLAIN ROLE COLUMN
-            |--------------------------------------------------------------------------
-            */
+        if (!$isAdministrator) {
 
-            if (!$isAdministrator) {
+            $role = strtolower(
+                trim(
+                    (string) ($user->role ?? '')
+                )
+            );
 
-                $role =
-                    strtolower(
-                        trim(
-                            (string) (
-                                $user->role
-                                ?? ''
-                            )
-                        )
-                    );
-
-
-                if (
-                    in_array(
-                        $role,
-                        [
-                            'administrator',
-                            'admin',
-                        ],
-                        true
-                    )
-                ) {
-
-                    $isAdministrator = true;
-                }
+            if (
+                in_array(
+                    $role,
+                    [
+                        'administrator',
+                        'admin',
+                    ],
+                    true
+                )
+            ) {
+                $isAdministrator = true;
             }
+        }
 
+        /*
+        |--------------------------------------------------------------------------
+        | ADMINISTRATOR DASHBOARD
+        |--------------------------------------------------------------------------
+        */
 
-            /*
-            |--------------------------------------------------------------------------
-            | ADMINISTRATOR
-            |--------------------------------------------------------------------------
-            */
+        if ($isAdministrator) {
 
-            if ($isAdministrator) {
-
-                return app(
-                    DashboardController::class
-                )->index(
-                    request()
-                );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | TEACHER / NON-ADMIN
-            |--------------------------------------------------------------------------
-            */
-
-            return redirect()->route(
-                'exam-progress.index'
+            return app(
+                DashboardController::class
+            )->index(
+                request()
             );
         }
-    )->name('dashboard');
+
+        /*
+        |--------------------------------------------------------------------------
+        | TEACHER / NON ADMIN
+        |--------------------------------------------------------------------------
+        */
+
+        return redirect()->route(
+            'exam-progress.index'
+        );
+
+    })->name('dashboard');
 
 
     /*
@@ -600,13 +566,6 @@ Route::middleware(['auth'])->group(function () {
         ExamMasterController::class
     );
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | EXAM MASTER AJAX
-    |--------------------------------------------------------------------------
-    */
-
     Route::get(
         '/exam-masters/load-subjects/{standardId}',
         [ExamMasterController::class, 'loadSubjects']
@@ -645,7 +604,7 @@ Route::middleware(['auth'])->group(function () {
         'store',
         'edit',
         'update',
-        'destroy'
+        'destroy',
     ]);
 
     Route::get(
@@ -755,39 +714,38 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::prefix('administrator')
-        ->group(function () {
+    Route::prefix('administrator')->group(function () {
 
-            Route::get(
-                '/marks-correction',
-                [AdminMarksController::class, 'index']
-            )->name('result-generation.admin-marks.index');
+        Route::get(
+            '/marks-correction',
+            [AdminMarksController::class, 'index']
+        )->name('result-generation.admin-marks.index');
 
-            Route::get(
-                '/marks-correction/edit',
-                [AdminMarksController::class, 'edit']
-            )->name('result-generation.admin-marks.edit');
+        Route::get(
+            '/marks-correction/edit',
+            [AdminMarksController::class, 'edit']
+        )->name('result-generation.admin-marks.edit');
 
-            Route::post(
-                '/marks-correction/update',
-                [AdminMarksController::class, 'update']
-            )->name('result-generation.admin-marks.update');
+        Route::post(
+            '/marks-correction/update',
+            [AdminMarksController::class, 'update']
+        )->name('result-generation.admin-marks.update');
 
-            Route::put(
-                '/marks-correction/update',
-                [AdminMarksController::class, 'update']
-            )->name('admin-marks.update');
+        Route::put(
+            '/marks-correction/update',
+            [AdminMarksController::class, 'update']
+        )->name('admin-marks.update');
 
-            Route::post(
-                '/marks-correction/reopen',
-                [AdminMarksController::class, 'reopen']
-            )->name('admin-marks.reopen');
+        Route::post(
+            '/marks-correction/reopen',
+            [AdminMarksController::class, 'reopen']
+        )->name('admin-marks.reopen');
 
-            Route::get(
-                '/mark-audit',
-                [MarkAuditController::class, 'index']
-            )->name('mark-audit.index');
-        });
+        Route::get(
+            '/mark-audit',
+            [MarkAuditController::class, 'index']
+        )->name('mark-audit.index');
+    });
 
 
     /*
@@ -823,6 +781,13 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     | RESULT SHEET
     |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    | This uses the OLD single controller:
+    |
+    | App\Http\Controllers\Administrator\ResultSheetController
+    |
+    |--------------------------------------------------------------------------
     */
 
     Route::get(
@@ -839,6 +804,11 @@ Route::middleware(['auth'])->group(function () {
         '/result-sheet-print',
         [ResultSheetController::class, 'print']
     )->name('result-sheet.print');
+
+    Route::get(
+        '/administrator/result-sheet/export-excel',
+        [ResultSheetController::class, 'exportExcel']
+    )->name('result-sheet.export-excel');
 
 
     /*

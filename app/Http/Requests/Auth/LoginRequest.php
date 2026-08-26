@@ -20,6 +20,7 @@ class LoginRequest extends FormRequest
         return true;
     }
 
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -28,10 +29,24 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string'],
-            'password' => ['required', 'string'],
+
+            'school' => [
+                'required',
+                'in:chikhali,shirgaon',
+            ],
+
+            'name' => [
+                'required',
+                'string',
+            ],
+
+            'password' => [
+                'required',
+                'string',
+            ],
         ];
     }
+
 
     /**
      * Attempt to authenticate the request's credentials.
@@ -39,37 +54,152 @@ class LoginRequest extends FormRequest
      * @throws ValidationException
      */
     public function authenticate(): void
-{
-    $this->ensureIsNotRateLimited();
+    {
+        /*
+        |--------------------------------------------------------------------------
+        | RATE LIMIT
+        |--------------------------------------------------------------------------
+        */
 
-    $user = \App\Models\User::where(
-        'name',
-        $this->name
-    )->first();
+        $this->ensureIsNotRateLimited();
 
-    if (
-        !$user ||
-        $user->password != $this->password
-    ) {
 
-        RateLimiter::hit(
+        /*
+        |--------------------------------------------------------------------------
+        | USER
+        |--------------------------------------------------------------------------
+        */
+
+        $user = \App\Models\User::where(
+            'name',
+            $this->name
+        )->first();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PASSWORD
+        |--------------------------------------------------------------------------
+        |
+        | Keeping your existing password logic unchanged.
+        |
+        */
+
+        if (
+            !$user ||
+            $user->password != $this->password
+        ) {
+
+            RateLimiter::hit(
+                $this->throttleKey()
+            );
+
+            throw ValidationException::withMessages([
+                'name' =>
+                    'Invalid Username or Password.',
+            ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOGIN
+        |--------------------------------------------------------------------------
+        */
+
+        Auth::login(
+            $user,
+            $this->boolean('remember')
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CLEAR RATE LIMIT
+        |--------------------------------------------------------------------------
+        */
+
+        RateLimiter::clear(
             $this->throttleKey()
         );
 
-        throw ValidationException::withMessages([
-            'name' => 'Invalid Username or Password.',
+
+        /*
+        |--------------------------------------------------------------------------
+        | STORE SELECTED SCHOOL
+        |--------------------------------------------------------------------------
+        */
+
+        $this->storeSelectedSchool();
+    }
+
+
+    /**
+     * Store selected school in session.
+     */
+    private function storeSelectedSchool(): void
+    {
+        $school =
+            $this->input('school');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CHIKHALI
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $school === 'chikhali'
+        ) {
+
+            session([
+                'school_code' =>
+                    'chikhali',
+
+                'school_name' =>
+                    'PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI',
+            ]);
+
+            return;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SHIRGAON
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $school === 'shirgaon'
+        ) {
+
+            session([
+                'school_code' =>
+                    'shirgaon',
+
+                'school_name' =>
+                    'PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE SHIRGAON',
+            ]);
+
+            return;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SAFETY FALLBACK
+        |--------------------------------------------------------------------------
+        */
+
+        session()->forget([
+            'school_code',
+            'school_name',
         ]);
     }
 
-    Auth::login(
-        $user,
-        $this->boolean('remember')
-    );
 
-    RateLimiter::clear(
-        $this->throttleKey()
-    );
-}
     /**
      * Ensure the login request is not rate limited.
      *
@@ -77,27 +207,55 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (
+            !RateLimiter::tooManyAttempts(
+                $this->throttleKey(),
+                5
+            )
+        ) {
             return;
         }
 
-        event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        event(
+            new Lockout($this)
+        );
+
+
+        $seconds =
+            RateLimiter::availableIn(
+                $this->throttleKey()
+            );
+
 
         throw ValidationException::withMessages([
-            'name' => trans('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
+            'name' => trans(
+                'auth.throttle',
+                [
+                    'seconds' =>
+                        $seconds,
+
+                    'minutes' =>
+                        ceil(
+                            $seconds / 60
+                        ),
+                ]
+            ),
         ]);
     }
+
 
     /**
      * Get the rate limiting throttle key for the request.
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('name')) . '|' . $this->ip());
+        return Str::transliterate(
+            Str::lower(
+                $this->string('name')
+            )
+            . '|'
+            . $this->ip()
+        );
     }
 }

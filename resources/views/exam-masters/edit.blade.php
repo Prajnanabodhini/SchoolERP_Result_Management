@@ -61,6 +61,17 @@
     line-height: 1.5;
 }
 
+.academic-year-note {
+    margin-top: 8px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 11px !important;
+    font-weight: 600;
+}
+
 </style>
 
 
@@ -111,6 +122,19 @@
             break;
         }
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CURRENT ACADEMIC YEAR
+    |--------------------------------------------------------------------------
+    */
+
+    $currentAcademicYearId =
+        old(
+            'academic_year_id',
+            $examMaster->academic_year_id
+        );
 
 @endphp
 
@@ -218,10 +242,64 @@
 
 
             {{-- =================================================
-                 STANDARD + EXAM TYPE
+                 ACADEMIC YEAR + STANDARD
             ================================================== --}}
 
             <div class="grid grid-cols-2 gap-4 mb-5">
+
+
+                {{-- ACADEMIC YEAR --}}
+
+                <div>
+
+                    <label
+                        for="academic_year_id"
+                        class="block font-semibold mb-2"
+                    >
+                        Academic Year
+                    </label>
+
+                    <select
+                        name="academic_year_id"
+                        id="academic_year_id"
+                        class="w-full border rounded p-2"
+                        required
+                    >
+
+                        <option value="">
+                            Select Academic Year
+                        </option>
+
+                        @foreach($academicYears as $academicYear)
+
+                            <option
+                                value="{{ $academicYear->id }}"
+                                {{ (string)$currentAcademicYearId === (string)$academicYear->id ? 'selected' : '' }}
+                            >
+                                {{ $academicYear->year_name }}
+                            </option>
+
+                        @endforeach
+
+                    </select>
+
+
+                    <div
+                        id="academicYearNote"
+                        class="academic-year-note"
+                    >
+                    </div>
+
+
+                    @error('academic_year_id')
+
+                        <div class="text-red-600 mt-1">
+                            {{ $message }}
+                        </div>
+
+                    @enderror
+
+                </div>
 
 
                 {{-- STANDARD --}}
@@ -261,45 +339,45 @@
 
                 </div>
 
+            </div>
 
-                {{-- EXAM TYPE --}}
 
-                <div>
+            {{-- =================================================
+                 EXAM TYPE
+            ================================================== --}}
 
-                    <label
-                        for="exam_type"
-                        class="block font-semibold mb-2"
-                    >
-                        Exam Type
-                    </label>
+            <div class="mb-5">
 
-                    <select
-                        id="exam_type"
-                        name="exam_type"
-                        class="w-full border rounded p-2"
-                        required
-                    >
+                <label
+                    for="exam_type"
+                    class="block font-semibold mb-2"
+                >
+                    Exam Type
+                </label>
 
-                        <option value="">
-                            Select Exam Type
+                <select
+                    id="exam_type"
+                    name="exam_type"
+                    class="w-full border rounded p-2"
+                    required
+                >
+
+                    <option value="">
+                        Select Exam Type
+                    </option>
+
+                    @foreach($examTypes as $type)
+
+                        <option
+                            value="{{ $type }}"
+                            {{ $examTypeValue === $type ? 'selected' : '' }}
+                        >
+                            {{ ucwords(strtolower($type)) }}
                         </option>
 
-                        @foreach($examTypes as $type)
+                    @endforeach
 
-                            <option
-                                value="{{ $type }}"
-                                {{ $examTypeValue === $type ? 'selected' : '' }}
-                            >
-                                {{ ucwords(
-                                    strtolower($type)
-                                ) }}
-                            </option>
-
-                        @endforeach
-
-                    </select>
-
-                </div>
+                </select>
 
             </div>
 
@@ -429,7 +507,6 @@
 
                         <tbody id="subjectTableBody">
 
-
                             @if($subjects->isEmpty())
 
                                 <tr>
@@ -453,11 +530,11 @@
                                     @php
 
                                         $subjectId =
-                                            (int)$subject->subject_id;
+                                            (int) $subject->subject_id;
 
 
                                         $maxMarks =
-                                            (float)(
+                                            (float) (
                                                 $subject->max_marks
                                                 ?? 40
                                             );
@@ -479,7 +556,7 @@
 
                                         $passingMarks =
                                             $maxMarks > 0
-                                                ? (int)ceil(
+                                                ? (int) ceil(
                                                     $maxMarks *
                                                     (
                                                         $passingPercentage /
@@ -501,8 +578,7 @@
 
                                         $isOptional =
                                             (
-                                                (int)
-                                                (
+                                                (int) (
                                                     $subject->is_optional
                                                     ?? 0
                                                 )
@@ -778,6 +854,14 @@
                 Passing Marks are calculated automatically according
                 to the Standard's passing percentage.
 
+                <br><br>
+
+                <strong>Academic Year:</strong>
+
+                This Exam Master now belongs to the selected Academic
+                Year. Do not change Academic Year for an exam that is
+                already being used for teacher allocations or marks.
+
             </div>
 
 
@@ -835,6 +919,12 @@ document.addEventListener(
         |--------------------------------------------------------------------------
         */
 
+        const academicYearDropdown =
+            document.getElementById(
+                'academic_year_id'
+            );
+
+
         const standardDropdown =
             document.getElementById(
                 'standard_id'
@@ -877,6 +967,12 @@ document.addEventListener(
             );
 
 
+        const academicYearNote =
+            document.getElementById(
+                'academicYearNote'
+            );
+
+
         const form =
             document.getElementById(
                 'examEditForm'
@@ -897,7 +993,6 @@ document.addEventListener(
 
         function getPassingPercentage()
         {
-
             const standardId =
                 parseInt(
                     standardDropdown.value || 0,
@@ -921,13 +1016,57 @@ document.addEventListener(
 
         /*
         |--------------------------------------------------------------------------
+        | ACADEMIC YEAR NOTE
+        |--------------------------------------------------------------------------
+        */
+
+        function updateAcademicYearNote()
+        {
+            if (
+                !academicYearDropdown.value
+            ) {
+
+                academicYearNote.textContent =
+                    '';
+
+                academicYearNote.style.display =
+                    'none';
+
+                return;
+            }
+
+
+            const selectedOption =
+                academicYearDropdown.options[
+                    academicYearDropdown.selectedIndex
+                ];
+
+
+            const yearText =
+                selectedOption
+                    ? selectedOption.text.trim()
+                    : '';
+
+
+            academicYearNote.textContent =
+                'Selected Academic Year: '
+                +
+                yearText;
+
+
+            academicYearNote.style.display =
+                'block';
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | DISPLAY PASSING PERCENTAGE
         |--------------------------------------------------------------------------
         */
 
         function updatePercentageNote()
         {
-
             if (
                 !standardDropdown.value
             ) {
@@ -958,7 +1097,6 @@ document.addEventListener(
             maxMarks
         )
         {
-
             const max =
                 parseFloat(
                     maxMarks || 0
@@ -974,7 +1112,8 @@ document.addEventListener(
 
 
             return Math.ceil(
-                max *
+                max
+                *
                 getPassingPercentage()
                 /
                 100
@@ -990,7 +1129,6 @@ document.addEventListener(
 
         function buildExamName()
         {
-
             const type =
                 examType.value;
 
@@ -1052,7 +1190,6 @@ document.addEventListener(
             selectedValue
         )
         {
-
             const values = [
                 20,
                 25,
@@ -1118,15 +1255,15 @@ document.addEventListener(
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD SUBJECTS WHEN STANDARD CHANGES
+        | LOAD SUBJECTS
         |--------------------------------------------------------------------------
         */
 
         async function loadSubjects(
-            standardId
+            standardId,
+            preserveValues = false
         )
         {
-
             if (
                 !standardId
             ) {
@@ -1142,7 +1279,9 @@ document.addEventListener(
                     </tr>
                 `;
 
+
                 updatePercentageNote();
+
 
                 return;
             }
@@ -1177,11 +1316,13 @@ document.addEventListener(
                             method: 'GET',
 
                             headers: {
+
                                 'Accept':
                                     'application/json',
 
                                 'X-Requested-With':
                                     'XMLHttpRequest'
+
                             }
                         }
                     );
@@ -1192,7 +1333,8 @@ document.addEventListener(
                 ) {
 
                     throw new Error(
-                        'HTTP ' +
+                        'HTTP '
+                        +
                         response.status
                     );
                 }
@@ -1202,9 +1344,20 @@ document.addEventListener(
                     await response.json();
 
 
+                /*
+                |--------------------------------------------------------------------------
+                | Normally this is not used on initial load because PHP already
+                | loaded the existing Exam Master configuration.
+                |
+                | If Standard is changed, we reload with default values.
+                |--------------------------------------------------------------------------
+                */
+
                 renderSubjects(
-                    subjects
+                    subjects,
+                    preserveValues
                 );
+
 
             } catch (
                 error
@@ -1242,7 +1395,8 @@ document.addEventListener(
         */
 
         function renderSubjects(
-            subjects
+            subjects,
+            preserveValues = false
         )
         {
 
@@ -1265,7 +1419,9 @@ document.addEventListener(
                     </tr>
                 `;
 
+
                 updatePercentageNote();
+
 
                 return;
             }
@@ -1280,12 +1436,6 @@ document.addEventListener(
                     subject,
                     index
                 ) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ACTUAL subjects.id
-                    |--------------------------------------------------------------------------
-                    */
 
                     const subjectId =
                         subject.subject_id
@@ -1315,23 +1465,11 @@ document.addEventListener(
                         ) === 1;
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | DEFAULT MARKS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const maxMarks =
+                    let maxMarks =
                         40;
 
 
-                    const passingMarks =
-                        calculatePassingMarks(
-                            maxMarks
-                        );
-
-
-                    const displayOrder =
+                    let displayOrder =
                         subject.sort_order
                         ??
                         (
@@ -1339,7 +1477,20 @@ document.addEventListener(
                         );
 
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | DEFAULT PASSING MARKS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    const passingMarks =
+                        calculatePassingMarks(
+                            maxMarks
+                        );
+
+
                     html += `
+
                         <tr>
 
                             <td
@@ -1473,6 +1624,7 @@ document.addEventListener(
                             </td>
 
                         </tr>
+
                     `;
                 }
             );
@@ -1483,6 +1635,7 @@ document.addEventListener(
 
 
             bindMaxMarks();
+
 
             updatePercentageNote();
         }
@@ -1496,7 +1649,6 @@ document.addEventListener(
 
         function bindMaxMarks()
         {
-
             document
                 .querySelectorAll(
                     '.max-mark'
@@ -1575,7 +1727,6 @@ document.addEventListener(
 
         function updateAllPassingMarks()
         {
-
             document
                 .querySelectorAll(
                     '.max-mark'
@@ -1649,7 +1800,6 @@ document.addEventListener(
             value
         )
         {
-
             return String(
                 value
             )
@@ -1680,11 +1830,26 @@ document.addEventListener(
             value
         )
         {
-
             return escapeHtml(
                 value
             );
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACADEMIC YEAR CHANGE
+        |--------------------------------------------------------------------------
+        */
+
+        academicYearDropdown.addEventListener(
+            'change',
+            function () {
+
+                updateAcademicYearNote();
+
+            }
+        );
 
 
         /*
@@ -1701,8 +1866,15 @@ document.addEventListener(
 
                 updatePercentageNote();
 
+
+                /*
+                | When the Standard changes, existing subject configuration
+                | cannot safely be reused because the subject list changes.
+                */
+
                 await loadSubjects(
-                    this.value
+                    this.value,
+                    false
                 );
 
             }
@@ -1736,9 +1908,31 @@ document.addEventListener(
             function (event) {
 
                 /*
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
+                | ACADEMIC YEAR
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    !academicYearDropdown.value
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please select Academic Year.'
+                    );
+
+                    academicYearDropdown.focus();
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
                 | STANDARD
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 if (
@@ -1751,14 +1945,16 @@ document.addEventListener(
                         'Please select Standard.'
                     );
 
+                    standardDropdown.focus();
+
                     return;
                 }
 
 
                 /*
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | EXAM TYPE
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 if (
@@ -1771,14 +1967,16 @@ document.addEventListener(
                         'Please select Exam Type.'
                     );
 
+                    examType.focus();
+
                     return;
                 }
 
 
                 /*
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | SUBJECTS
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 const subjectInputs =
@@ -1802,9 +2000,9 @@ document.addEventListener(
 
 
                 /*
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | EXAM NAME
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 buildExamName();
@@ -1825,18 +2023,18 @@ document.addEventListener(
 
 
                 /*
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | PASSING MARKS
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 updateAllPassingMarks();
 
 
                 /*
-                |--------------------------------------------------------------
-                | PREVENT DOUBLE SUBMIT
-                |--------------------------------------------------------------
+                |--------------------------------------------------------------------------
+                | PREVENT DOUBLE SUBMISSION
+                |--------------------------------------------------------------------------
                 */
 
                 updateButton.disabled =
@@ -1854,6 +2052,8 @@ document.addEventListener(
         | INITIALIZATION
         |--------------------------------------------------------------------------
         */
+
+        updateAcademicYearNote();
 
         buildExamName();
 

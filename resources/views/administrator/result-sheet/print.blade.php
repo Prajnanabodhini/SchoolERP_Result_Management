@@ -21,15 +21,8 @@
         @page {
             size: A4 landscape;
 
-            /*
-            | Approximately 2 cm top and left space.
-            */
             margin-top: 20mm;
             margin-left: 20mm;
-
-            /*
-            | Right and bottom remain smaller.
-            */
             margin-right: 7mm;
             margin-bottom: 7mm;
         }
@@ -43,12 +36,16 @@
         html,
         body {
             width: 100%;
-
             margin: 0;
-
             padding: 0;
         }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | BODY
+        |--------------------------------------------------------------------------
+        */
 
         body {
 
@@ -57,7 +54,10 @@
                 Helvetica,
                 sans-serif;
 
-            font-size: 10px;
+            /*
+            | Increased to 12px
+            */
+            font-size: 12px;
 
             color: #111827;
 
@@ -78,89 +78,61 @@
             body {
 
                 width: 100%;
-
                 margin: 0;
-
                 padding: 0;
             }
 
 
             .no-print {
-
-                display:
-                    none !important;
+                display: none !important;
             }
 
 
             .print-page {
-
-                width:
-                    100%;
+                width: 100%;
             }
 
 
             a[href]::after {
-
-                content:
-                    none !important;
-
-                display:
-                    none !important;
+                content: none !important;
+                display: none !important;
             }
 
 
             a {
-
-                text-decoration:
-                    none !important;
-
-                color:
-                    inherit !important;
+                text-decoration: none !important;
+                color: inherit !important;
             }
 
 
             thead {
-
-                display:
-                    table-header-group;
+                display: table-header-group;
             }
 
 
             tfoot {
-
-                display:
-                    table-footer-group;
+                display: table-footer-group;
             }
 
 
             tr {
-
-                page-break-inside:
-                    avoid !important;
+                page-break-inside: avoid !important;
             }
 
 
             .analysis-block {
-
-                page-break-inside:
-                    avoid;
+                page-break-inside: avoid;
             }
 
 
             .signature-area {
-
-                page-break-inside:
-                    avoid;
-
-                break-inside:
-                    avoid;
+                page-break-inside: avoid;
+                break-inside: avoid;
             }
 
 
             .subject-wise-analysis-wrapper {
-
-                page-break-inside:
-                    avoid;
+                page-break-inside: avoid;
             }
 
         }
@@ -174,26 +146,19 @@
 
         .print-controls {
 
-            position:
-                fixed;
+            position: fixed;
 
-            top:
-                10px;
+            top: 10px;
 
-            right:
-                10px;
+            right: 10px;
 
-            z-index:
-                99999;
+            z-index: 99999;
 
-            display:
-                flex;
+            display: flex;
 
-            align-items:
-                center;
+            align-items: center;
 
-            gap:
-                8px;
+            gap: 8px;
         }
 
 
@@ -201,62 +166,44 @@
         .excel-button,
         .close-button {
 
-            border:
-                1px solid #374151;
+            border: 1px solid #374151;
 
-            color:
-                #ffffff;
+            color: #ffffff;
 
-            border-radius:
-                4px;
+            border-radius: 4px;
 
-            padding:
-                7px 15px;
+            padding: 7px 15px;
 
-            font-size:
-                13px;
+            font-size: 13px;
 
-            font-weight:
-                700;
+            font-weight: 700;
 
-            cursor:
-                pointer;
+            cursor: pointer;
 
-            text-decoration:
-                none;
+            text-decoration: none;
 
-            display:
-                inline-flex;
+            display: inline-flex;
 
-            align-items:
-                center;
+            align-items: center;
 
-            justify-content:
-                center;
+            justify-content: center;
 
-            white-space:
-                nowrap;
+            white-space: nowrap;
         }
 
 
         .print-button {
-
-            background:
-                #1d4ed8;
+            background: #1d4ed8;
         }
 
 
         .excel-button {
-
-            background:
-                #15803d;
+            background: #15803d;
         }
 
 
         .close-button {
-
-            background:
-                #6b7280;
+            background: #6b7280;
         }
 
 
@@ -268,14 +215,11 @@
 
         .print-page {
 
-            width:
-                100%;
+            width: 100%;
 
-            padding:
-                0;
+            padding: 0;
 
-            margin:
-                0;
+            margin: 0;
         }
 
 
@@ -287,108 +231,95 @@
 
         .school-header {
 
-            width:
-                100%;
+            width: 100%;
 
-            border-collapse:
-                collapse;
+            border-collapse: collapse;
 
-            table-layout:
-                auto;
+            table-layout: auto;
 
-            margin-bottom:
-                4px;
+            margin-bottom: 4px;
         }
 
 
         .school-header td {
 
-            border:
-                none !important;
+            border: none !important;
 
-            padding:
-                1px 3px;
+            padding: 1px 3px;
 
-            vertical-align:
-                middle;
+            vertical-align: middle;
         }
 
 
         .school-logo-cell {
 
-            width:
-                60px;
+            width: 60px;
 
-            text-align:
-                center !important;
+            text-align: center !important;
         }
 
 
         .school-logo {
 
-            width:
-                50px;
+            width: 50px;
 
-            height:
-                50px;
+            height: 50px;
 
-            object-fit:
-                contain;
+            object-fit: contain;
         }
 
 
         .school-title-cell {
 
-            text-align:
-                center !important;
+            text-align: center !important;
         }
 
+
+        /*
+        | 18px -> 19px
+        */
 
         .school-name {
 
-            font-size:
-                17px;
+            font-size: 19px;
 
-            line-height:
-                20px;
+            line-height: 22px;
 
-            font-weight:
-                700;
+            font-weight: 700;
 
-            text-align:
-                center;
+            text-align: center;
         }
 
+
+        /*
+        | 12px -> 13px
+        */
 
         .school-location {
 
-            font-size:
-                11px;
+            font-size: 13px;
 
-            line-height:
-                14px;
+            line-height: 16px;
 
-            font-weight:
-                700;
+            font-weight: 700;
 
-            text-align:
-                center;
+            text-align: center;
         }
 
 
+        /*
+        | 12px -> 13px
+        */
+
         .school-year {
 
-            font-size:
-                11px;
+            font-size: 13px;
 
-            line-height:
-                14px;
+            line-height: 16px;
 
-            font-weight:
-                700;
+            font-weight: 700;
 
-            text-align:
-                center;
+            text-align: center;
         }
 
 
@@ -400,46 +331,38 @@
 
         .exam-info {
 
-            width:
-                100%;
+            width: 100%;
 
-            border-collapse:
-                collapse;
+            border-collapse: collapse;
 
-            table-layout:
-                auto;
+            table-layout: auto;
 
-            margin-bottom:
-                5px;
+            margin-bottom: 5px;
         }
 
 
+        /*
+        | 11px -> 12px
+        */
+
         .exam-info td {
 
-            border:
-                none !important;
+            border: none !important;
 
-            font-size:
-                10px;
+            font-size: 12px;
 
-            padding:
-                2px 4px;
+            padding: 2px 4px;
 
-            text-align:
-                left;
+            text-align: left;
 
-            vertical-align:
-                middle;
+            vertical-align: middle;
 
-            font-weight:
-                600;
+            font-weight: 600;
         }
 
 
         .exam-info strong {
-
-            font-weight:
-                700;
+            font-weight: 700;
         }
 
 
@@ -447,75 +370,59 @@
         |--------------------------------------------------------------------------
         | MAIN RESULT TABLE
         |--------------------------------------------------------------------------
-        |
-        | No fixed column widths.
-        | Browser automatically adjusts all columns.
-        |--------------------------------------------------------------------------
         */
 
         .result-sheet-wrapper {
 
-            width:
-                100%;
+            width: 100%;
 
-            overflow:
-                visible;
+            overflow: visible;
         }
 
 
+        /*
+        | 10.5px -> 11.5px
+        */
+
         .result-sheet-table {
 
-            width:
-                100%;
+            width: 100%;
 
-            max-width:
-                100%;
+            max-width: 100%;
 
-            border-collapse:
-                collapse;
+            border-collapse: collapse;
 
-            border-spacing:
-                0;
+            border-spacing: 0;
 
-            table-layout:
-                auto;
+            table-layout: auto;
 
-            border:
-                1px solid #333;
+            border: 1px solid #333;
 
             font-family:
                 Arial,
                 Helvetica,
                 sans-serif;
 
-            font-size:
-                9.5px;
+            font-size: 11.5px;
         }
 
 
         .result-sheet-table th,
         .result-sheet-table td {
 
-            border:
-                1px solid #333 !important;
+            border: 1px solid #333 !important;
 
-            border-style:
-                solid !important;
+            border-style: solid !important;
 
-            border-width:
-                1px !important;
+            border-width: 1px !important;
 
-            text-align:
-                center;
+            text-align: center;
 
-            vertical-align:
-                middle;
+            vertical-align: middle;
 
-            padding:
-                3px 3px;
+            padding: 3px 3px;
 
-            color:
-                #111827 !important;
+            color: #111827 !important;
         }
 
 
@@ -523,27 +430,24 @@
         |--------------------------------------------------------------------------
         | MAIN HEADER
         |--------------------------------------------------------------------------
+        |
+        | 10px -> 11px
+        |
         */
 
         .result-sheet-table th {
 
-            background:
-                #dbeafe;
+            background: #dbeafe;
 
-            font-size:
-                9px;
+            font-size: 11px;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            line-height:
-                1.05;
+            line-height: 1.05;
 
-            white-space:
-                normal;
+            white-space: normal;
 
-            overflow-wrap:
-                normal;
+            overflow-wrap: normal;
         }
 
 
@@ -551,21 +455,20 @@
         |--------------------------------------------------------------------------
         | BODY
         |--------------------------------------------------------------------------
+        |
+        | 9.8px -> 10.8px
+        |
         */
 
         .result-sheet-table td {
 
-            font-size:
-                8.8px;
+            font-size: 10.8px;
 
-            font-weight:
-                500;
+            font-weight: 500;
 
-            line-height:
-                1.05;
+            line-height: 1.05;
 
-            white-space:
-                nowrap;
+            white-space: nowrap;
         }
 
 
@@ -577,11 +480,9 @@
 
         .result-sheet-table td:first-child {
 
-            white-space:
-                nowrap;
+            white-space: nowrap;
 
-            font-weight:
-                700;
+            font-weight: 700;
         }
 
 
@@ -593,23 +494,17 @@
 
         .student-name-cell {
 
-            text-align:
-                left !important;
+            text-align: left !important;
 
-            white-space:
-                nowrap !important;
+            white-space: nowrap !important;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            overflow:
-                visible !important;
+            overflow: visible !important;
 
-            text-overflow:
-                clip !important;
+            text-overflow: clip !important;
 
-            color:
-                #111827 !important;
+            color: #111827 !important;
         }
 
 
@@ -617,43 +512,40 @@
         |--------------------------------------------------------------------------
         | SUBJECT HEADER
         |--------------------------------------------------------------------------
+        |
+        | 9.5px -> 10.5px
+        |
         */
 
         .subject-name {
 
-            display:
-                block;
+            display: block;
 
-            font-size:
-                8.5px;
+            font-size: 10.5px;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            line-height:
-                9px;
+            line-height: 11px;
 
-            white-space:
-                nowrap;
+            white-space: nowrap;
         }
 
 
+        /*
+        | 7.8px -> 8.8px
+        */
+
         .subject-max {
 
-            display:
-                block;
+            display: block;
 
-            font-size:
-                6.8px;
+            font-size: 8.8px;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            line-height:
-                7.5px;
+            line-height: 9.5px;
 
-            white-space:
-                nowrap;
+            white-space: nowrap;
         }
 
 
@@ -665,31 +557,25 @@
 
         .absent-mark {
 
-            color:
-                #991b1b !important;
+            color: #991b1b !important;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
         }
 
 
         .fail-result {
 
-            color:
-                #991b1b !important;
+            color: #991b1b !important;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
         }
 
 
         .pass-result {
 
-            color:
-                #166534 !important;
+            color: #166534 !important;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
         }
 
 
@@ -701,102 +587,86 @@
 
         .analysis-block {
 
-            margin-top:
-                9px;
+            margin-top: 9px;
         }
 
 
+        /*
+        | 13px -> 14px
+        */
+
         .analysis-title {
 
-            font-size:
-                12px;
+            font-size: 14px;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            color:
-                #1d4ed8;
+            color: #1d4ed8;
 
-            margin:
-                7px 0 4px 0;
+            margin: 7px 0 4px 0;
         }
 
 
         .analysis-table-wrapper {
 
-            width:
-                100%;
+            width: 100%;
 
-            overflow:
-                visible;
+            overflow: visible;
         }
 
 
+        /*
+        | 9px -> 10px
+        */
+
         .analysis-table {
 
-            width:
-                100%;
+            width: 100%;
 
-            max-width:
-                100%;
+            max-width: 100%;
 
-            border-collapse:
-                collapse;
+            border-collapse: collapse;
 
-            border-spacing:
-                0;
+            border-spacing: 0;
 
-            table-layout:
-                auto;
+            table-layout: auto;
 
-            border:
-                1px solid #333;
+            border: 1px solid #333;
 
-            font-size:
-                8px;
+            font-size: 10px;
         }
 
 
         .analysis-table th,
         .analysis-table td {
 
-            border:
-                1px solid #333 !important;
+            border: 1px solid #333 !important;
 
-            padding:
-                3px 3px;
+            padding: 3px 3px;
 
-            text-align:
-                center;
+            text-align: center;
 
-            vertical-align:
-                middle;
+            vertical-align: middle;
 
-            color:
-                #111827 !important;
+            color: #111827 !important;
 
-            white-space:
-                nowrap;
+            white-space: nowrap;
         }
 
 
         .analysis-table th {
 
-            background:
-                #dbeafe;
+            background: #dbeafe;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
         }
 
 
         .analysis-table td:first-child {
 
-            text-align:
-                left !important;
+            text-align: left !important;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
         }
 
 
@@ -808,21 +678,17 @@
 
         .analysis-total-row {
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            background:
-                #e5e7eb !important;
+            background: #e5e7eb !important;
         }
 
 
         .analysis-total-row td {
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            background:
-                #e5e7eb !important;
+            background: #e5e7eb !important;
         }
 
 
@@ -831,102 +697,77 @@
         | SUBJECT WISE ANALYSIS
         |--------------------------------------------------------------------------
         |
-        | Automatic sizing.
-        | Subject name does not wrap.
-        |--------------------------------------------------------------------------
+        | 9px -> 10px
+        |
         */
 
         .subject-wise-analysis-wrapper {
 
-            width:
-                100%;
+            width: 100%;
 
-            overflow:
-                visible;
+            overflow: visible;
         }
 
 
         .subject-wise-analysis-table {
 
-            width:
-                100%;
+            width: 100%;
 
-            max-width:
-                100%;
+            max-width: 100%;
 
-            border-collapse:
-                collapse;
+            border-collapse: collapse;
 
-            border-spacing:
-                0;
+            border-spacing: 0;
 
-            table-layout:
-                auto;
+            table-layout: auto;
 
-            border:
-                1px solid #333;
+            border: 1px solid #333;
 
-            font-size:
-                8px;
+            font-size: 10px;
         }
 
 
         .subject-wise-analysis-table th,
         .subject-wise-analysis-table td {
 
-            border:
-                1px solid #333 !important;
+            border: 1px solid #333 !important;
 
-            padding:
-                3px 2px;
+            padding: 3px 2px;
 
-            text-align:
-                center;
+            text-align: center;
 
-            vertical-align:
-                middle;
+            vertical-align: middle;
 
-            color:
-                #111827 !important;
+            color: #111827 !important;
 
-            white-space:
-                nowrap;
+            white-space: nowrap;
         }
 
 
         .subject-wise-analysis-table th {
 
-            background:
-                #dbeafe;
+            background: #dbeafe;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
         }
 
 
         .subject-wise-analysis-table
         .subject-analysis-name {
 
-            width:
-                auto;
+            width: auto;
 
-            min-width:
-                max-content;
+            min-width: max-content;
 
-            text-align:
-                left !important;
+            text-align: left !important;
 
-            font-weight:
-                700 !important;
+            font-weight: 700 !important;
 
-            white-space:
-                nowrap !important;
+            white-space: nowrap !important;
 
-            overflow:
-                visible !important;
+            overflow: visible !important;
 
-            text-overflow:
-                clip !important;
+            text-overflow: clip !important;
         }
 
 
@@ -938,99 +779,85 @@
 
         .signature-area {
 
-            width:
-                100%;
+            width: 100%;
 
-            display:
-                flex;
+            display: flex;
 
-            justify-content:
-                space-between;
+            justify-content: space-between;
 
-            align-items:
-                flex-end;
+            align-items: flex-end;
 
-            margin-top:
-                15px;
+            margin-top: 15px;
 
-            page-break-inside:
-                avoid;
+            page-break-inside: avoid;
 
-            break-inside:
-                avoid;
+            break-inside: avoid;
         }
 
 
+        /*
+        | 11px -> 12px
+        */
+
         .signature-box {
 
-            width:
-                220px;
+            width: 220px;
 
-            text-align:
-                center;
+            text-align: center;
 
-            font-size:
-                10px;
+            font-size: 12px;
 
-            font-weight:
-                700;
+            font-weight: 700;
 
-            page-break-inside:
-                avoid;
+            page-break-inside: avoid;
         }
 
 
         .signature-line {
 
-            display:
-                block;
+            display: block;
 
-            border-bottom:
-                1px solid #111827;
+            border-bottom: 1px solid #111827;
 
-            width:
-                100%;
+            width: 100%;
 
-            height:
-                20px;
+            height: 20px;
 
-            margin-bottom:
-                4px;
+            margin-bottom: 4px;
         }
 
+
+        /*
+        | 11px -> 12px
+        */
 
         .signature-name {
 
-            display:
-                block;
+            display: block;
 
-            font-size:
-                10px;
+            font-size: 12px;
 
-            font-weight:
-                700;
+            font-weight: 700;
 
-            line-height:
-                12px;
+            line-height: 14px;
 
-            text-transform:
-                uppercase;
+            text-transform: uppercase;
         }
 
 
+        /*
+        | 10px -> 11px
+        */
+
         .signature-designation {
 
-            display:
-                block;
+            display: block;
 
-            margin-top:
-                2px;
+            margin-top: 2px;
 
-            font-size:
-                9px;
+            font-size: 11px;
 
-            font-weight:
-                700;
+            font-weight: 700;
         }
 
 
@@ -1044,8 +871,7 @@
 
             .print-page {
 
-                padding:
-                    10px;
+                padding: 10px;
             }
 
         }
@@ -1061,22 +887,19 @@
 
             .result-sheet-table {
 
-                font-size:
-                    8px;
+                font-size: 10px;
             }
 
 
             .result-sheet-table th {
 
-                font-size:
-                    8px;
+                font-size: 10px;
             }
 
 
             .result-sheet-table td {
 
-                font-size:
-                    7.5px;
+                font-size: 9.5px;
             }
 
         }
@@ -1140,21 +963,6 @@
 
     @php
 
-        /*
-        |--------------------------------------------------------------------------
-        | FORMAT STAFF NAME
-        |--------------------------------------------------------------------------
-        |
-        | Example:
-        |
-        | ratnamala.kapase
-        |
-        | becomes:
-        |
-        | RATNAMALA KAPASE
-        |--------------------------------------------------------------------------
-        */
-
         $formatStaffName =
             function ($name) {
 
@@ -1163,7 +971,7 @@
                         '.',
                         ' ',
                         trim(
-                            (string)$name
+                            (string) $name
                         )
                     );
 
@@ -1195,6 +1003,19 @@
                 ?? ''
             );
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | SCHOOL SELECTION
+        |--------------------------------------------------------------------------
+        */
+
+        $schoolCode =
+            session(
+                'school_code',
+                'shirgaon'
+            );
+
     @endphp
 
 
@@ -1219,31 +1040,57 @@
 
             <td class="school-title-cell">
 
-                <div class="school-name">
 
-                    PRAJNANABODHINI ENGLISH MEDIUM SCHOOL
-                    &amp; JR. COLLEGE
+                @if($schoolCode === 'chikhali')
 
-                </div>
+                    <div class="school-name">
 
+                        PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI
 
-                <div class="school-location">
-
-                    SHIRGAON / CHIKHALI
-
-                </div>
+                    </div>
 
 
-                <div class="school-year">
+                    <div class="school-year">
 
-                    Academic Year :
+                        Academic Year :
 
-                    {{
-                        $academicYear->year_name
-                        ?? ($yearName ?? '')
-                    }}
+                        {{
+                            $academicYear->year_name
+                            ?? ($yearName ?? '')
+                        }}
 
-                </div>
+                    </div>
+
+                @else
+
+                    <div class="school-name">
+
+                        PRAJNANABODHINI ENGLISH MEDIUM SCHOOL
+                        &amp; JR. COLLEGE
+
+                    </div>
+
+
+                    <div class="school-location">
+
+                        SHIRGAON
+
+                    </div>
+
+
+                    <div class="school-year">
+
+                        Academic Year :
+
+                        {{
+                            $academicYear->year_name
+                            ?? ($yearName ?? '')
+                        }}
+
+                    </div>
+
+                @endif
+
 
             </td>
 
@@ -1262,7 +1109,6 @@
 
     {{-- =========================================================
          EXAM INFORMATION
-         NO DUPLICATE ACADEMIC YEAR
     ========================================================== --}}
 
     <table class="exam-info">
@@ -1349,12 +1195,6 @@
 
     @php
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECTS
-        |--------------------------------------------------------------------------
-        */
-
         $academicDisplayColumns =
             collect(
                 $displayColumns
@@ -1362,14 +1202,8 @@
             )->values();
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TOTAL MAX MARKS
-        |--------------------------------------------------------------------------
-        */
-
         $displayTotalMaxMarks =
-            (float)(
+            (float) (
                 $totalMaxMarks
                 ?? 0
             );
@@ -1391,7 +1225,7 @@
 
                     $rollNo =
                         trim(
-                            (string)(
+                            (string) (
                                 $student->roll_no
                                 ?? ''
                             )
@@ -1406,7 +1240,7 @@
 
                         return [
                             0,
-                            (int)$rollNo,
+                            (int) $rollNo,
                         ];
                     }
 
@@ -1434,7 +1268,6 @@
 
                 <tr>
 
-
                     {{-- ROLL --}}
 
                     <th>
@@ -1459,14 +1292,14 @@
                         @php
 
                             $subjectMax =
-                                (float)(
+                                (float) (
                                     $column->max_marks
                                     ?? 0
                                 );
 
 
                             $subjectPassing =
-                                (float)(
+                                (float) (
                                     $column->passing_marks
                                     ?? 0
                                 );
@@ -1506,13 +1339,9 @@
                         @endphp
 
 
-                        <th
-                            colspan="2"
-                        >
+                        <th colspan="2">
 
-                            <span
-                                class="subject-name"
-                            >
+                            <span class="subject-name">
 
                                 {{
                                     $column->subject_name
@@ -1522,9 +1351,7 @@
                             </span>
 
 
-                            <span
-                                class="subject-max"
-                            >
+                            <span class="subject-max">
 
                                 Max =
                                 {{ $subjectMaxDisplay }}
@@ -1532,9 +1359,7 @@
                             </span>
 
 
-                            <span
-                                class="subject-max"
-                            >
+                            <span class="subject-max">
 
                                 Pass =
                                 {{ $subjectPassingDisplay }}
@@ -1552,9 +1377,7 @@
 
                         Total
 
-                        <span
-                            class="subject-max"
-                        >
+                        <span class="subject-max">
 
                             Max =
 
@@ -1654,7 +1477,6 @@
 
                 <tr>
 
-
                     {{-- ROLL NUMBER --}}
 
                     <td>
@@ -1715,7 +1537,7 @@
                             $markText =
                                 strtoupper(
                                     trim(
-                                        (string)$mark
+                                        (string) $mark
                                     )
                                 );
 
@@ -1723,7 +1545,7 @@
                             $gradeText =
                                 strtoupper(
                                     trim(
-                                        (string)$grade
+                                        (string) $grade
                                     )
                                 );
 
@@ -1738,9 +1560,7 @@
                                 $markText === 'AB'
                             )
 
-                                <span
-                                    class="absent-mark"
-                                >
+                                <span class="absent-mark">
                                     AB
                                 </span>
 
@@ -1760,15 +1580,15 @@
 
                                 {{
                                     floor(
-                                        (float)$mark
+                                        (float) $mark
                                     )
                                     ===
-                                    (float)$mark
+                                    (float) $mark
 
-                                        ? (int)$mark
+                                        ? (int) $mark
 
                                         : number_format(
-                                            (float)$mark,
+                                            (float) $mark,
                                             2
                                         )
                                 }}
@@ -1790,9 +1610,7 @@
                                 $gradeText === 'AB'
                             )
 
-                                <span
-                                    class="absent-mark"
-                                >
+                                <span class="absent-mark">
                                     AB
                                 </span>
 
@@ -1800,9 +1618,7 @@
                                 $gradeText === 'F'
                             )
 
-                                <span
-                                    class="fail-result"
-                                >
+                                <span class="fail-result">
                                     F
                                 </span>
 
@@ -1859,15 +1675,15 @@
 
                             {{
                                 floor(
-                                    (float)$academicTotal
+                                    (float) $academicTotal
                                 )
                                 ===
-                                (float)$academicTotal
+                                (float) $academicTotal
 
-                                    ? (int)$academicTotal
+                                    ? (int) $academicTotal
 
                                     : number_format(
-                                        (float)$academicTotal,
+                                        (float) $academicTotal,
                                         2
                                     )
                             }}
@@ -1896,7 +1712,7 @@
                         @else
 
                             {{
-                                (int)(
+                                (int) (
                                     $student
                                         ->calculated_percentage
                                 )
@@ -1916,7 +1732,7 @@
                             $overallGrade =
                                 strtoupper(
                                     trim(
-                                        (string)(
+                                        (string) (
                                             $student
                                                 ->calculated_grade
                                             ?? '-'
@@ -1931,9 +1747,7 @@
                             $overallGrade === 'F'
                         )
 
-                            <span
-                                class="fail-result"
-                            >
+                            <span class="fail-result">
                                 F
                             </span>
 
@@ -1941,9 +1755,7 @@
                             $overallGrade === 'AB'
                         )
 
-                            <span
-                                class="absent-mark"
-                            >
+                            <span class="absent-mark">
                                 AB
                             </span>
 
@@ -1971,7 +1783,7 @@
                             $studentResult =
                                 strtoupper(
                                     trim(
-                                        (string)(
+                                        (string) (
                                             $student
                                                 ->result
                                             ?? '-'
@@ -1986,9 +1798,7 @@
                             $studentResult === 'PASS'
                         )
 
-                            <span
-                                class="pass-result"
-                            >
+                            <span class="pass-result">
                                 PASS
                             </span>
 
@@ -1996,9 +1806,7 @@
                             $studentResult === 'FAIL'
                         )
 
-                            <span
-                                class="fail-result"
-                            >
+                            <span class="fail-result">
                                 FAIL
                             </span>
 
@@ -2006,9 +1814,7 @@
                             $studentResult === 'AB'
                         )
 
-                            <span
-                                class="absent-mark"
-                            >
+                            <span class="absent-mark">
                                 AB
                             </span>
 
@@ -2146,17 +1952,10 @@
                             ]
                             ??
                             [
-                                'range' =>
-                                    '-',
-
-                                'girls' =>
-                                    0,
-
-                                'boys' =>
-                                    0,
-
-                                'total' =>
-                                    0,
+                                'range' => '-',
+                                'girls' => 0,
+                                'boys' => 0,
+                                'total' => 0,
                             ];
 
                     @endphp
@@ -2260,9 +2059,7 @@
                 @endphp
 
 
-                <tr
-                    class="analysis-total-row"
-                >
+                <tr class="analysis-total-row">
 
                     <td>
                         TOTAL
@@ -2372,9 +2169,7 @@
         @endphp
 
 
-        <div
-            class="subject-wise-analysis-wrapper"
-        >
+        <div class="subject-wise-analysis-wrapper">
 
             <table
                 class="subject-wise-analysis-table"
@@ -2385,9 +2180,7 @@
                     <tr>
 
                         <th rowspan="2">
-
                             Subject
-
                         </th>
 
 
@@ -2397,9 +2190,7 @@
                         )
 
                             <th colspan="2">
-
                                 {{ $category }}
-
                             </th>
 
                         @endforeach
@@ -2445,7 +2236,7 @@
 
                         $subjectCode =
                             trim(
-                                (string)(
+                                (string) (
                                     $analysisSubject
                                         ->subject_code
                                     ?? ''
@@ -2455,7 +2246,7 @@
 
                         $subjectFullName =
                             trim(
-                                (string)(
+                                (string) (
                                     $analysisSubject
                                         ->subject_name
                                     ?? ''
@@ -2475,38 +2266,17 @@
 
                         $defaultAnalysis = [
 
-                            'A1' =>
-                                0,
-
-                            'A2' =>
-                                0,
-
-                            'B1' =>
-                                0,
-
-                            'B2' =>
-                                0,
-
-                            'C1' =>
-                                0,
-
-                            'C2' =>
-                                0,
-
-                            'D' =>
-                                0,
-
-                            'fail' =>
-                                0,
-
-                            'absent' =>
-                                0,
-
-                            'pending' =>
-                                0,
-
-                            'total' =>
-                                0,
+                            'A1' => 0,
+                            'A2' => 0,
+                            'B1' => 0,
+                            'B2' => 0,
+                            'C1' => 0,
+                            'C2' => 0,
+                            'D' => 0,
+                            'fail' => 0,
+                            'absent' => 0,
+                            'pending' => 0,
+                            'total' => 0,
 
                         ];
 
@@ -2538,9 +2308,7 @@
                     <tr>
 
                         <td
-                            class="
-                                subject-analysis-name
-                            "
+                            class="subject-analysis-name"
                             title="{{ $subjectFullName }}"
                         >
 
@@ -2686,8 +2454,8 @@
                             . '_girls'
                         ] =
                             $girlsBySubject->sum(
-                                fn($row) =>
-                                    (int)(
+                                fn ($row) =>
+                                    (int) (
                                         $row[
                                             $categoryKey
                                         ]
@@ -2701,8 +2469,8 @@
                             . '_boys'
                         ] =
                             $boysBySubject->sum(
-                                fn($row) =>
-                                    (int)(
+                                fn ($row) =>
+                                    (int) (
                                         $row[
                                             $categoryKey
                                         ]
@@ -2715,15 +2483,9 @@
                 @endphp
 
 
-                <tr
-                    class="analysis-total-row"
-                >
+                <tr class="analysis-total-row">
 
-                    <td
-                        class="
-                            subject-analysis-name
-                        "
-                    >
+                    <td class="subject-analysis-name">
 
                         TOTAL
 
@@ -2936,9 +2698,7 @@
     <div class="signature-area">
 
 
-        {{-- =====================================================
-             CLASS TEACHER
-        ====================================================== --}}
+        {{-- CLASS TEACHER --}}
 
         <div class="signature-box">
 
@@ -2962,9 +2722,7 @@
         </div>
 
 
-        {{-- =====================================================
-             PRINCIPAL
-        ====================================================== --}}
+        {{-- PRINCIPAL --}}
 
         <div class="signature-box">
 

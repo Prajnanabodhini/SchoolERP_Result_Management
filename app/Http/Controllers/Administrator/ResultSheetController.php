@@ -62,20 +62,8 @@ class ResultSheetController extends Controller
                 'academicYear' =>
                     null,
 
-                /*
-                |--------------------------------------------------------------------------
-                | CLASS TEACHER
-                |--------------------------------------------------------------------------
-                */
-
                 'classTeacher' =>
                     null,
-
-                /*
-                |--------------------------------------------------------------------------
-                | PRINCIPAL
-                |--------------------------------------------------------------------------
-                */
 
                 'principal' =>
                     null,
@@ -91,7 +79,6 @@ class ResultSheetController extends Controller
             ]
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -124,7 +111,6 @@ class ResultSheetController extends Controller
             );
 
         if (!$exam) {
-
             return back()
                 ->withInput()
                 ->with(
@@ -133,13 +119,6 @@ class ResultSheetController extends Controller
                 );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD FROM EXAM
-        |--------------------------------------------------------------------------
-        */
-
         $standardId =
             (int) (
                 $exam->standard_id
@@ -147,28 +126,28 @@ class ResultSheetController extends Controller
             );
 
         if ($standardId <= 0) {
-
-            $standardId =
-                (int) (
-                    DB::table(
-                        'exam_master_subjects'
-                    )
-                    ->where(
-                        'exam_master_id',
-                        $exam->id
-                    )
-                    ->whereNotNull(
-                        'standard_id'
-                    )
-                    ->value(
-                        'standard_id'
-                    )
-                    ?? 0
-                );
+            if (Schema::hasTable('exam_master_subjects')) {
+                $standardId =
+                    (int) (
+                        DB::table(
+                            'exam_master_subjects'
+                        )
+                        ->where(
+                            'exam_master_id',
+                            $exam->id
+                        )
+                        ->whereNotNull(
+                            'standard_id'
+                        )
+                        ->value(
+                            'standard_id'
+                        )
+                        ?? 0
+                    );
+            }
         }
 
         if ($standardId <= 0) {
-
             return back()
                 ->withInput()
                 ->with(
@@ -176,7 +155,6 @@ class ResultSheetController extends Controller
                     'The selected Exam is not mapped to a Standard.'
                 );
         }
-
 
         $data =
             $this->buildResultSheetData(
@@ -186,9 +164,7 @@ class ResultSheetController extends Controller
                 (int) $request->division_id
             );
 
-
         if (!empty($data['error'])) {
-
             return back()
                 ->withInput()
                 ->with(
@@ -197,30 +173,15 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         return view(
             'administrator.result-sheet.index',
             $data['viewData']
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
-    | LOAD CLASS TEACHER + PRINCIPAL
-    |--------------------------------------------------------------------------
-    |
-    | CLASS TEACHER:
-    |
-    | academic_year_id
-    | standard_id
-    | division_id
-    |
-    | PRINCIPAL:
-    |
-    | academic_year_id
-    | designation.section_id = selected standard.section_id
-    |
+    | CLASS TEACHER + PRINCIPAL
     |--------------------------------------------------------------------------
     */
 
@@ -229,20 +190,12 @@ class ResultSheetController extends Controller
         int $standardId,
         int $divisionId
     ): array {
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD STANDARD
-        |--------------------------------------------------------------------------
-        */
-
         $standard =
             Standard::find(
                 $standardId
             );
 
         if (!$standard) {
-
             return [
                 'classTeacher' =>
                     null,
@@ -252,144 +205,105 @@ class ResultSheetController extends Controller
             ];
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD SECTION
-        |--------------------------------------------------------------------------
-        */
-
         $sectionId =
             (int) (
                 $standard->section_id
                 ?? 0
             );
 
-
         /*
         |--------------------------------------------------------------------------
         | CLASS TEACHER
         |--------------------------------------------------------------------------
-        |
-        | Exact class assignment:
-        |
-        | Academic Year + Standard + Division
-        |
-        |--------------------------------------------------------------------------
         */
 
-        $classTeacher =
-            UserDesignation::query()
-                ->with([
-                    'user',
-                    'designation',
-                ])
-                ->where(
-                    'academic_year_id',
-                    $academicYearId
-                )
-                ->where(
-                    'standard_id',
-                    $standardId
-                )
-                ->where(
-                    'division_id',
-                    $divisionId
-                )
-                ->whereHas(
-                    'designation',
-                    function ($query) {
+        $classTeacher = null;
 
-                        $query->where(
-                            function ($q) {
+        try {
+            $classTeacher = UserDesignation::query()
+    ->with([
+        'user',
+        'designation',
+    ])
+    ->where('academic_year_id', $academicYearId)
+    ->where('standard_id', $standardId)
+    ->where('division_id', $divisionId)
+    ->whereHas('designation', function ($query) {
+        $query->where(function ($q) {
+            $q->whereRaw(
+                'UPPER(TRIM(designation_name)) LIKE ?',
+                ['%CLASS TEACHER%']
+            )
+            ->orWhereRaw(
+                'UPPER(TRIM(designation_code)) LIKE ?',
+                ['%CLASS_TEACHER%']
+            )
+            ->orWhereRaw(
+                'UPPER(TRIM(designation_code)) LIKE ?',
+                ['%CLASS-TEACHER%']
+            );
+        });
+    })
+    ->orderByDesc('id')
+    ->first();
 
-                                $q->whereRaw(
-                                    'UPPER(TRIM(designation_name)) = ?',
-                                    [
-                                        'CLASS TEACHER'
-                                    ]
-                                )
-                                ->orWhereRaw(
-                                    'UPPER(TRIM(designation_code)) = ?',
-                                    [
-                                        'CLASS_TEACHER'
-                                    ]
-                                )
-                                ->orWhereRaw(
-                                    'UPPER(TRIM(designation_code)) = ?',
-                                    [
-                                        'CLASS-TEACHER'
-                                    ]
-                                );
-
-                            }
-                        );
-                    }
-                )
-                ->orderByDesc('id')
-                ->first();
-
+        } catch (\Throwable $e) {
+            $classTeacher = null;
+        }
 
         /*
         |--------------------------------------------------------------------------
         | PRINCIPAL
-        |--------------------------------------------------------------------------
-        |
-        | Principal is section-specific.
-        |
         |--------------------------------------------------------------------------
         */
 
         $principal = null;
 
         if ($sectionId > 0) {
-
-            $principal =
-                UserDesignation::query()
-                    ->with([
-                        'user',
-                        'designation',
-                        'designation.section',
-                    ])
-                    ->where(
-                        'academic_year_id',
-                        $academicYearId
-                    )
-                    ->whereHas(
-                        'designation',
-                        function ($query) use (
-                            $sectionId
-                        ) {
-
-                            $query
-                                ->where(
-                                    'section_id',
-                                    $sectionId
-                                )
-                                ->where(
-                                    function ($q) {
-
-                                        $q->whereRaw(
-                                            'UPPER(TRIM(designation_name)) LIKE ?',
-                                            [
-                                                '%PRINCIPAL%'
-                                            ]
-                                        )
-                                        ->orWhereRaw(
-                                            'UPPER(TRIM(designation_code)) LIKE ?',
-                                            [
-                                                '%PRINCIPAL%'
-                                            ]
-                                        );
-
-                                    }
-                                );
-                        }
-                    )
-                    ->orderByDesc('id')
-                    ->first();
+            try {
+                $principal =
+                    UserDesignation::query()
+                        ->with([
+                            'user',
+                            'designation',
+                            'designation.section',
+                        ])
+                        ->where(
+                            'academic_year_id',
+                            $academicYearId
+                        )
+                        ->whereHas(
+                            'designation',
+                            function ($query) use ($sectionId) {
+                                $query
+                                    ->where(
+                                        'section_id',
+                                        $sectionId
+                                    )
+                                    ->where(
+                                        function ($q) {
+                                            $q->whereRaw(
+                                                'UPPER(TRIM(designation_name)) LIKE ?',
+                                                [
+                                                    '%PRINCIPAL%'
+                                                ]
+                                            )
+                                            ->orWhereRaw(
+                                                'UPPER(TRIM(designation_code)) LIKE ?',
+                                                [
+                                                    '%PRINCIPAL%'
+                                                ]
+                                            );
+                                        }
+                                    );
+                            }
+                        )
+                        ->orderByDesc('id')
+                        ->first();
+            } catch (\Throwable $e) {
+                $principal = null;
+            }
         }
-
 
         return [
             'classTeacher' =>
@@ -400,10 +314,9 @@ class ResultSheetController extends Controller
         ];
     }
 
-
     /*
     |--------------------------------------------------------------------------
-    | EXAM SUBJECT CONFIG
+    | EXAM SUBJECT CONFIGURATION
     |--------------------------------------------------------------------------
     */
 
@@ -413,6 +326,13 @@ class ResultSheetController extends Controller
         int $canonicalSubjectId,
         int $mappingId
     ) {
+        if (
+            !Schema::hasTable(
+                'exam_master_subjects'
+            )
+        ) {
+            return null;
+        }
 
         $config =
             DB::table(
@@ -436,9 +356,13 @@ class ResultSheetController extends Controller
             return $config;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | OLD MAPPING FALLBACK
+        |--------------------------------------------------------------------------
+        */
 
         if ($mappingId > 0) {
-
             $config =
                 DB::table(
                     'exam_master_subjects'
@@ -462,10 +386,8 @@ class ResultSheetController extends Controller
             }
         }
 
-
         return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -479,7 +401,6 @@ class ResultSheetController extends Controller
         int $standardId,
         int $divisionId
     ): array {
-
         /*
         |--------------------------------------------------------------------------
         | MASTER DATA
@@ -498,6 +419,11 @@ class ResultSheetController extends Controller
         $academicYears =
             AcademicYear::orderByDesc('id')->get();
 
+        /*
+        |--------------------------------------------------------------------------
+        | SELECTED DATA
+        |--------------------------------------------------------------------------
+        */
 
         $academicYear =
             AcademicYear::find(
@@ -519,14 +445,12 @@ class ResultSheetController extends Controller
                 $divisionId
             );
 
-
         if (
             !$academicYear ||
             !$exam ||
             !$standard ||
             !$division
         ) {
-
             return [
                 'error' =>
                     'Invalid Academic Year, Exam, Standard or Division selected.',
@@ -538,7 +462,6 @@ class ResultSheetController extends Controller
                     [],
             ];
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -553,16 +476,13 @@ class ResultSheetController extends Controller
                 $divisionId
             );
 
-
         $classTeacher =
             $designationData['classTeacher']
             ?? null;
 
-
         $principal =
             $designationData['principal']
             ?? null;
-
 
         /*
         |--------------------------------------------------------------------------
@@ -575,11 +495,13 @@ class ResultSheetController extends Controller
                 $standard->standard_name
             );
 
-
         /*
         |--------------------------------------------------------------------------
         | STANDARD WISE SUBJECTS
         |--------------------------------------------------------------------------
+        |
+        | STANDARD_WISE_SUBJECTS is the source of truth for the columns.
+        |
         */
 
         $standardSubjects =
@@ -620,16 +542,15 @@ class ResultSheetController extends Controller
                 's.subject_code as subject_code',
                 's.short_name as short_name',
                 's.subject_type_id as subject_type_id',
+                'sws.subject_name as standard_subject_name',
                 'sws.is_optional as is_optional',
                 'sws.sort_order as sort_order',
             ])
             ->get();
 
-
         if (
             $standardSubjects->isEmpty()
         ) {
-
             return [
                 'error' =>
                     'No active Standard Wise Subject Mapping found for '
@@ -644,21 +565,18 @@ class ResultSheetController extends Controller
             ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | BUILD DISPLAY COLUMNS
+        | DISPLAY COLUMNS
         |--------------------------------------------------------------------------
         */
 
         $displayColumns =
             collect();
 
-
         foreach (
             $standardSubjects as $subject
         ) {
-
             $subjectId =
                 (int) (
                     $subject->subject_id
@@ -675,10 +593,12 @@ class ResultSheetController extends Controller
                 trim(
                     (string) (
                         $subject->subject_name
-                        ?? ''
+                        ??
+                        $subject->standard_subject_name
+                        ??
+                        ''
                     )
                 );
-
 
             if (
                 $subjectId <= 0 ||
@@ -686,7 +606,6 @@ class ResultSheetController extends Controller
             ) {
                 continue;
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -700,13 +619,11 @@ class ResultSheetController extends Controller
                     ?? 1
                 );
 
-
             if (
                 $subjectTypeId !== 1
             ) {
                 continue;
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -722,11 +639,9 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             if (
                 $subjectCode === ''
             ) {
-
                 $short =
                     trim(
                         (string) (
@@ -735,11 +650,7 @@ class ResultSheetController extends Controller
                         )
                     );
 
-
-                if (
-                    $short !== ''
-                ) {
-
+                if ($short !== '') {
                     $short =
                         preg_replace(
                             '/[^A-Za-z0-9]+/',
@@ -758,11 +669,9 @@ class ResultSheetController extends Controller
                 }
             }
 
-
             if (
                 $subjectCode === ''
             ) {
-
                 $clean =
                     preg_replace(
                         '/[^A-Za-z0-9]+/',
@@ -780,34 +689,32 @@ class ResultSheetController extends Controller
                     );
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | SPECIAL CODES
+            |--------------------------------------------------------------------------
+            */
 
             $normalizedName =
                 $this->normalizeSubjectText(
                     $subjectName
                 );
 
-
             if (
                 $normalizedName === 'HISTORY'
             ) {
-
-                $subjectCode =
-                    'HIST';
+                $subjectCode = 'HIST';
             }
-
 
             if (
                 $normalizedName === 'GEOGRAPHY'
             ) {
-
-                $subjectCode =
-                    'GEO';
+                $subjectCode = 'GEO';
             }
-
 
             /*
             |--------------------------------------------------------------------------
-            | EXAM MASTER CONFIGURATION
+            | EXAM CONFIG
             |--------------------------------------------------------------------------
             */
 
@@ -819,6 +726,11 @@ class ResultSheetController extends Controller
                     $mappingId
                 );
 
+            /*
+            |--------------------------------------------------------------------------
+            | MAXIMUM MARKS
+            |--------------------------------------------------------------------------
+            */
 
             $maxMarks =
                 $examConfig
@@ -828,6 +740,11 @@ class ResultSheetController extends Controller
                     )
                     : 0;
 
+            /*
+            |--------------------------------------------------------------------------
+            | PASSING MARKS
+            |--------------------------------------------------------------------------
+            */
 
             $passingMarks =
                 $examConfig
@@ -837,10 +754,34 @@ class ResultSheetController extends Controller
                     )
                     : 0;
 
+            /*
+            |--------------------------------------------------------------------------
+            | FALLBACK PASSING MARKS
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $passingMarks <= 0 &&
+                $maxMarks > 0
+            ) {
+                $passingMarks =
+                    round(
+                        (
+                            $maxMarks *
+                            $passPercentage
+                        ) / 100,
+                        2
+                    );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | COLUMN
+            |--------------------------------------------------------------------------
+            */
 
             $displayColumns->push(
                 (object) [
-
                     'key' =>
                         'SUBJECT_' . $subjectId,
 
@@ -884,7 +825,6 @@ class ResultSheetController extends Controller
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | SUBJECT ORDER
@@ -895,7 +835,6 @@ class ResultSheetController extends Controller
             $displayColumns
                 ->sortBy(
                     function ($subject) {
-
                         $name =
                             strtoupper(
                                 trim(
@@ -910,56 +849,54 @@ class ResultSheetController extends Controller
                                 )
                             );
 
-
                         if (
                             $name === 'ENGLISH' ||
                             $code === 'ENG'
                         ) {
-
                             return 10;
                         }
-
 
                         if (
                             $name === 'HINDI' ||
                             $code === 'HIN'
                         ) {
-
                             return 20;
                         }
-
 
                         if (
                             $name === 'SANSKRIT' ||
                             $code === 'SAN'
                         ) {
-
                             return 20;
                         }
-
 
                         if (
                             $name === 'MARATHI' ||
                             $code === 'MAR'
                         ) {
-
                             return 30;
                         }
 
-
                         return
-                            1000
-                            +
-                            (int) $subject->sort_order;
+                            1000 +
+                            (int) (
+                                $subject->sort_order
+                                ?? 9999
+                            );
                     }
                 )
                 ->values();
 
-
         /*
         |--------------------------------------------------------------------------
-        | TOTAL MAX MARKS
+        | TOTAL MAXIMUM MARKS
         |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        |
+        | Always use ALL displayed subjects.
+        | Missing marks do NOT reduce the denominator.
+        |
         */
 
         $totalMaxMarks =
@@ -973,11 +910,15 @@ class ResultSheetController extends Controller
                 )
             );
 
-
         /*
         |--------------------------------------------------------------------------
-        | LOAD ALL MARKS
+        | LOAD MARKS
         |--------------------------------------------------------------------------
+        |
+        | NO "NO STUDENT MARKS FOUND" ERROR.
+        |
+        | Even when marks are missing, subjects still appear and show "-".
+        |
         */
 
         $allMarks =
@@ -987,24 +928,6 @@ class ResultSheetController extends Controller
                 $standardId,
                 $divisionId
             );
-
-
-        if (
-            $allMarks->isEmpty()
-        ) {
-
-            return [
-                'error' =>
-                    'No student marks found for the selected Academic Year, Exam, Standard and Division.',
-
-                'academicYear' =>
-                    $academicYear,
-
-                'viewData' =>
-                    [],
-            ];
-        }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1018,27 +941,22 @@ class ResultSheetController extends Controller
                 $displayColumns
             );
 
-
         /*
         |--------------------------------------------------------------------------
         | MARKS BY STUDENT / SUBJECT
         |--------------------------------------------------------------------------
         */
 
-        $marksByStudent =
-            [];
-
+        $marksByStudent = [];
 
         foreach (
             $allMarks as $markRow
         ) {
-
             $studentId =
                 (int) (
                     $markRow->student_id
                     ?? 0
                 );
-
 
             if (
                 $studentId <= 0
@@ -1046,13 +964,11 @@ class ResultSheetController extends Controller
                 continue;
             }
 
-
             $displaySubjectId =
                 $this->resolveMarkSubjectId(
                     $markRow,
                     $subjectMatchMap
                 );
-
 
             if (
                 $displaySubjectId === null
@@ -1060,24 +976,17 @@ class ResultSheetController extends Controller
                 continue;
             }
 
-
             if (
                 !isset(
-                    $marksByStudent[
-                        $studentId
-                    ]
+                    $marksByStudent[$studentId]
                 )
             ) {
-
-                $marksByStudent[
-                    $studentId
-                ] = [];
+                $marksByStudent[$studentId] = [];
             }
-
 
             /*
             |--------------------------------------------------------------------------
-            | KEEP LATEST ROW
+            | KEEP NEWEST ROW
             |--------------------------------------------------------------------------
             */
 
@@ -1088,7 +997,6 @@ class ResultSheetController extends Controller
                     ][$displaySubjectId]
                 )
             ) {
-
                 $marksByStudent[
                     $studentId
                 ][$displaySubjectId] =
@@ -1096,35 +1004,27 @@ class ResultSheetController extends Controller
             }
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | UNIQUE STUDENTS
+        | UNIQUE STUDENT IDS
         |--------------------------------------------------------------------------
         */
 
         $studentIds =
-            array_keys(
-                $marksByStudent
+            array_values(
+                array_unique(
+                    array_filter(
+                        array_map(
+                            'intval',
+                            array_keys(
+                                $marksByStudent
+                            )
+                        ),
+                        fn ($id) =>
+                            $id > 0
+                    )
+                )
             );
-
-
-        if (
-            empty($studentIds)
-        ) {
-
-            return [
-                'error' =>
-                    'No valid student marks found for the selected combination.',
-
-                'academicYear' =>
-                    $academicYear,
-
-                'viewData' =>
-                    [],
-            ];
-        }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1137,54 +1037,49 @@ class ResultSheetController extends Controller
                 $studentIds
             );
 
-
         /*
         |--------------------------------------------------------------------------
-        | BUILD STUDENTS
+        | BUILD RESULT ROWS
         |--------------------------------------------------------------------------
         */
 
         $results =
             collect();
 
-
         foreach (
             $studentIds as $studentId
         ) {
+            $studentId =
+                (int) $studentId;
 
             $studentMarks =
                 $marksByStudent[
                     $studentId
                 ] ?? [];
 
-
             $erp =
                 $erpStudents[
                     $studentId
                 ] ?? null;
 
-
             /*
             |--------------------------------------------------------------------------
-            | STUDENT DETAILS
+            | STUDENT DATA
             |--------------------------------------------------------------------------
             */
 
             $gender =
-                strtoupper(
-                    trim(
-                        (string) (
-                            $erp->gender
-                            ?? ''
-                        )
-                    )
+                $this->normalizeGender(
+                    $erp->gender ?? ''
                 );
 
-
             $rollNo =
-                $erp->rollno
-                ?? '';
-
+                trim(
+                    (string) (
+                        $erp->rollno
+                        ?? ''
+                    )
+                );
 
             $studentName =
                 trim(
@@ -1194,7 +1089,6 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $fatherName =
                 trim(
                     (string) (
@@ -1203,7 +1097,6 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $fullName =
                 trim(
                     $studentName
@@ -1211,16 +1104,13 @@ class ResultSheetController extends Controller
                     . $fatherName
                 );
 
-
             if (
                 $fullName === ''
             ) {
-
                 $fullName =
                     'Student ID : '
                     . $studentId;
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -1230,7 +1120,6 @@ class ResultSheetController extends Controller
 
             $student =
                 (object) [
-
                     'id' =>
                         null,
 
@@ -1258,11 +1147,21 @@ class ResultSheetController extends Controller
                     'subject_max_used' =>
                         [],
 
+                    'subject_passing_used' =>
+                        [],
+
                     'academic_total' =>
                         0,
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | IMPORTANT:
+                    | ALWAYS FULL TOTAL MAX
+                    |--------------------------------------------------------------------------
+                    */
+
                     'academic_max_used' =>
-                        0,
+                        $totalMaxMarks,
 
                     'academic_max_display' =>
                         $totalMaxMarks,
@@ -1274,54 +1173,89 @@ class ResultSheetController extends Controller
                         '-',
 
                     'result' =>
-                        '-',
+                        'PENDING',
 
                     'has_absent' =>
                         false,
-                ];
 
+                    'has_any_mark' =>
+                        false,
+                ];
 
             /*
             |--------------------------------------------------------------------------
-            | PROCESS SUBJECTS
+            | PROCESS ALL STANDARD-WISE SUBJECTS
             |--------------------------------------------------------------------------
             */
 
             foreach (
                 $displayColumns as $column
             ) {
-
                 $subjectId =
-                    (int) $column->subject_id;
+                    (int) (
+                        $column->subject_id
+                        ?? 0
+                    );
 
+                $key =
+                    $column->key
+                    ??
+                    'SUBJECT_' . $subjectId;
+
+                /*
+                |--------------------------------------------------------------------------
+                | DEFAULT
+                |--------------------------------------------------------------------------
+                */
 
                 $student->subject_marks[
-                    $column->key
+                    $key
                 ] = '-';
-
 
                 $student->subject_grades[
-                    $column->key
+                    $key
                 ] = '-';
-
 
                 $student->subject_results[
-                    $column->key
+                    $key
                 ] = '-';
 
+                $student->subject_max_used[
+                    $key
+                ] =
+                    (float) (
+                        $column->max_marks
+                        ?? 0
+                    );
+
+                $student->subject_passing_used[
+                    $key
+                ] =
+                    (float) (
+                        $column->passing_marks
+                        ?? 0
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | FIND MARK BY CANONICAL SUBJECT ID
+                |--------------------------------------------------------------------------
+                */
 
                 $markRow =
                     $studentMarks[
                         $subjectId
                     ] ?? null;
 
-
                 if (
                     !$markRow
                 ) {
+                    /*
+                    | No mark:
+                    | keep "-"
+                    */
                     continue;
                 }
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1334,49 +1268,35 @@ class ResultSheetController extends Controller
                         $markRow
                     )
                 ) {
-
                     $student->subject_marks[
-                        $column->key
+                        $key
                     ] = 'AB';
-
 
                     $student->subject_grades[
-                        $column->key
+                        $key
                     ] = 'AB';
 
-
                     $student->subject_results[
-                        $column->key
+                        $key
                     ] = 'ABSENT';
-
 
                     $student->has_absent =
                         true;
 
+                    $student->has_any_mark =
+                        true;
 
-                    $student->academic_max_used +=
-                        (float) (
-                            $column->max_marks
-                            ?? 0
-                        );
-
-
-                    $student->subject_max_used[
-                        $column->key
-                    ] =
-                        (float) (
-                            $column->max_marks
-                            ?? 0
-                        );
-
+                    /*
+                    | AB contributes 0 to total.
+                    | Maximum remains full total.
+                    */
 
                     continue;
                 }
 
-
                 /*
                 |--------------------------------------------------------------------------
-                | OBTAINED MARK
+                | OBTAINED
                 |--------------------------------------------------------------------------
                 */
 
@@ -1385,13 +1305,14 @@ class ResultSheetController extends Controller
                         $markRow
                     );
 
-
                 if (
                     $obtained === null
                 ) {
                     continue;
                 }
 
+                $student->has_any_mark =
+                    true;
 
                 $maxMarks =
                     (float) (
@@ -1399,13 +1320,31 @@ class ResultSheetController extends Controller
                         ?? 0
                     );
 
-
                 $passingMarks =
                     (float) (
                         $column->passing_marks
                         ?? 0
                     );
 
+                /*
+                |--------------------------------------------------------------------------
+                | SAFETY
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $maxMarks > 0 &&
+                    $obtained > $maxMarks
+                ) {
+                    $obtained =
+                        $maxMarks;
+                }
+
+                if (
+                    $obtained < 0
+                ) {
+                    $obtained = 0;
+                }
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1414,28 +1353,11 @@ class ResultSheetController extends Controller
                 */
 
                 $student->subject_marks[
-                    $column->key
+                    $key
                 ] =
                     $this->formatMark(
                         $obtained
                     );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | MAX USED
-                |--------------------------------------------------------------------------
-                */
-
-                $student->academic_max_used +=
-                    $maxMarks;
-
-
-                $student->subject_max_used[
-                    $column->key
-                ] =
-                    $maxMarks;
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1446,10 +1368,9 @@ class ResultSheetController extends Controller
                 $student->academic_total +=
                     $obtained;
 
-
                 /*
                 |--------------------------------------------------------------------------
-                | SUBJECT %
+                | SUBJECT PERCENTAGE
                 |--------------------------------------------------------------------------
                 */
 
@@ -1461,7 +1382,6 @@ class ResultSheetController extends Controller
                         ) * 100
                         : 0;
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | SUBJECT GRADE
@@ -1469,12 +1389,11 @@ class ResultSheetController extends Controller
                 */
 
                 $student->subject_grades[
-                    $column->key
+                    $key
                 ] =
                     $this->getGradeFromPercentage(
                         $subjectPercentage
                     );
-
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1482,18 +1401,25 @@ class ResultSheetController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $student->subject_results[
-                    $column->key
-                ] =
-                    $obtained >= $passingMarks
-                        ? 'PASS'
-                        : 'FAIL';
+                if (
+                    $passingMarks > 0
+                ) {
+                    $student->subject_results[
+                        $key
+                    ] =
+                        $obtained >= $passingMarks
+                            ? 'PASS'
+                            : 'FAIL';
+                } else {
+                    $student->subject_results[
+                        $key
+                    ] = 'PASS';
+                }
             }
-
 
             /*
             |--------------------------------------------------------------------------
-            | FORMAT TOTAL
+            | TOTAL
             |--------------------------------------------------------------------------
             */
 
@@ -1502,21 +1428,28 @@ class ResultSheetController extends Controller
                     $student->academic_total
                 );
 
+            /*
+            |--------------------------------------------------------------------------
+            | ALWAYS FULL TOTAL MAX
+            |--------------------------------------------------------------------------
+            */
 
             $student->academic_max_used =
-                (float) $student->academic_max_used;
+                $totalMaxMarks;
 
+            $student->academic_max_display =
+                $totalMaxMarks;
 
             /*
             |--------------------------------------------------------------------------
-            | NO MARKS
+            | NO MARKS AT ALL
             |--------------------------------------------------------------------------
             */
 
             if (
-                $student->academic_max_used <= 0
+                !$student->has_any_mark &&
+                !$student->has_absent
             ) {
-
                 $student->calculated_percentage =
                     null;
 
@@ -1524,127 +1457,186 @@ class ResultSheetController extends Controller
                     '-';
 
                 $student->result =
-                    '-';
+                    'PENDING';
 
-            } else {
+                $results->push(
+                    $student
+                );
 
-                /*
-                |--------------------------------------------------------------------------
-                | PERCENTAGE
-                |--------------------------------------------------------------------------
-                */
+                continue;
+            }
 
-                $student->calculated_percentage =
+            /*
+            |--------------------------------------------------------------------------
+            | OVERALL PERCENTAGE
+            |--------------------------------------------------------------------------
+            |
+            | ALWAYS:
+            |
+            | Obtained / ALL SUBJECT MAXIMUM
+            |
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $totalMaxMarks > 0
+            ) {
+                $percentage =
                     (
                         (float) $student->academic_total
                         /
-                        (float) $student->academic_max_used
+                        (float) $totalMaxMarks
                     )
                     * 100;
 
-
                 $student->calculated_percentage =
-                    (int) round(
-                        $student->calculated_percentage
+                    round(
+                        $percentage,
+                        2
                     );
+            } else {
+                $student->calculated_percentage =
+                    null;
+            }
 
+            /*
+            |--------------------------------------------------------------------------
+            | OVERALL GRADE
+            |--------------------------------------------------------------------------
+            */
 
-                /*
-                |--------------------------------------------------------------------------
-                | GRADE
-                |--------------------------------------------------------------------------
-                */
-
+            if (
+                $student->calculated_percentage !== null
+            ) {
                 $student->calculated_grade =
                     $this->getGradeFromPercentage(
                         $student->calculated_percentage
                     );
+            } else {
+                $student->calculated_grade =
+                    '-';
+            }
 
+            /*
+            |--------------------------------------------------------------------------
+            | FAILED SUBJECT
+            |--------------------------------------------------------------------------
+            */
 
-                /*
-                |--------------------------------------------------------------------------
-                | FAILED SUBJECT
-                |--------------------------------------------------------------------------
-                */
+            $hasFailedSubject =
+                false;
 
-                $hasFailedSubject =
-                    false;
-
-
-                foreach (
-                    $displayColumns as $column
-                ) {
-
-                    $subjectResult =
-                        strtoupper(
-                            trim(
-                                (string) (
-                                    $student->subject_results[
-                                        $column->key
-                                    ] ?? '-'
-                                )
+            foreach (
+                $displayColumns as $column
+            ) {
+                $subjectResult =
+                    strtoupper(
+                        trim(
+                            (string) (
+                                $student->subject_results[
+                                    $column->key
+                                ]
+                                ??
+                                '-'
                             )
-                        );
-
-
-                    if (
-                        $subjectResult === 'FAIL'
-                    ) {
-
-                        $hasFailedSubject =
-                            true;
-
-                        break;
-                    }
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | FINAL RESULT
-                |--------------------------------------------------------------------------
-                */
+                        )
+                    );
 
                 if (
-                    $student->has_absent
+                    $subjectResult === 'FAIL'
                 ) {
+                    $hasFailedSubject =
+                        true;
 
-                    $student->result =
-                        'FAIL';
-
-                } elseif (
-                    $hasFailedSubject
-                ) {
-
-                    $student->result =
-                        'FAIL';
-
-                } elseif (
-                    $student->calculated_percentage
-                    >=
-                    $passPercentage
-                ) {
-
-                    $student->result =
-                        'PASS';
-
-                } else {
-
-                    $student->result =
-                        'FAIL';
+                    break;
                 }
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | FINAL RESULT
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $student->has_absent
+            ) {
+                $student->result =
+                    'FAIL';
+
+            } elseif (
+                $hasFailedSubject
+            ) {
+                $student->result =
+                    'FAIL';
+
+            } elseif (
+                $student->calculated_percentage !== null
+                &&
+                $student->calculated_percentage >=
+                $passPercentage
+            ) {
+                $student->result =
+                    'PASS';
+
+            } else {
+                $student->result =
+                    'FAIL';
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | ADD STUDENT
+            |--------------------------------------------------------------------------
+            */
 
             $results->push(
                 $student
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | UNIQUE STUDENT ROWS
+        |--------------------------------------------------------------------------
+        |
+        | Student ID is the unique key.
+        |
+        */
+
+        $uniqueStudents = [];
+
+        foreach (
+            $results as $student
+        ) {
+            $studentId =
+                (int) (
+                    $student->student_id
+                    ?? 0
+                );
+
+            if (
+                $studentId <= 0
+            ) {
+                continue;
+            }
+
+            $uniqueStudents[
+                'STUDENT_' . $studentId
+            ] =
+                $student;
+        }
+
+        $results =
+            collect(
+                array_values(
+                    $uniqueStudents
+                )
+            );
 
         /*
         |--------------------------------------------------------------------------
-        | SORT BY ROLL NUMBER
+        | SORT
         |--------------------------------------------------------------------------
         */
 
@@ -1652,18 +1644,31 @@ class ResultSheetController extends Controller
             $results
                 ->sortBy(
                     function ($student) {
-
                         $rollNo =
-                            $student->roll_no
-                            ?? '';
+                            trim(
+                                (string) (
+                                    $student->roll_no
+                                    ?? ''
+                                )
+                            );
 
-                        return is_numeric($rollNo)
-                            ? (int) $rollNo
-                            : PHP_INT_MAX;
+                        if (
+                            $rollNo !== '' &&
+                            is_numeric($rollNo)
+                        ) {
+                            return [
+                                0,
+                                (int) $rollNo,
+                            ];
+                        }
+
+                        return [
+                            1,
+                            strtoupper($rollNo),
+                        ];
                     }
                 )
                 ->values();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1676,14 +1681,12 @@ class ResultSheetController extends Controller
                 $results
             );
 
-
         $girlsSubjectAnalysis =
             $this->buildSubjectAnalysis(
                 $results,
                 $displayColumns,
                 'FEMALE'
             );
-
 
         $boysSubjectAnalysis =
             $this->buildSubjectAnalysis(
@@ -1692,10 +1695,9 @@ class ResultSheetController extends Controller
                 'MALE'
             );
 
-
         /*
         |--------------------------------------------------------------------------
-        | VIEW DATA
+        | RETURN
         |--------------------------------------------------------------------------
         */
 
@@ -1707,7 +1709,6 @@ class ResultSheetController extends Controller
                 $academicYear,
 
             'viewData' => [
-
                 'exams' =>
                     $exams,
 
@@ -1744,20 +1745,8 @@ class ResultSheetController extends Controller
                 'academicYear' =>
                     $academicYear,
 
-                /*
-                |--------------------------------------------------------------------------
-                | CLASS TEACHER
-                |--------------------------------------------------------------------------
-                */
-
                 'classTeacher' =>
                     $classTeacher,
-
-                /*
-                |--------------------------------------------------------------------------
-                | PRINCIPAL
-                |--------------------------------------------------------------------------
-                */
 
                 'principal' =>
                     $principal,
@@ -1774,10 +1763,17 @@ class ResultSheetController extends Controller
         ];
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | LOAD MARKS
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | Uses the actual student_marks table structure.
+    |
+    | There is NO obtained_marks column.
+    |
     |--------------------------------------------------------------------------
     */
 
@@ -1787,18 +1783,23 @@ class ResultSheetController extends Controller
         int $standardId,
         int $divisionId
     ) {
+        if (
+            !Schema::hasTable(
+                'student_marks'
+            )
+        ) {
+            return collect();
+        }
 
         $columns =
             Schema::getColumnListing(
                 'student_marks'
             );
 
-
         $query =
             DB::table(
                 'student_marks'
             );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1806,24 +1807,18 @@ class ResultSheetController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $yearColumn =
-            $this->findFirstExistingColumn(
+        if (
+            in_array(
+                'academic_year_id',
                 $columns,
-                [
-                    'academic_year_id',
-                    'year_id',
-                ]
-            );
-
-
-        if ($yearColumn) {
-
+                true
+            )
+        ) {
             $query->where(
-                $yearColumn,
+                'academic_year_id',
                 $academicYearId
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1831,24 +1826,18 @@ class ResultSheetController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $examColumn =
-            $this->findFirstExistingColumn(
+        if (
+            in_array(
+                'exam_master_id',
                 $columns,
-                [
-                    'exam_master_id',
-                    'exam_id',
-                ]
-            );
-
-
-        if ($examColumn) {
-
+                true
+            )
+        ) {
             $query->where(
-                $examColumn,
+                'exam_master_id',
                 $examMasterId
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1856,23 +1845,18 @@ class ResultSheetController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $standardColumn =
-            $this->findFirstExistingColumn(
+        if (
+            in_array(
+                'standard_id',
                 $columns,
-                [
-                    'standard_id',
-                ]
-            );
-
-
-        if ($standardColumn) {
-
+                true
+            )
+        ) {
             $query->where(
-                $standardColumn,
+                'standard_id',
                 $standardId
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1880,27 +1864,22 @@ class ResultSheetController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $divisionColumn =
-            $this->findFirstExistingColumn(
+        if (
+            in_array(
+                'division_id',
                 $columns,
-                [
-                    'division_id',
-                ]
-            );
-
-
-        if ($divisionColumn) {
-
+                true
+            )
+        ) {
             $query->where(
-                $divisionColumn,
+                'division_id',
                 $divisionId
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | LATEST ROW FIRST
+        | NEWEST FIRST
         |--------------------------------------------------------------------------
         */
 
@@ -1911,16 +1890,13 @@ class ResultSheetController extends Controller
                 true
             )
         ) {
-
             $query->orderByDesc(
                 'id'
             );
         }
 
-
         return $query->get();
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -1932,9 +1908,7 @@ class ResultSheetController extends Controller
         $standardSubjects,
         $displayColumns
     ): array {
-
         $map = [
-
             'canonical' =>
                 [],
 
@@ -1948,18 +1922,20 @@ class ResultSheetController extends Controller
                 [],
         ];
 
-
         foreach (
             $displayColumns as $column
         ) {
-
             $subjectId =
-                (int) $column->subject_id;
-
+                (int) (
+                    $column->subject_id
+                    ?? 0
+                );
 
             $mappingId =
-                (int) $column->mapping_id;
-
+                (int) (
+                    $column->mapping_id
+                    ?? 0
+                );
 
             $code =
                 strtoupper(
@@ -1971,50 +1947,42 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $name =
                 $this->normalizeSubjectText(
                     $column->subject_name
+                    ?? ''
                 );
-
 
             if (
                 $subjectId > 0
             ) {
-
                 $map['canonical'][
                     $subjectId
                 ] =
                     $subjectId;
             }
 
-
             if (
                 $mappingId > 0
             ) {
-
                 $map['mapping'][
                     $mappingId
                 ] =
                     $subjectId;
             }
 
-
             if (
                 $code !== ''
             ) {
-
                 $map['code'][
                     $code
                 ] =
                     $subjectId;
             }
 
-
             if (
                 $name !== ''
             ) {
-
                 $map['name'][
                     $name
                 ] =
@@ -2022,10 +1990,8 @@ class ResultSheetController extends Controller
             }
         }
 
-
         return $map;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2037,55 +2003,51 @@ class ResultSheetController extends Controller
         $markRow,
         array $subjectMatchMap
     ): ?int {
-
         $storedSubjectId =
             (int) (
                 $markRow->subject_id
                 ?? 0
             );
 
-
         /*
         |--------------------------------------------------------------------------
-        | 1. CANONICAL
+        | 1. CANONICAL SUBJECT ID
         |--------------------------------------------------------------------------
         */
 
         if (
+            $storedSubjectId > 0 &&
             isset(
                 $subjectMatchMap['canonical'][
                     $storedSubjectId
                 ]
             )
         ) {
-
             return
                 $subjectMatchMap['canonical'][
                     $storedSubjectId
                 ];
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | 2. LEGACY MAPPING
+        | 2. LEGACY MAPPING ID
         |--------------------------------------------------------------------------
         */
 
         if (
+            $storedSubjectId > 0 &&
             isset(
                 $subjectMatchMap['mapping'][
                     $storedSubjectId
                 ]
             )
         ) {
-
             return
                 $subjectMatchMap['mapping'][
                     $storedSubjectId
                 ];
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2099,29 +2061,28 @@ class ResultSheetController extends Controller
                 'code',
             ] as $field
         ) {
-
             if (
                 isset(
                     $markRow->{$field}
                 )
             ) {
-
                 $code =
                     strtoupper(
                         trim(
-                            (string) $markRow->{$field}
+                            (string) (
+                                $markRow->{$field}
+                            )
                         )
                     );
 
-
                 if (
+                    $code !== '' &&
                     isset(
                         $subjectMatchMap['code'][
                             $code
                         ]
                     )
                 ) {
-
                     return
                         $subjectMatchMap['code'][
                             $code
@@ -2129,7 +2090,6 @@ class ResultSheetController extends Controller
                 }
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2143,27 +2103,24 @@ class ResultSheetController extends Controller
                 'subject',
             ] as $field
         ) {
-
             if (
                 isset(
                     $markRow->{$field}
                 )
             ) {
-
                 $name =
                     $this->normalizeSubjectText(
                         $markRow->{$field}
                     );
 
-
                 if (
+                    $name !== '' &&
                     isset(
                         $subjectMatchMap['name'][
                             $name
                         ]
                     )
                 ) {
-
                     return
                         $subjectMatchMap['name'][
                             $name
@@ -2172,60 +2129,8 @@ class ResultSheetController extends Controller
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | 5. LEGACY STRING ID
-        |--------------------------------------------------------------------------
-        */
-
-        $storedSubjectString =
-            trim(
-                (string) (
-                    $markRow->subject_id
-                    ?? ''
-                )
-            );
-
-
-        if (
-            $storedSubjectString !== ''
-        ) {
-
-            foreach (
-                $subjectMatchMap['canonical']
-                as $canonicalId => $targetId
-            ) {
-
-                if (
-                    (string) $canonicalId ===
-                    $storedSubjectString
-                ) {
-
-                    return $targetId;
-                }
-            }
-
-
-            foreach (
-                $subjectMatchMap['mapping']
-                as $mappingId => $targetId
-            ) {
-
-                if (
-                    (string) $mappingId ===
-                    $storedSubjectString
-                ) {
-
-                    return $targetId;
-                }
-            }
-        }
-
-
         return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2236,26 +2141,17 @@ class ResultSheetController extends Controller
     private function normalizeSubjectText(
         $value
     ): string {
-
-        $value =
-            strtoupper(
-                trim(
-                    (string) $value
-                )
-            );
-
-
-        $value =
+        return
             preg_replace(
                 '/[^A-Z0-9]+/',
                 '',
-                $value
-            );
-
-
-        return $value;
+                strtoupper(
+                    trim(
+                        (string) $value
+                    )
+                )
+            ) ?? '';
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2266,22 +2162,44 @@ class ResultSheetController extends Controller
     private function normalizeGender(
         $gender
     ): string {
+        $original =
+            trim(
+                (string) $gender
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | ERP VALUES
+        |--------------------------------------------------------------------------
+        |
+        | 1 = Male
+        | 2 = Female
+        |
+        */
+
+        if (
+            $original === '1'
+        ) {
+            return 'MALE';
+        }
+
+        if (
+            $original === '2'
+        ) {
+            return 'FEMALE';
+        }
 
         $gender =
             strtoupper(
-                trim(
-                    (string) $gender
-                )
+                $original
             );
-
 
         $gender =
             preg_replace(
                 '/[^A-Z]/',
                 '',
                 $gender
-            );
-
+            ) ?? '';
 
         if (
             in_array(
@@ -2291,14 +2209,14 @@ class ResultSheetController extends Controller
                     'FEMALE',
                     'GIRL',
                     'GIRLS',
+                    'WOMAN',
+                    'WOMEN',
                 ],
                 true
             )
         ) {
-
             return 'FEMALE';
         }
-
 
         if (
             in_array(
@@ -2308,76 +2226,40 @@ class ResultSheetController extends Controller
                     'MALE',
                     'BOY',
                     'BOYS',
+                    'MAN',
+                    'MEN',
                 ],
                 true
             )
         ) {
-
             return 'MALE';
         }
-
 
         return 'UNKNOWN';
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | EXTRACT MARK
+    |--------------------------------------------------------------------------
+    |
+    | Uses only the actual student_marks fields.
+    |
     |--------------------------------------------------------------------------
     */
 
     private function extractObtainedMarks(
         $row
     ): ?float {
-
-        /*
-        |--------------------------------------------------------------------------
-        | DIRECT
-        |--------------------------------------------------------------------------
-        */
-
-        foreach (
-            [
-                'obtained_marks',
-                'marks',
-                'total_obtained_marks',
-            ] as $field
-        ) {
-
-            if (
-                isset(
-                    $row->{$field}
-                )
-                &&
-                $row->{$field} !== ''
-                &&
-                $row->{$field} !== null
-                &&
-                is_numeric(
-                    $row->{$field}
-                )
-            ) {
-
-                return
-                    (float) $row->{$field};
-            }
+        if (!$row) {
+            return null;
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENT MARKS
-        |--------------------------------------------------------------------------
-        */
 
         $found =
             false;
 
-
         $total =
             0;
-
 
         foreach (
             [
@@ -2386,30 +2268,22 @@ class ResultSheetController extends Controller
                 'practical_obtained_marks',
             ] as $field
         ) {
-
             if (
                 isset(
                     $row->{$field}
-                )
-                &&
-                $row->{$field} !== ''
-                &&
-                $row->{$field} !== null
-                &&
+                ) &&
+                $row->{$field} !== null &&
+                $row->{$field} !== '' &&
                 is_numeric(
                     $row->{$field}
                 )
             ) {
-
-                $found =
-                    true;
-
+                $found = true;
 
                 $total +=
                     (float) $row->{$field};
             }
         }
-
 
         return
             $found
@@ -2417,81 +2291,162 @@ class ResultSheetController extends Controller
                 : null;
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | ABSENT
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | student_marks.is_absent is tinyint(1).
+    |
     |--------------------------------------------------------------------------
     */
 
     private function isAbsentMark(
         $row
     ): bool {
+        if (!$row) {
+            return false;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | REAL FIELD IN YOUR TABLE
+        |--------------------------------------------------------------------------
+        */
 
         if (
             isset(
                 $row->is_absent
             )
-            &&
-            (int) $row->is_absent === 1
         ) {
+            $value =
+                strtoupper(
+                    trim(
+                        (string) (
+                            $row->is_absent
+                        )
+                    )
+                );
 
-            return true;
+            if (
+                in_array(
+                    $value,
+                    [
+                        '1',
+                        'TRUE',
+                        'YES',
+                        'Y',
+                        'AB',
+                        'A',
+                        'ABS',
+                        'ABSENT',
+                    ],
+                    true
+                )
+            ) {
+                return true;
+            }
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | OPTIONAL LEGACY STATUS FIELDS
+        |--------------------------------------------------------------------------
+        */
 
         foreach (
             [
                 'status',
                 'marks_status',
                 'attendance_status',
+                'mark_status',
             ] as $field
         ) {
-
             if (
-                isset(
+                !isset(
                     $row->{$field}
                 )
-                &&
+            ) {
+                continue;
+            }
+
+            $value =
                 strtoupper(
                     trim(
-                        (string) $row->{$field}
+                        (string) (
+                            $row->{$field}
+                        )
                     )
-                ) === 'AB'
-            ) {
+                );
 
+            if (
+                in_array(
+                    $value,
+                    [
+                        'AB',
+                        'A',
+                        'ABS',
+                        'ABSENT',
+                        'NOT PRESENT',
+                        'NOTPRESENT',
+                    ],
+                    true
+                )
+            ) {
                 return true;
             }
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK COMPONENT FIELDS FOR AB
+        |--------------------------------------------------------------------------
+        */
 
         foreach (
             [
-                'obtained_marks',
-                'marks',
+                'theory_obtained_marks',
+                'oral_obtained_marks',
+                'practical_obtained_marks',
             ] as $field
         ) {
-
             if (
-                isset(
+                !isset(
                     $row->{$field}
                 )
-                &&
+            ) {
+                continue;
+            }
+
+            $value =
                 strtoupper(
                     trim(
-                        (string) $row->{$field}
+                        (string) (
+                            $row->{$field}
+                        )
                     )
-                ) === 'AB'
-            ) {
+                );
 
+            if (
+                in_array(
+                    $value,
+                    [
+                        'AB',
+                        'A',
+                        'ABS',
+                        'ABSENT',
+                    ],
+                    true
+                )
+            ) {
                 return true;
             }
         }
 
-
         return false;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2502,21 +2457,15 @@ class ResultSheetController extends Controller
     private function loadERPStudentsByIds(
         array $studentIds
     ): array {
-
-        $students =
-            [];
-
+        $students = [];
 
         if (
             empty($studentIds)
         ) {
-
             return $students;
         }
 
-
         try {
-
             $rows =
                 DB::connection(
                     'sqlsrv_olderp'
@@ -2537,30 +2486,48 @@ class ResultSheetController extends Controller
                         $studentIds
                     )
                 )
-                ->select(
+                ->select([
                     'f.Studentid',
                     'f.studname',
                     'f.fathername',
                     'f.gender',
-                    'ss.rollno'
-                )
+                    'ss.rollno',
+                ])
                 ->get();
 
+            /*
+            |--------------------------------------------------------------------------
+            | ONE ERP ROW PER STUDENT ID
+            |--------------------------------------------------------------------------
+            */
 
             foreach (
                 $rows as $row
             ) {
+                $studentId =
+                    (int) (
+                        $row->Studentid
+                        ?? 0
+                    );
 
-                $students[
-                    (int) $row->Studentid
-                ] =
-                    $row;
+                if (
+                    $studentId <= 0
+                ) {
+                    continue;
+                }
+
+                if (
+                    !isset(
+                        $students[$studentId]
+                    )
+                ) {
+                    $students[$studentId] =
+                        $row;
+                }
             }
-
         } catch (
             \Throwable $e
         ) {
-
             /*
             |--------------------------------------------------------------------------
             | Keep result usable if ERP connection fails.
@@ -2568,10 +2535,8 @@ class ResultSheetController extends Controller
             */
         }
 
-
         return $students;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2583,11 +2548,9 @@ class ResultSheetController extends Controller
         array $columns,
         array $candidates
     ): ?string {
-
         foreach (
             $candidates as $candidate
         ) {
-
             if (
                 in_array(
                     $candidate,
@@ -2595,15 +2558,12 @@ class ResultSheetController extends Controller
                     true
                 )
             ) {
-
                 return $candidate;
             }
         }
 
-
         return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2614,25 +2574,20 @@ class ResultSheetController extends Controller
     private function formatMark(
         $mark
     ) {
-
         $mark =
             (float) $mark;
-
 
         if (
             floor($mark) === $mark
         ) {
-
             return (int) $mark;
         }
-
 
         return round(
             $mark,
             2
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2643,14 +2598,12 @@ class ResultSheetController extends Controller
     private function getOverallPassPercentage(
         string $standardName
     ): int {
-
         $name =
             strtoupper(
                 trim(
                     $standardName
                 )
             );
-
 
         if (
             in_array(
@@ -2662,18 +2615,17 @@ class ResultSheetController extends Controller
                     '10TH',
                     'IX',
                     'X',
+                    'NINE',
+                    'TEN',
                 ],
                 true
             )
         ) {
-
             return 35;
         }
 
-
         return 40;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2684,70 +2636,39 @@ class ResultSheetController extends Controller
     private function getGradeFromPercentage(
         $percentage
     ): string {
-
         $percentage =
             (float) $percentage;
 
-
-        if (
-            $percentage >= 91
-        ) {
-
+        if ($percentage >= 91) {
             return 'A1';
         }
 
-
-        if (
-            $percentage >= 81
-        ) {
-
+        if ($percentage >= 81) {
             return 'A2';
         }
 
-
-        if (
-            $percentage >= 71
-        ) {
-
+        if ($percentage >= 71) {
             return 'B1';
         }
 
-
-        if (
-            $percentage >= 61
-        ) {
-
+        if ($percentage >= 61) {
             return 'B2';
         }
 
-
-        if (
-            $percentage >= 51
-        ) {
-
+        if ($percentage >= 51) {
             return 'C1';
         }
 
-
-        if (
-            $percentage >= 41
-        ) {
-
+        if ($percentage >= 41) {
             return 'C2';
         }
 
-
-        if (
-            $percentage >= 33
-        ) {
-
+        if ($percentage >= 33) {
             return 'D';
         }
 
-
         return 'F';
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -2758,9 +2679,7 @@ class ResultSheetController extends Controller
     private function buildOverallGradeAnalysis(
         $results
     ): array {
-
         $analysis = [
-
             'A1' => [
                 'range' => '91-100%',
                 'girls' => 0,
@@ -2839,39 +2758,9 @@ class ResultSheetController extends Controller
             ],
         ];
 
-
         foreach (
             $results as $student
         ) {
-
-            $normalizedGender =
-                $this->normalizeGender(
-                    $student->gender
-                    ?? ''
-                );
-
-
-            if (
-                $normalizedGender === 'FEMALE'
-            ) {
-
-                $genderKey =
-                    'girls';
-
-            } elseif (
-                $normalizedGender === 'MALE'
-            ) {
-
-                $genderKey =
-                    'boys';
-
-            } else {
-
-                $genderKey =
-                    null;
-            }
-
-
             $result =
                 strtoupper(
                     trim(
@@ -2881,7 +2770,6 @@ class ResultSheetController extends Controller
                         )
                     )
                 );
-
 
             if (
                 !in_array(
@@ -2893,23 +2781,28 @@ class ResultSheetController extends Controller
                     true
                 )
             ) {
-
                 continue;
             }
 
+            $gender =
+                $this->normalizeGender(
+                    $student->gender
+                    ?? ''
+                );
 
-            $analysis['TOTAL']['total']++;
+            $genderKey = match ($gender) {
+                'FEMALE' => 'girls',
+                'MALE' => 'boys',
+                default => null,
+            };
 
-
-            if (
-                $genderKey !== null
-            ) {
-
+            if ($genderKey !== null) {
                 $analysis['TOTAL'][
                     $genderKey
                 ]++;
             }
 
+            $analysis['TOTAL']['total']++;
 
             $grade =
                 strtoupper(
@@ -2921,12 +2814,10 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             if (
                 isset(
                     $analysis[$grade]
-                )
-                &&
+                ) &&
                 in_array(
                     $grade,
                     [
@@ -2942,83 +2833,38 @@ class ResultSheetController extends Controller
                     true
                 )
             ) {
+                $analysis[$grade]['total']++;
 
-                if (
-                    $genderKey !== null
-                ) {
-
+                if ($genderKey !== null) {
                     $analysis[$grade][
                         $genderKey
                     ]++;
                 }
-
-
-                $analysis[$grade]['total']++;
             }
-
 
             if (
                 $result === 'PASS'
             ) {
+                $analysis['PASS']['total']++;
 
-                if (
-                    $genderKey !== null
-                ) {
-
+                if ($genderKey !== null) {
                     $analysis['PASS'][
                         $genderKey
                     ]++;
                 }
+            } else {
+                $analysis['FAIL']['total']++;
 
-
-                $analysis['PASS']['total']++;
-
-            } elseif (
-                $result === 'FAIL'
-            ) {
-
-                if (
-                    $genderKey !== null
-                ) {
-
+                if ($genderKey !== null) {
                     $analysis['FAIL'][
                         $genderKey
                     ]++;
                 }
-
-
-                $analysis['FAIL']['total']++;
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | FINAL TOTAL
-        |--------------------------------------------------------------------------
-        */
-
-        $analysis['TOTAL']['total'] =
-            $analysis['PASS']['total']
-            +
-            $analysis['FAIL']['total'];
-
-
-        $analysis['TOTAL']['girls'] =
-            $analysis['PASS']['girls']
-            +
-            $analysis['FAIL']['girls'];
-
-
-        $analysis['TOTAL']['boys'] =
-            $analysis['PASS']['boys']
-            +
-            $analysis['FAIL']['boys'];
-
-
         return $analysis;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -3031,23 +2877,32 @@ class ResultSheetController extends Controller
         $subjects,
         string $gender
     ): array {
-
-        $analysis =
-            [];
-
+        $analysis = [];
 
         $requestedGender =
             $this->normalizeGender(
                 $gender
             );
 
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT BY SUBJECT
+        |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        | One student must be counted only once for one subject.
+        |
+        | This prevents duplicate rows / duplicate counting from inflating
+        | A1, A2, B1, B2, C1, C2, D, FAIL and ABSENT totals.
+        |
+        | No other result/marks calculation is changed.
+        |--------------------------------------------------------------------------
+        */
 
         foreach (
             $subjects as $subject
         ) {
-
             $row = [
-
                 'subject' =>
                     $subject->subject_code,
 
@@ -3057,25 +2912,76 @@ class ResultSheetController extends Controller
                 'subject_code' =>
                     $subject->subject_code,
 
-                'A1' => 0,
-                'A2' => 0,
-                'B1' => 0,
-                'B2' => 0,
-                'C1' => 0,
-                'C2' => 0,
-                'D' => 0,
+                'A1' =>
+                    0,
 
-                'fail' => 0,
+                'A2' =>
+                    0,
 
-                'absent' => 0,
+                'B1' =>
+                    0,
 
-                'total' => 0,
+                'B2' =>
+                    0,
+
+                'C1' =>
+                    0,
+
+                'C2' =>
+                    0,
+
+                'D' =>
+                    0,
+
+                'fail' =>
+                    0,
+
+                'absent' =>
+                    0,
+
+                'total' =>
+                    0,
             ];
 
+            /*
+            |--------------------------------------------------------------------------
+            | UNIQUE STUDENTS FOR THIS SUBJECT
+            |--------------------------------------------------------------------------
+            |
+            | Student ID is the primary uniqueness key.
+            |--------------------------------------------------------------------------
+            */
+
+            $countedStudents = [];
 
             foreach (
                 $results as $student
             ) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | STUDENT ID
+                |--------------------------------------------------------------------------
+                */
+
+                $studentId =
+                    (int) (
+                        $student->student_id
+                        ?? $student->id
+                        ?? 0
+                    );
+
+                if (
+                    $studentId <= 0
+                ) {
+                    continue;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | GENDER
+                |--------------------------------------------------------------------------
+                */
 
                 $studentGender =
                     $this->normalizeGender(
@@ -3083,95 +2989,181 @@ class ResultSheetController extends Controller
                         ?? ''
                     );
 
-
                 if (
                     $studentGender !==
                     $requestedGender
                 ) {
-
                     continue;
                 }
 
+                /*
+                |--------------------------------------------------------------------------
+                | DUPLICATE PROTECTION
+                |--------------------------------------------------------------------------
+                |
+                | A student may appear more than once in the result collection.
+                | Count the student only once for the selected subject.
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    isset(
+                        $countedStudents[$studentId]
+                    )
+                ) {
+                    continue;
+                }
+
+                $key =
+                    $subject->key
+                    ??
+                    'SUBJECT_' .
+                    (
+                        (int) (
+                            $subject->subject_id
+                            ?? 0
+                        )
+                    );
 
                 $mark =
                     $student->subject_marks[
-                        $subject->key
+                        $key
                     ] ?? '-';
-
 
                 $grade =
                     $student->subject_grades[
-                        $subject->key
+                        $key
                     ] ?? '-';
 
-
-                if (
-                    $mark === '-'
-                ) {
-
-                    continue;
-                }
-
-
-                if (
+                $markText =
                     strtoupper(
                         trim(
                             (string) $mark
                         )
-                    ) === 'AB'
-                ) {
+                    );
 
+                $gradeText =
+                    strtoupper(
+                        trim(
+                            (string) $grade
+                        )
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | NO MARK
+                |--------------------------------------------------------------------------
+                |
+                | '-' means no mark was entered.
+                | Do not count it as FAIL or ABSENT.
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $mark === '-'
+                    ||
+                    $mark === ''
+                    ||
+                    $mark === null
+                ) {
+                    continue;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | FROM HERE THE STUDENT IS COUNTED
+                | FOR THIS SUBJECT
+                |--------------------------------------------------------------------------
+                */
+
+                $countedStudents[$studentId] = true;
+
+                /*
+                |--------------------------------------------------------------------------
+                | ABSENT
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $markText === 'AB'
+                    ||
+                    $gradeText === 'AB'
+                ) {
                     $row['absent']++;
 
                     continue;
                 }
 
+                /*
+                |--------------------------------------------------------------------------
+                | FAIL
+                |--------------------------------------------------------------------------
+                */
 
                 if (
-                    strtoupper(
-                        trim(
-                            (string) $grade
-                        )
-                    ) === 'F'
+                    $gradeText === 'F'
                 ) {
-
                     $row['fail']++;
 
                     continue;
                 }
 
+                /*
+                |--------------------------------------------------------------------------
+                | NORMAL GRADES
+                |--------------------------------------------------------------------------
+                */
 
                 if (
-                    isset(
-                        $row[$grade]
+                    in_array(
+                        $gradeText,
+                        [
+                            'A1',
+                            'A2',
+                            'B1',
+                            'B2',
+                            'C1',
+                            'C2',
+                            'D',
+                        ],
+                        true
                     )
                 ) {
-
-                    $row[$grade]++;
+                    $row[$gradeText]++;
                 }
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | TOTAL
+            |--------------------------------------------------------------------------
+            */
 
             $row['total'] =
                 $row['A1']
-                + $row['A2']
-                + $row['B1']
-                + $row['B2']
-                + $row['C1']
-                + $row['C2']
-                + $row['D']
-                + $row['fail']
-                + $row['absent'];
-
+                +
+                $row['A2']
+                +
+                $row['B1']
+                +
+                $row['B2']
+                +
+                $row['C1']
+                +
+                $row['C2']
+                +
+                $row['D']
+                +
+                $row['fail']
+                +
+                $row['absent'];
 
             $analysis[] =
                 $row;
         }
 
-
         return $analysis;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -3182,7 +3174,6 @@ class ResultSheetController extends Controller
     public function print(
         Request $request
     ) {
-
         $request->validate([
             'academic_year_id' => [
                 'required',
@@ -3200,15 +3191,12 @@ class ResultSheetController extends Controller
             ],
         ]);
 
-
         $exam =
             ExamMaster::find(
                 (int) $request->exam_master_id
             );
 
-
         if (!$exam) {
-
             return redirect()
                 ->route(
                     'result-sheet.index'
@@ -3219,18 +3207,18 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         $standardId =
             (int) (
                 $exam->standard_id
                 ?? 0
             );
 
-
         if (
-            $standardId <= 0
+            $standardId <= 0 &&
+            Schema::hasTable(
+                'exam_master_subjects'
+            )
         ) {
-
             $standardId =
                 (int) (
                     DB::table(
@@ -3250,11 +3238,9 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         if (
             $standardId <= 0
         ) {
-
             return redirect()
                 ->route(
                     'result-sheet.index'
@@ -3265,7 +3251,6 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         $data =
             $this->buildResultSheetData(
                 (int) $request->academic_year_id,
@@ -3274,13 +3259,11 @@ class ResultSheetController extends Controller
                 (int) $request->division_id
             );
 
-
         if (
             !empty(
                 $data['error']
             )
         ) {
-
             return redirect()
                 ->route(
                     'result-sheet.index'
@@ -3291,13 +3274,11 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         return view(
             'administrator.result-sheet.print',
             $data['viewData']
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -3308,7 +3289,6 @@ class ResultSheetController extends Controller
     public function exportExcel(
         Request $request
     ) {
-
         $request->validate([
             'academic_year_id' => [
                 'required',
@@ -3326,21 +3306,12 @@ class ResultSheetController extends Controller
             ],
         ]);
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM
-        |--------------------------------------------------------------------------
-        */
-
         $exam =
             ExamMaster::find(
                 (int) $request->exam_master_id
             );
 
-
         if (!$exam) {
-
             return redirect()
                 ->route(
                     'result-sheet.index'
@@ -3351,24 +3322,18 @@ class ResultSheetController extends Controller
                 );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD
-        |--------------------------------------------------------------------------
-        */
-
         $standardId =
             (int) (
                 $exam->standard_id
                 ?? 0
             );
 
-
         if (
-            $standardId <= 0
+            $standardId <= 0 &&
+            Schema::hasTable(
+                'exam_master_subjects'
+            )
         ) {
-
             $standardId =
                 (int) (
                     DB::table(
@@ -3388,11 +3353,9 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         if (
             $standardId <= 0
         ) {
-
             return redirect()
                 ->route(
                     'result-sheet.index'
@@ -3403,13 +3366,6 @@ class ResultSheetController extends Controller
                 );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUILD RESULT DATA
-        |--------------------------------------------------------------------------
-        */
-
         $data =
             $this->buildResultSheetData(
                 (int) $request->academic_year_id,
@@ -3418,13 +3374,11 @@ class ResultSheetController extends Controller
                 (int) $request->division_id
             );
 
-
         if (
             !empty(
                 $data['error']
             )
         ) {
-
             return redirect()
                 ->route(
                     'result-sheet.index'
@@ -3435,16 +3389,8 @@ class ResultSheetController extends Controller
                 );
         }
 
-
         $viewData =
             $data['viewData'];
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | DATA
-        |--------------------------------------------------------------------------
-        */
 
         $results =
             collect(
@@ -3452,54 +3398,39 @@ class ResultSheetController extends Controller
                 ?? []
             );
 
-
         $displayColumns =
             collect(
                 $viewData['displayColumns']
                 ?? []
             );
 
-
         $exam =
             $viewData['exam']
             ?? null;
-
 
         $standard =
             $viewData['standard']
             ?? null;
 
-
         $division =
             $viewData['division']
             ?? null;
-
 
         $academicYear =
             $viewData['academicYear']
             ?? null;
 
-
         $totalMaxMarks =
             $viewData['totalMaxMarks']
             ?? 0;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CLASS TEACHER + PRINCIPAL
-        |--------------------------------------------------------------------------
-        */
 
         $classTeacher =
             $viewData['classTeacher']
             ?? null;
 
-
         $principal =
             $viewData['principal']
             ?? null;
-
 
         /*
         |--------------------------------------------------------------------------
@@ -3511,18 +3442,31 @@ class ResultSheetController extends Controller
             $results
                 ->sortBy(
                     function ($student) {
-
                         $rollNo =
-                            $student->roll_no
-                            ?? '';
+                            trim(
+                                (string) (
+                                    $student->roll_no
+                                    ?? ''
+                                )
+                            );
 
-                        return is_numeric($rollNo)
-                            ? (int) $rollNo
-                            : PHP_INT_MAX;
+                        if (
+                            $rollNo !== '' &&
+                            is_numeric($rollNo)
+                        ) {
+                            return [
+                                0,
+                                (int) $rollNo,
+                            ];
+                        }
+
+                        return [
+                            1,
+                            strtoupper($rollNo),
+                        ];
                     }
                 )
                 ->values();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -3535,28 +3479,18 @@ class ResultSheetController extends Controller
             ?? $academicYear->name
             ?? 'Year';
 
-
         $examName =
             $exam->display_exam_name
             ?? $exam->exam_name
             ?? 'Exam';
 
-
         $standardName =
             $standard->standard_name
             ?? 'Standard';
 
-
         $divisionName =
             $division->division_name
             ?? 'Division';
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CLASS TEACHER NAME
-        |--------------------------------------------------------------------------
-        */
 
         $classTeacherName =
             (
@@ -3566,13 +3500,6 @@ class ResultSheetController extends Controller
                 ? $classTeacher->user->name
                 : '-';
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | PRINCIPAL NAME
-        |--------------------------------------------------------------------------
-        */
-
         $principalName =
             (
                 $principal &&
@@ -3580,13 +3507,6 @@ class ResultSheetController extends Controller
             )
                 ? $principal->user->name
                 : '-';
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILE NAME
-        |--------------------------------------------------------------------------
-        */
 
         $fileName =
             'Result_Sheet_'
@@ -3607,7 +3527,6 @@ class ResultSheetController extends Controller
             )
             . '.xls';
 
-
         /*
         |--------------------------------------------------------------------------
         | COLUMN COUNT
@@ -3616,20 +3535,20 @@ class ResultSheetController extends Controller
 
         $columnCount =
             4
-            + $displayColumns->count()
-            + 5;
-
+            +
+            $displayColumns->count()
+            +
+            5;
 
         /*
         |--------------------------------------------------------------------------
-        | START HTML
+        | HTML EXCEL
         |--------------------------------------------------------------------------
         */
 
         $html = '';
 
         $html .= '<html>';
-
         $html .= '<head>';
 
         $html .= '
@@ -3638,7 +3557,6 @@ class ResultSheetController extends Controller
                 content="text/html; charset=UTF-8"
             >
         ';
-
 
         $html .= '
             <style>
@@ -3703,11 +3621,8 @@ class ResultSheetController extends Controller
             </style>
         ';
 
-
         $html .= '</head>';
-
         $html .= '<body>';
-
 
         /*
         |--------------------------------------------------------------------------
@@ -3719,7 +3634,10 @@ class ResultSheetController extends Controller
 
         $html .= '<tr>';
 
-        $html .= '<td colspan="' . $columnCount . '" class="title">';
+        $html .=
+            '<td colspan="' .
+            $columnCount .
+            '" class="title">';
 
         $html .= e(
             'PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE'
@@ -3729,10 +3647,12 @@ class ResultSheetController extends Controller
 
         $html .= '</tr>';
 
-
         $html .= '<tr>';
 
-        $html .= '<td colspan="' . $columnCount . '" class="subtitle">';
+        $html .=
+            '<td colspan="' .
+            $columnCount .
+            '" class="subtitle">';
 
         $html .= e(
             'SHIRGAON / CHIKHALI'
@@ -3742,10 +3662,12 @@ class ResultSheetController extends Controller
 
         $html .= '</tr>';
 
-
         $html .= '<tr>';
 
-        $html .= '<td colspan="' . $columnCount . '" class="subtitle">';
+        $html .=
+            '<td colspan="' .
+            $columnCount .
+            '" class="subtitle">';
 
         $html .= e(
             'RESULT SHEET'
@@ -3759,7 +3681,6 @@ class ResultSheetController extends Controller
 
         $html .= '<br>';
 
-
         /*
         |--------------------------------------------------------------------------
         | INFORMATION
@@ -3770,116 +3691,96 @@ class ResultSheetController extends Controller
 
         $html .= '<tr>';
 
-        $html .= '<td><strong>Academic Year</strong></td>';
+        $html .=
+            '<td><strong>Academic Year</strong></td>';
 
-        $html .= '<td>';
+        $html .=
+            '<td>' .
+            e($yearName) .
+            '</td>';
 
-        $html .= e(
-            $yearName
-        );
+        $html .=
+            '<td><strong>Exam</strong></td>';
 
-        $html .= '</td>';
-
-
-        $html .= '<td><strong>Exam</strong></td>';
-
-        $html .= '<td>';
-
-        $html .= e(
-            $examName
-        );
-
-        $html .= '</td>';
+        $html .=
+            '<td>' .
+            e($examName) .
+            '</td>';
 
         $html .= '</tr>';
 
-
         $html .= '<tr>';
 
-        $html .= '<td><strong>Standard</strong></td>';
+        $html .=
+            '<td><strong>Standard</strong></td>';
 
-        $html .= '<td>';
+        $html .=
+            '<td>' .
+            e($standardName) .
+            '</td>';
 
-        $html .= e(
-            $standardName
-        );
+        $html .=
+            '<td><strong>Division</strong></td>';
 
-        $html .= '</td>';
-
-
-        $html .= '<td><strong>Division</strong></td>';
-
-        $html .= '<td>';
-
-        $html .= e(
-            $divisionName
-        );
-
-        $html .= '</td>';
+        $html .=
+            '<td>' .
+            e($divisionName) .
+            '</td>';
 
         $html .= '</tr>';
 
-
         $html .= '<tr>';
 
-        $html .= '<td><strong>Class Teacher</strong></td>';
+        $html .=
+            '<td><strong>Class Teacher</strong></td>';
 
-        $html .= '<td>';
+        $html .=
+            '<td>' .
+            e($classTeacherName) .
+            '</td>';
 
-        $html .= e(
-            $classTeacherName
-        );
+        $html .=
+            '<td><strong>Principal</strong></td>';
 
-        $html .= '</td>';
-
-
-        $html .= '<td><strong>Principal</strong></td>';
-
-        $html .= '<td>';
-
-        $html .= e(
-            $principalName
-        );
-
-        $html .= '</td>';
+        $html .=
+            '<td>' .
+            e($principalName) .
+            '</td>';
 
         $html .= '</tr>';
 
-
         $html .= '<tr>';
 
-        $html .= '<td><strong>Total Maximum Marks</strong></td>';
+        $html .=
+            '<td><strong>Total Maximum Marks</strong></td>';
 
-        $html .= '<td>';
+        $html .=
+            '<td>' .
+            e(
+                $this->formatExcelNumber(
+                    $totalMaxMarks
+                )
+            ) .
+            '</td>';
 
-        $html .= e(
-            $this->formatExcelNumber(
-                $totalMaxMarks
-            )
-        );
+        $html .=
+            '<td><strong>Overall Pass %</strong></td>';
 
-        $html .= '</td>';
-
-
-        $html .= '<td><strong>Overall Pass %</strong></td>';
-
-        $html .= '<td>';
-
-        $html .= e(
-            (
-                $viewData['passPercentage']
-                ?? 40
-            ) . '%'
-        );
-
-        $html .= '</td>';
+        $html .=
+            '<td>' .
+            e(
+                (
+                    $viewData['passPercentage']
+                    ?? 40
+                ) . '%'
+            ) .
+            '</td>';
 
         $html .= '</tr>';
 
         $html .= '</table>';
 
         $html .= '<br>';
-
 
         /*
         |--------------------------------------------------------------------------
@@ -3893,26 +3794,19 @@ class ResultSheetController extends Controller
 
         $html .= '<tr>';
 
-
         $html .= '<th>Sr. No.</th>';
-
         $html .= '<th>Roll No.</th>';
-
         $html .= '<th>Student Name</th>';
-
         $html .= '<th>Gender</th>';
-
 
         foreach (
             $displayColumns as $column
         ) {
-
             $maxMark =
                 $this->formatExcelNumber(
                     $column->max_marks
                     ?? 0
                 );
-
 
             $html .= '<th>';
 
@@ -3923,23 +3817,18 @@ class ResultSheetController extends Controller
             $html .= '<br>';
 
             $html .= e(
-                '(Max Mark='
-                . $maxMark
-                . ')'
+                '(Max Mark=' .
+                $maxMark .
+                ')'
             );
 
             $html .= '</th>';
         }
 
-
         $html .= '<th>Total</th>';
-
         $html .= '<th>Max Total</th>';
-
         $html .= '<th>Percentage</th>';
-
         $html .= '<th>Grade</th>';
-
         $html .= '<th>Result</th>';
 
         $html .= '</tr>';
@@ -3948,65 +3837,51 @@ class ResultSheetController extends Controller
 
         $html .= '<tbody>';
 
-
         $srNo = 1;
-
 
         foreach (
             $results as $student
         ) {
-
             $html .= '<tr>';
 
+            $html .=
+                '<td class="center">' .
+                $srNo++ .
+                '</td>';
 
-            $html .= '<td class="center">';
+            $html .=
+                '<td class="center">' .
+                e(
+                    (string) (
+                        $student->roll_no
+                        ?? ''
+                    )
+                ) .
+                '</td>';
 
-            $html .= $srNo++;
-
-            $html .= '</td>';
-
-
-            $html .= '<td class="center">';
-
-            $html .= e(
-                (string) (
-                    $student->roll_no
+            $html .=
+                '<td>' .
+                e(
+                    $student->full_student_name
                     ?? ''
-                )
-            );
+                ) .
+                '</td>';
 
-            $html .= '</td>';
-
-
-            $html .= '<td>';
-
-            $html .= e(
-                $student->full_student_name
-                ?? ''
-            );
-
-            $html .= '</td>';
-
-
-            $html .= '<td class="center">';
-
-            $html .= e(
-                $student->gender
-                ?? ''
-            );
-
-            $html .= '</td>';
-
+            $html .=
+                '<td class="center">' .
+                e(
+                    $student->gender
+                    ?? ''
+                ) .
+                '</td>';
 
             foreach (
                 $displayColumns as $column
             ) {
-
                 $mark =
                     $student->subject_marks[
                         $column->key
                     ] ?? '-';
-
 
                 $markText =
                     strtoupper(
@@ -4015,97 +3890,73 @@ class ResultSheetController extends Controller
                         )
                     );
 
-
-                $html .= '<td class="center">';
-
+                $html .=
+                    '<td class="center">';
 
                 if (
                     $markText === 'AB'
                 ) {
-
                     $html .=
-                        '<span class="absent">'
-                        . 'AB'
-                        . '</span>';
-
+                        '<span class="absent">AB</span>';
                 } else {
-
-                    $html .= e(
-                        (string) $mark
-                    );
+                    $html .=
+                        e(
+                            (string) $mark
+                        );
                 }
-
 
                 $html .= '</td>';
             }
 
+            $html .=
+                '<td class="center">' .
+                e(
+                    (string) (
+                        $student->academic_total
+                        ?? '-'
+                    )
+                ) .
+                '</td>';
 
-            $html .= '<td class="center">';
+            $html .=
+                '<td class="center">' .
+                e(
+                    $this->formatExcelNumber(
+                        $student->academic_max_display
+                        ?? $totalMaxMarks
+                    )
+                ) .
+                '</td>';
 
-            $html .= e(
-                (string) (
-                    $student->academic_total
-                    ?? '-'
-                )
-            );
-
-            $html .= '</td>';
-
-
-            $studentMaxTotal =
-                $student->academic_max_display
-                ?? $totalMaxMarks
-                ?? 0;
-
-
-            $html .= '<td class="center">';
-
-            $html .= e(
-                $this->formatExcelNumber(
-                    $studentMaxTotal
-                )
-            );
-
-            $html .= '</td>';
-
-
-            $html .= '<td class="center">';
-
+            $html .=
+                '<td class="center">';
 
             if (
                 $student->calculated_percentage
-                !==
-                null
+                !== null
             ) {
-
-                $html .= e(
-                    (string) (
-                        $student->calculated_percentage
+                $html .=
+                    e(
+                        (string) (
+                            $student->calculated_percentage
+                        )
                     )
-                );
-
-                $html .= '%';
-
+                    . '%';
             } else {
-
                 $html .= '-';
             }
 
-
             $html .= '</td>';
 
-
-            $html .= '<td class="center">';
-
-            $html .= e(
-                (string) (
-                    $student->calculated_grade
-                    ?? '-'
-                )
-            );
-
-            $html .= '</td>';
-
+            $html .=
+                '<td class="center">' .
+                e(
+                    (string) (
+                        $student->calculated_grade
+                        ?? '-'
+                    )
+                ) .
+                '</td>';
 
             $studentResult =
                 strtoupper(
@@ -4117,7 +3968,6 @@ class ResultSheetController extends Controller
                     )
                 );
 
-
             $resultClass =
                 $studentResult === 'PASS'
                     ? 'pass'
@@ -4127,29 +3977,30 @@ class ResultSheetController extends Controller
                             : ''
                     );
 
+            $html .=
+                '<td class="center ' .
+                $resultClass .
+                '">';
 
-            $html .= '<td class="center '
-                . $resultClass
-                . '">';
-
-            $html .= e(
-                $studentResult
-            );
+            $html .=
+                e(
+                    $studentResult
+                );
 
             $html .= '</td>';
-
 
             $html .= '</tr>';
         }
 
-
         if (
             $results->isEmpty()
         ) {
-
             $html .= '<tr>';
 
-            $html .= '<td colspan="' . $columnCount . '">';
+            $html .=
+                '<td colspan="' .
+                $columnCount .
+                '" style="text-align:center;">';
 
             $html .=
                 'No result records found.';
@@ -4159,15 +4010,13 @@ class ResultSheetController extends Controller
             $html .= '</tr>';
         }
 
-
         $html .= '</tbody>';
 
         $html .= '</table>';
 
-
         /*
         |--------------------------------------------------------------------------
-        | OVERALL GRADE ANALYSIS
+        | OVERALL ANALYSIS
         |--------------------------------------------------------------------------
         */
 
@@ -4177,21 +4026,15 @@ class ResultSheetController extends Controller
             ]
             ?? [];
 
-
         if (
             !empty(
                 $overallGradeAnalysis
             )
         ) {
-
             $html .= '<br>';
 
-            $html .= '<h3>';
-
             $html .=
-                'Overall Grade / Result Analysis';
-
-            $html .= '</h3>';
+                '<h3>Overall Grade / Result Analysis</h3>';
 
             $html .= '<table>';
 
@@ -4199,14 +4042,12 @@ class ResultSheetController extends Controller
 
             $html .= '<tr>';
 
-            $html .= '<th>Grade / Result</th>';
+            $html .=
+                '<th>Grade / Result</th>';
 
             $html .= '<th>Range</th>';
-
             $html .= '<th>Girls</th>';
-
             $html .= '<th>Boys</th>';
-
             $html .= '<th>Total</th>';
 
             $html .= '</tr>';
@@ -4215,79 +4056,64 @@ class ResultSheetController extends Controller
 
             $html .= '<tbody>';
 
-
             foreach (
                 $overallGradeAnalysis
                 as $grade => $analysis
             ) {
-
-                $rowClass =
+                $rowStyle =
                     $grade === 'TOTAL'
                         ? ' style="font-weight:bold;"'
                         : '';
 
+                $html .=
+                    '<tr' .
+                    $rowStyle .
+                    '>';
 
-                $html .= '<tr' . $rowClass . '>';
+                $html .=
+                    '<td class="center">' .
+                    e($grade) .
+                    '</td>';
 
+                $html .=
+                    '<td>' .
+                    e(
+                        $analysis['range']
+                        ?? ''
+                    ) .
+                    '</td>';
 
-                $html .= '<td class="center">';
+                $html .=
+                    '<td class="center">' .
+                    e(
+                        $analysis['girls']
+                        ?? 0
+                    ) .
+                    '</td>';
 
-                $html .= e(
-                    $grade
-                );
+                $html .=
+                    '<td class="center">' .
+                    e(
+                        $analysis['boys']
+                        ?? 0
+                    ) .
+                    '</td>';
 
-                $html .= '</td>';
-
-
-                $html .= '<td>';
-
-                $html .= e(
-                    $analysis['range']
-                    ?? ''
-                );
-
-                $html .= '</td>';
-
-
-                $html .= '<td class="center">';
-
-                $html .= e(
-                    $analysis['girls']
-                    ?? 0
-                );
-
-                $html .= '</td>';
-
-
-                $html .= '<td class="center">';
-
-                $html .= e(
-                    $analysis['boys']
-                    ?? 0
-                );
-
-                $html .= '</td>';
-
-
-                $html .= '<td class="center">';
-
-                $html .= e(
-                    $analysis['total']
-                    ?? 0
-                );
-
-                $html .= '</td>';
-
+                $html .=
+                    '<td class="center">' .
+                    e(
+                        $analysis['total']
+                        ?? 0
+                    ) .
+                    '</td>';
 
                 $html .= '</tr>';
             }
-
 
             $html .= '</tbody>';
 
             $html .= '</table>';
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -4301,21 +4127,15 @@ class ResultSheetController extends Controller
             ]
             ?? [];
 
-
         if (
             !empty(
                 $girlsSubjectAnalysis
             )
         ) {
-
             $html .= '<br>';
 
-            $html .= '<h3>';
-
             $html .=
-                'Girls Subject Analysis';
-
-            $html .= '</h3>';
+                '<h3>Girls Subject Analysis</h3>';
 
             $html .= '<table>';
 
@@ -4325,16 +4145,25 @@ class ResultSheetController extends Controller
 
             $html .= '<th>Subject</th>';
 
-            $html .= '<th>A1</th>';
-            $html .= '<th>A2</th>';
-            $html .= '<th>B1</th>';
-            $html .= '<th>B2</th>';
-            $html .= '<th>C1</th>';
-            $html .= '<th>C2</th>';
-            $html .= '<th>D</th>';
-            $html .= '<th>Fail</th>';
-            $html .= '<th>Absent</th>';
-            $html .= '<th>Total</th>';
+            foreach (
+                [
+                    'A1',
+                    'A2',
+                    'B1',
+                    'B2',
+                    'C1',
+                    'C2',
+                    'D',
+                    'Fail',
+                    'Absent',
+                    'Total',
+                ] as $field
+            ) {
+                $html .=
+                    '<th>' .
+                    $field .
+                    '</th>';
+            }
 
             $html .= '</tr>';
 
@@ -4342,27 +4171,22 @@ class ResultSheetController extends Controller
 
             $html .= '<tbody>';
 
-
             foreach (
                 $girlsSubjectAnalysis
                 as $analysis
             ) {
-
                 $html .= '<tr>';
 
-
-                $html .= '<td>';
-
-                $html .= e(
-                    $analysis['subject_name']
-                    ??
-                    $analysis['subject']
-                    ??
-                    '-'
-                );
-
-                $html .= '</td>';
-
+                $html .=
+                    '<td>' .
+                    e(
+                        $analysis['subject_name']
+                        ??
+                        $analysis['subject']
+                        ??
+                        '-'
+                    ) .
+                    '</td>';
 
                 foreach (
                     [
@@ -4378,27 +4202,22 @@ class ResultSheetController extends Controller
                         'total',
                     ] as $field
                 ) {
-
-                    $html .= '<td class="center">';
-
-                    $html .= e(
-                        $analysis[$field]
-                        ?? 0
-                    );
-
-                    $html .= '</td>';
+                    $html .=
+                        '<td class="center">' .
+                        e(
+                            $analysis[$field]
+                            ?? 0
+                        ) .
+                        '</td>';
                 }
-
 
                 $html .= '</tr>';
             }
-
 
             $html .= '</tbody>';
 
             $html .= '</table>';
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -4412,21 +4231,15 @@ class ResultSheetController extends Controller
             ]
             ?? [];
 
-
         if (
             !empty(
                 $boysSubjectAnalysis
             )
         ) {
-
             $html .= '<br>';
 
-            $html .= '<h3>';
-
             $html .=
-                'Boys Subject Analysis';
-
-            $html .= '</h3>';
+                '<h3>Boys Subject Analysis</h3>';
 
             $html .= '<table>';
 
@@ -4436,16 +4249,25 @@ class ResultSheetController extends Controller
 
             $html .= '<th>Subject</th>';
 
-            $html .= '<th>A1</th>';
-            $html .= '<th>A2</th>';
-            $html .= '<th>B1</th>';
-            $html .= '<th>B2</th>';
-            $html .= '<th>C1</th>';
-            $html .= '<th>C2</th>';
-            $html .= '<th>D</th>';
-            $html .= '<th>Fail</th>';
-            $html .= '<th>Absent</th>';
-            $html .= '<th>Total</th>';
+            foreach (
+                [
+                    'A1',
+                    'A2',
+                    'B1',
+                    'B2',
+                    'C1',
+                    'C2',
+                    'D',
+                    'Fail',
+                    'Absent',
+                    'Total',
+                ] as $field
+            ) {
+                $html .=
+                    '<th>' .
+                    $field .
+                    '</th>';
+            }
 
             $html .= '</tr>';
 
@@ -4453,27 +4275,22 @@ class ResultSheetController extends Controller
 
             $html .= '<tbody>';
 
-
             foreach (
                 $boysSubjectAnalysis
                 as $analysis
             ) {
-
                 $html .= '<tr>';
 
-
-                $html .= '<td>';
-
-                $html .= e(
-                    $analysis['subject_name']
-                    ??
-                    $analysis['subject']
-                    ??
-                    '-'
-                );
-
-                $html .= '</td>';
-
+                $html .=
+                    '<td>' .
+                    e(
+                        $analysis['subject_name']
+                        ??
+                        $analysis['subject']
+                        ??
+                        '-'
+                    ) .
+                    '</td>';
 
                 foreach (
                     [
@@ -4489,44 +4306,25 @@ class ResultSheetController extends Controller
                         'total',
                     ] as $field
                 ) {
-
-                    $html .= '<td class="center">';
-
-                    $html .= e(
-                        $analysis[$field]
-                        ?? 0
-                    );
-
-                    $html .= '</td>';
+                    $html .=
+                        '<td class="center">' .
+                        e(
+                            $analysis[$field]
+                            ?? 0
+                        ) .
+                        '</td>';
                 }
-
 
                 $html .= '</tr>';
             }
-
 
             $html .= '</tbody>';
 
             $html .= '</table>';
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | CLOSE HTML
-        |--------------------------------------------------------------------------
-        */
-
         $html .= '</body>';
-
         $html .= '</html>';
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | DOWNLOAD
-        |--------------------------------------------------------------------------
-        */
 
         return response(
             $html,
@@ -4549,7 +4347,6 @@ class ResultSheetController extends Controller
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | CLEAN EXCEL FILE NAME
@@ -4559,7 +4356,6 @@ class ResultSheetController extends Controller
     private function cleanExcelFileName(
         string $value
     ): string {
-
         $value =
             preg_replace(
                 '/[^A-Za-z0-9_-]+/',
@@ -4567,13 +4363,11 @@ class ResultSheetController extends Controller
                 $value
             );
 
-
         return trim(
             $value,
             '_'
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -4584,20 +4378,16 @@ class ResultSheetController extends Controller
     private function formatExcelNumber(
         $value
     ): string {
-
         $value =
             (float) $value;
-
 
         if (
             floor($value) === $value
         ) {
-
             return (string) (
                 (int) $value
             );
         }
-
 
         return number_format(
             $value,

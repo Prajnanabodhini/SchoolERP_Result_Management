@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\ExamMaster;
 use App\Models\ExamMasterSubject;
 use App\Models\Standard;
-use App\Models\StandardWiseSubject;
+use App\Models\AcademicYear;
 use App\Models\ExamSubject;
 use App\Models\Subject;
 
@@ -20,15 +20,44 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function index()
+    public function index(Request $request)
     {
-        $examMasters = ExamMaster::with('standard')
+        $academicYearId =
+            $request->input('academic_year_id');
+
+        $examMasters =
+            ExamMaster::with([
+                'standard',
+                'academicYear',
+            ])
+            ->when(
+                $academicYearId,
+                function ($query) use ($academicYearId) {
+
+                    $query->where(
+                        'academic_year_id',
+                        $academicYearId
+                    );
+                }
+            )
+            ->orderByDesc('id')
+            ->get();
+
+        $academicYears =
+            AcademicYear::where(
+                'is_active',
+                1
+            )
             ->orderByDesc('id')
             ->get();
 
         return view(
             'exam-masters.index',
-            compact('examMasters')
+            compact(
+                'examMasters',
+                'academicYears',
+                'academicYearId'
+            )
         );
     }
 
@@ -37,16 +66,11 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | PASSING PERCENTAGE
     |--------------------------------------------------------------------------
-    |
-    | 9th  = 35%
-    | 10th = 35%
-    | Other standards = 40%
-    |
-    |--------------------------------------------------------------------------
     */
 
-    private function getPassingPercentage($standardId): float
-    {
+    private function getPassingPercentage(
+        $standardId
+    ): float {
         return in_array(
             (int) $standardId,
             [9, 10],
@@ -91,15 +115,7 @@ class ExamMasterController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | LOAD AUTHORITATIVE STANDARD SUBJECTS
-    |--------------------------------------------------------------------------
-    |
-    | standard_wise_subjects + subjects
-    |
-    | The actual subject ID ALWAYS comes from:
-    |
-    | subjects.id
-    |
+    | LOAD STANDARD SUBJECTS
     |--------------------------------------------------------------------------
     */
 
@@ -136,25 +152,13 @@ class ExamMasterController extends Controller
         )
         ->select([
 
-            /*
-            | Actual Subject Master ID
-            */
-
             's.id as subject_id',
-
-            /*
-            | Subject Master
-            */
 
             's.subject_name',
 
             's.subject_code',
 
             's.short_name',
-
-            /*
-            | Standard-wise mapping
-            */
 
             'sws.id as standard_wise_subject_id',
 
@@ -177,6 +181,14 @@ class ExamMasterController extends Controller
 
     public function create()
     {
+        $academicYears =
+            AcademicYear::where(
+                'is_active',
+                1
+            )
+            ->orderByDesc('id')
+            ->get();
+
         $standards =
             Standard::where(
                 'is_active',
@@ -187,7 +199,6 @@ class ExamMasterController extends Controller
             )
             ->get();
 
-
         $nextDisplayOrder =
             (
                 ExamMaster::max(
@@ -195,10 +206,10 @@ class ExamMasterController extends Controller
                 ) ?? 0
             ) + 1;
 
-
         return view(
             'exam-masters.create',
             compact(
+                'academicYears',
                 'standards',
                 'nextDisplayOrder'
             )
@@ -210,17 +221,18 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | STORE
     |--------------------------------------------------------------------------
-    |
-    | ALL active subjects of selected Standard are automatically saved.
-    |
-    |--------------------------------------------------------------------------
     */
 
     public function store(
         Request $request
     ) {
-
         $request->validate([
+
+            'academic_year_id' => [
+                'required',
+                'integer',
+                'exists:academic_years,id',
+            ],
 
             'exam_name' => [
                 'required',
@@ -240,23 +252,32 @@ class ExamMasterController extends Controller
                 'min:0',
             ],
 
-            /*
-            | The Blade sends the Max Marks configuration.
-            | Subject IDs are keys and are already actual subjects.id.
-            */
-
             'subjects' => [
                 'required',
                 'array',
                 'min:1',
             ],
 
+        ], [
+
+            'academic_year_id.required' =>
+                'Please select Academic Year.',
+
+            'exam_name.required' =>
+                'Exam Name is required.',
+
+            'standard_id.required' =>
+                'Please select Standard.',
+
+            'subjects.required' =>
+                'At least one subject configuration is required.',
         ]);
 
+        $academicYearId =
+            (int) $request->academic_year_id;
 
         $standardId =
             (int) $request->standard_id;
-
 
         $examName =
             strtoupper(
@@ -268,12 +289,19 @@ class ExamMasterController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | DUPLICATE EXAM CHECK
+        | DUPLICATE EXAM
         |--------------------------------------------------------------------------
+        |
+        | Same Exam Name is allowed in different Academic Years.
+        |
         */
 
         $exists =
             ExamMaster::where(
+                'academic_year_id',
+                $academicYearId
+            )
+            ->where(
                 'standard_id',
                 $standardId
             )
@@ -283,14 +311,13 @@ class ExamMasterController extends Controller
             )
             ->exists();
 
-
         if ($exists) {
 
             return back()
                 ->withInput()
                 ->with(
                     'error',
-                    'Exam Master already exists for this Standard.'
+                    'Exam Master already exists for this Academic Year and Standard.'
                 );
         }
 
@@ -300,18 +327,22 @@ class ExamMasterController extends Controller
             DB::transaction(
                 function () use (
                     $request,
+                    $academicYearId,
                     $examName,
                     $standardId
                 ) {
 
                     /*
                     |--------------------------------------------------------------------------
-                    | CREATE EXAM MASTER
+                    | CREATE EXAM
                     |--------------------------------------------------------------------------
                     */
 
                     $examMaster =
                         ExamMaster::create([
+
+                            'academic_year_id' =>
+                                $academicYearId,
 
                             'exam_name' =>
                                 $examName,
@@ -343,7 +374,7 @@ class ExamMasterController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | LOAD AUTHORITATIVE SUBJECTS
+                    | AUTHORITATIVE SUBJECTS
                     |--------------------------------------------------------------------------
                     */
 
@@ -351,7 +382,6 @@ class ExamMasterController extends Controller
                         $this->getStandardSubjects(
                             $standardId
                         );
-
 
                     if (
                         $standardSubjects->isEmpty()
@@ -365,7 +395,7 @@ class ExamMasterController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | SAVE ALL SUBJECTS
+                    | SAVE SUBJECT CONFIG
                     |--------------------------------------------------------------------------
                     */
 
@@ -374,22 +404,12 @@ class ExamMasterController extends Controller
                         $standardSubject
                     ) {
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | GET CONFIGURATION SUBMITTED FOR THIS SUBJECT
-                        |--------------------------------------------------------------------------
-                        |
-                        | subjects[actual_subject_id][max_marks]
-                        |
-                        */
-
                         $subjectConfig =
                             $request->input(
                                 'subjects.' .
                                 $standardSubject->subject_id,
                                 []
                             );
-
 
                         $maxMarks =
                             isset(
@@ -399,32 +419,17 @@ class ExamMasterController extends Controller
                                     $subjectConfig['max_marks']
                                 : 40.0;
 
-
                         if (
                             $maxMarks < 0
                         ) {
                             $maxMarks = 0;
                         }
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | PASSING MARKS
-                        |--------------------------------------------------------------------------
-                        */
-
                         $passingMarks =
                             $this->calculatePassingMarks(
                                 $maxMarks,
                                 $standardId
                             );
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | DISPLAY ORDER
-                        |--------------------------------------------------------------------------
-                        */
 
                         $displayOrder =
                             isset(
@@ -440,13 +445,6 @@ class ExamMasterController extends Controller
                                     )
                                 );
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | CREATE EXAM SUBJECT CONFIGURATION
-                        |--------------------------------------------------------------------------
-                        */
-
                         ExamMasterSubject::create([
 
                             'exam_master_id' =>
@@ -454,11 +452,6 @@ class ExamMasterController extends Controller
 
                             'standard_id' =>
                                 $standardId,
-
-                            /*
-                            | IMPORTANT:
-                            | ACTUAL subjects.id
-                            */
 
                             'subject_id' =>
                                 $standardSubject->subject_id,
@@ -479,7 +472,6 @@ class ExamMasterController extends Controller
                 }
             );
 
-
             return redirect()
                 ->route(
                     'exam-masters.index'
@@ -497,8 +489,8 @@ class ExamMasterController extends Controller
                 ->withInput()
                 ->with(
                     'error',
-                    'Exam save failed: ' .
-                    $e->getMessage()
+                    'Exam save failed: '
+                    . $e->getMessage()
                 );
         }
     }
@@ -513,6 +505,13 @@ class ExamMasterController extends Controller
     public function edit(
         ExamMaster $examMaster
     ) {
+        $academicYears =
+            AcademicYear::where(
+                'is_active',
+                1
+            )
+            ->orderByDesc('id')
+            ->get();
 
         $standards =
             Standard::where(
@@ -527,7 +526,7 @@ class ExamMasterController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD ALL SUBJECTS OF SELECTED STANDARD
+        | LOAD SUBJECTS
         |--------------------------------------------------------------------------
         */
 
@@ -578,15 +577,7 @@ class ExamMasterController extends Controller
             )
             ->select([
 
-                /*
-                | Mapping reference only
-                */
-
                 'sws.id as standard_wise_subject_id',
-
-                /*
-                | ACTUAL subject master ID
-                */
 
                 's.id as subject_id',
 
@@ -600,22 +591,12 @@ class ExamMasterController extends Controller
 
                 'sws.is_optional',
 
-                /*
-                | Existing max marks
-                */
-
                 DB::raw(
                     'COALESCE(
                         ems.max_marks,
                         40
                     ) as max_marks'
                 ),
-
-                /*
-                | Existing passing marks.
-                | If no exam configuration exists,
-                | calculate according to Standard.
-                */
 
                 DB::raw(
                     '
@@ -624,20 +605,12 @@ class ExamMasterController extends Controller
                             THEN ems.passing_marks
 
                         WHEN sws.standard_id IN (9,10)
-                            THEN CEIL(
-                                40 * 0.35
-                            )
+                            THEN CEIL(40 * 0.35)
 
-                        ELSE CEIL(
-                                40 * 0.40
-                            )
+                        ELSE CEIL(40 * 0.40)
                     END AS passing_marks
                     '
                 ),
-
-                /*
-                | Existing display order
-                */
 
                 DB::raw(
                     '
@@ -648,10 +621,6 @@ class ExamMasterController extends Controller
                     ) AS display_order
                     '
                 ),
-
-                /*
-                | Existing exam configuration
-                */
 
                 DB::raw(
                     '
@@ -672,11 +641,11 @@ class ExamMasterController extends Controller
             )
             ->get();
 
-
         return view(
             'exam-masters.edit',
             compact(
                 'examMaster',
+                'academicYears',
                 'standards',
                 'subjects'
             )
@@ -688,19 +657,19 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | UPDATE
     |--------------------------------------------------------------------------
-    |
-    | All active subjects for the Standard are rebuilt into
-    | exam_master_subjects.
-    |
-    |--------------------------------------------------------------------------
     */
 
     public function update(
         Request $request,
         $id
     ) {
-
         $request->validate([
+
+            'academic_year_id' => [
+                'required',
+                'integer',
+                'exists:academic_years,id',
+            ],
 
             'exam_name' => [
                 'required',
@@ -726,18 +695,28 @@ class ExamMasterController extends Controller
                 'min:1',
             ],
 
-        ]);
+        ], [
 
+            'academic_year_id.required' =>
+                'Please select Academic Year.',
+
+            'exam_name.required' =>
+                'Exam Name is required.',
+
+            'standard_id.required' =>
+                'Please select Standard.',
+        ]);
 
         $examMaster =
             ExamMaster::findOrFail(
                 $id
             );
 
+        $academicYearId =
+            (int) $request->academic_year_id;
 
         $standardId =
-            (int)$request->standard_id;
-
+            (int) $request->standard_id;
 
         $examName =
             strtoupper(
@@ -755,6 +734,10 @@ class ExamMasterController extends Controller
 
         $duplicate =
             ExamMaster::where(
+                'academic_year_id',
+                $academicYearId
+            )
+            ->where(
                 'standard_id',
                 $standardId
             )
@@ -769,14 +752,13 @@ class ExamMasterController extends Controller
             )
             ->exists();
 
-
         if ($duplicate) {
 
             return back()
                 ->withInput()
                 ->with(
                     'error',
-                    'Another Exam Master already exists for this Standard.'
+                    'Another Exam Master already exists for this Academic Year and Standard.'
                 );
         }
 
@@ -787,17 +769,21 @@ class ExamMasterController extends Controller
                 function () use (
                     $request,
                     $examMaster,
+                    $academicYearId,
                     $standardId,
                     $examName
                 ) {
 
                     /*
                     |--------------------------------------------------------------------------
-                    | UPDATE EXAM MASTER
+                    | UPDATE EXAM
                     |--------------------------------------------------------------------------
                     */
 
                     $examMaster->update([
+
+                        'academic_year_id' =>
+                            $academicYearId,
 
                         'exam_name' =>
                             $examName,
@@ -817,13 +803,12 @@ class ExamMasterController extends Controller
                             $request->boolean(
                                 'is_active'
                             ),
-
                     ]);
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | LOAD ALL ACTIVE SUBJECTS
+                    | STANDARD SUBJECTS
                     |--------------------------------------------------------------------------
                     */
 
@@ -831,7 +816,6 @@ class ExamMasterController extends Controller
                         $this->getStandardSubjects(
                             $standardId
                         );
-
 
                     if (
                         $standardSubjects->isEmpty()
@@ -845,7 +829,7 @@ class ExamMasterController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | REMOVE OLD EXAM SUBJECT CONFIGURATION
+                    | REBUILD EXAM SUBJECTS
                     |--------------------------------------------------------------------------
                     */
 
@@ -855,12 +839,6 @@ class ExamMasterController extends Controller
                     )
                     ->delete();
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SAVE ALL CURRENT STANDARD SUBJECTS
-                    |--------------------------------------------------------------------------
-                    */
 
                     foreach (
                         $standardSubjects as
@@ -874,7 +852,6 @@ class ExamMasterController extends Controller
                                 []
                             );
 
-
                         $maxMarks =
                             isset(
                                 $subjectConfig['max_marks']
@@ -883,19 +860,11 @@ class ExamMasterController extends Controller
                                     $subjectConfig['max_marks']
                                 : 40.0;
 
-
                         if (
                             $maxMarks < 0
                         ) {
                             $maxMarks = 0;
                         }
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | PASSING MARKS
-                        |--------------------------------------------------------------------------
-                        */
 
                         $passingMarks =
                             $this->calculatePassingMarks(
@@ -903,23 +872,12 @@ class ExamMasterController extends Controller
                                 $standardId
                             );
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | DISPLAY ORDER
-                        |--------------------------------------------------------------------------
-                        */
-
                         $displayOrder =
                             isset(
-                                $subjectConfig[
-                                    'display_order'
-                                ]
+                                $subjectConfig['display_order']
                             )
                                 ? (int)
-                                    $subjectConfig[
-                                        'display_order'
-                                    ]
+                                    $subjectConfig['display_order']
                                 : (
                                     (int)
                                     (
@@ -927,13 +885,6 @@ class ExamMasterController extends Controller
                                         ?? 0
                                     )
                                 );
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | CREATE CONFIGURATION
-                        |--------------------------------------------------------------------------
-                        */
 
                         ExamMasterSubject::create([
 
@@ -957,12 +908,10 @@ class ExamMasterController extends Controller
 
                             'display_order' =>
                                 $displayOrder,
-
                         ]);
                     }
                 }
             );
-
 
             return redirect()
                 ->route(
@@ -981,8 +930,8 @@ class ExamMasterController extends Controller
                 ->withInput()
                 ->with(
                     'error',
-                    'Exam update failed: ' .
-                    $e->getMessage()
+                    'Exam update failed: '
+                    . $e->getMessage()
                 );
         }
     }
@@ -992,21 +941,13 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | LOAD SUBJECTS
     |--------------------------------------------------------------------------
-    |
-    | AJAX endpoint.
-    |
-    | Returns ACTUAL subjects.id.
-    |
-    |--------------------------------------------------------------------------
     */
 
     public function loadSubjects(
         $standardId
     ) {
-
         $standardId =
-            (int)$standardId;
-
+            (int) $standardId;
 
         $subjects =
             DB::table(
@@ -1038,10 +979,6 @@ class ExamMasterController extends Controller
             )
             ->select([
 
-                /*
-                | ACTUAL subjects.id
-                */
-
                 's.id as id',
 
                 's.id as subject_id',
@@ -1052,10 +989,6 @@ class ExamMasterController extends Controller
 
                 's.short_name',
 
-                /*
-                | Standard mapping ID
-                */
-
                 'sws.id as standard_wise_subject_id',
 
                 'sws.sort_order',
@@ -1065,7 +998,6 @@ class ExamMasterController extends Controller
             ])
             ->get();
 
-
         return response()->json(
             $subjects
         );
@@ -1074,14 +1006,13 @@ class ExamMasterController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | DELETE EXAM MASTER
+    | DESTROY
     |--------------------------------------------------------------------------
     */
 
     public function destroy(
         $id
     ) {
-
         try {
 
             DB::transaction(
@@ -1176,7 +1107,7 @@ class ExamMasterController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | TEACHER MARK STATUS
+                    | TEACHER STATUS
                     |--------------------------------------------------------------------------
                     */
 
@@ -1238,7 +1169,6 @@ class ExamMasterController extends Controller
                 }
             );
 
-
             return redirect()
                 ->route(
                     'exam-masters.index'
@@ -1256,8 +1186,8 @@ class ExamMasterController extends Controller
                 ->back()
                 ->with(
                     'error',
-                    'Delete failed: ' .
-                    $e->getMessage()
+                    'Delete failed: '
+                    . $e->getMessage()
                 );
         }
     }

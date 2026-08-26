@@ -61,6 +61,17 @@
     line-height: 1.5;
 }
 
+.school-year-note {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 11px !important;
+    font-weight: 600;
+}
+
 </style>
 
 
@@ -158,10 +169,62 @@
 
 
             {{-- =================================================
-                 STANDARD + EXAM TYPE
+                 ACADEMIC YEAR + STANDARD
             ================================================== --}}
 
             <div class="grid grid-cols-2 gap-4 mb-5">
+
+
+                {{-- ACADEMIC YEAR --}}
+
+                <div>
+
+                    <label
+                        for="academic_year_id"
+                        class="block font-semibold mb-2"
+                    >
+                        Academic Year
+                    </label>
+
+                    <select
+                        name="academic_year_id"
+                        id="academic_year_id"
+                        class="w-full border rounded p-2"
+                        required
+                    >
+
+                        <option value="">
+                            Select Academic Year
+                        </option>
+
+                        @foreach($academicYears as $academicYear)
+
+                            <option
+                                value="{{ $academicYear->id }}"
+                                {{ (string) old('academic_year_id') === (string) $academicYear->id ? 'selected' : '' }}
+                            >
+                                {{ $academicYear->year_name }}
+                            </option>
+
+                        @endforeach
+
+                    </select>
+
+                    @error('academic_year_id')
+
+                        <div class="text-red-600 mt-1">
+                            {{ $message }}
+                        </div>
+
+                    @enderror
+
+                    <div
+                        id="academicYearNote"
+                        class="school-year-note"
+                        style="display:none;"
+                    ></div>
+
+                </div>
 
 
                 {{-- STANDARD --}}
@@ -201,81 +264,83 @@
 
                 </div>
 
+            </div>
 
-                {{-- EXAM TYPE --}}
 
-                <div>
+            {{-- =================================================
+                 EXAM TYPE
+            ================================================== --}}
 
-                    <label
-                        for="exam_type"
-                        class="block font-semibold mb-2"
+            <div class="mb-5">
+
+                <label
+                    for="exam_type"
+                    class="block font-semibold mb-2"
+                >
+                    Exam Type
+                </label>
+
+                <select
+                    id="exam_type"
+                    name="exam_type"
+                    class="w-full border rounded p-2"
+                    required
+                >
+
+                    <option value="">
+                        Select Exam Type
+                    </option>
+
+                    <option
+                        value="UNIT TEST 1"
+                        {{ old('exam_type') === 'UNIT TEST 1' ? 'selected' : '' }}
                     >
-                        Exam Type
-                    </label>
+                        Unit Test 1
+                    </option>
 
-                    <select
-                        id="exam_type"
-                        name="exam_type"
-                        class="w-full border rounded p-2"
-                        required
+                    <option
+                        value="UNIT TEST 2"
+                        {{ old('exam_type') === 'UNIT TEST 2' ? 'selected' : '' }}
                     >
+                        Unit Test 2
+                    </option>
 
-                        <option value="">
-                            Select Exam Type
-                        </option>
+                    <option
+                        value="UNIT TEST 3"
+                        {{ old('exam_type') === 'UNIT TEST 3' ? 'selected' : '' }}
+                    >
+                        Unit Test 3
+                    </option>
 
-                        <option
-                            value="UNIT TEST 1"
-                            {{ old('exam_type') === 'UNIT TEST 1' ? 'selected' : '' }}
-                        >
-                            Unit Test 1
-                        </option>
+                    <option
+                        value="UNIT TEST 4"
+                        {{ old('exam_type') === 'UNIT TEST 4' ? 'selected' : '' }}
+                    >
+                        Unit Test 4
+                    </option>
 
-                        <option
-                            value="UNIT TEST 2"
-                            {{ old('exam_type') === 'UNIT TEST 2' ? 'selected' : '' }}
-                        >
-                            Unit Test 2
-                        </option>
+                    <option
+                        value="TERM 1"
+                        {{ old('exam_type') === 'TERM 1' ? 'selected' : '' }}
+                    >
+                        Term 1
+                    </option>
 
-                        <option
-                            value="UNIT TEST 3"
-                            {{ old('exam_type') === 'UNIT TEST 3' ? 'selected' : '' }}
-                        >
-                            Unit Test 3
-                        </option>
+                    <option
+                        value="TERM 2"
+                        {{ old('exam_type') === 'TERM 2' ? 'selected' : '' }}
+                    >
+                        Term 2
+                    </option>
 
-                        <option
-                            value="UNIT TEST 4"
-                            {{ old('exam_type') === 'UNIT TEST 4' ? 'selected' : '' }}
-                        >
-                            Unit Test 4
-                        </option>
+                    <option
+                        value="ANNUAL"
+                        {{ old('exam_type') === 'ANNUAL' ? 'selected' : '' }}
+                    >
+                        Annual
+                    </option>
 
-                        <option
-                            value="TERM 1"
-                            {{ old('exam_type') === 'TERM 1' ? 'selected' : '' }}
-                        >
-                            Term 1
-                        </option>
-
-                        <option
-                            value="TERM 2"
-                            {{ old('exam_type') === 'TERM 2' ? 'selected' : '' }}
-                        >
-                            Term 2
-                        </option>
-
-                        <option
-                            value="ANNUAL"
-                            {{ old('exam_type') === 'ANNUAL' ? 'selected' : '' }}
-                        >
-                            Annual
-                        </option>
-
-                    </select>
-
-                </div>
+                </select>
 
             </div>
 
@@ -401,7 +466,7 @@
                                     colspan="4"
                                     class="border p-3 text-center text-gray-500"
                                 >
-                                    Select Standard First
+                                    Select Academic Year and Standard First
                                 </td>
 
                             </tr>
@@ -495,6 +560,14 @@
 
                 Passing Marks are calculated automatically.
 
+                <br><br>
+
+                <strong>Academic Year:</strong>
+
+                The selected Academic Year becomes part of the Exam
+                Master and prevents the same Exam from being duplicated
+                incorrectly across different Academic Years.
+
             </div>
 
 
@@ -547,6 +620,12 @@ document.addEventListener(
         |--------------------------------------------------------------------------
         */
 
+        const academicYearDropdown =
+            document.getElementById(
+                'academic_year_id'
+            );
+
+
         const standardDropdown =
             document.getElementById(
                 'standard_id'
@@ -589,6 +668,12 @@ document.addEventListener(
             );
 
 
+        const academicYearNote =
+            document.getElementById(
+                'academicYearNote'
+            );
+
+
         const form =
             document.getElementById(
                 'examForm'
@@ -624,24 +709,60 @@ document.addEventListener(
 
         function getPassingPercentage()
         {
-
             const standardId =
                 parseInt(
                     standardDropdown.value || 0,
                     10
                 );
 
-
             if (
                 standardId === 9 ||
                 standardId === 10
             ) {
-
                 return 35;
             }
 
-
             return 40;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE ACADEMIC YEAR NOTE
+        |--------------------------------------------------------------------------
+        */
+
+        function updateAcademicYearNote()
+        {
+            if (
+                !academicYearDropdown.value
+            ) {
+
+                academicYearNote.style.display =
+                    'none';
+
+                academicYearNote.textContent =
+                    '';
+
+                return;
+            }
+
+            const selectedOption =
+                academicYearDropdown.options[
+                    academicYearDropdown.selectedIndex
+                ];
+
+            const yearText =
+                selectedOption
+                    ? selectedOption.text.trim()
+                    : '';
+
+            academicYearNote.textContent =
+                'Selected Academic Year: ' +
+                yearText;
+
+            academicYearNote.style.display =
+                'block';
         }
 
 
@@ -653,7 +774,6 @@ document.addEventListener(
 
         function updatePercentageNote()
         {
-
             if (
                 !standardDropdown.value
             ) {
@@ -667,12 +787,10 @@ document.addEventListener(
                 return;
             }
 
-
             percentageNote.textContent =
                 'Passing percentage: ' +
                 getPassingPercentage() +
                 '%';
-
 
             percentageNote.style.display =
                 'block';
@@ -689,24 +807,19 @@ document.addEventListener(
             maxMarks
         )
         {
-
             const max =
                 parseFloat(
                     maxMarks || 0
                 );
 
-
             if (
                 max <= 0
             ) {
-
                 return 0;
             }
 
-
             const percentage =
                 getPassingPercentage();
-
 
             return Math.ceil(
                 max *
@@ -724,23 +837,19 @@ document.addEventListener(
 
         function buildExamName()
         {
-
             const type =
                 examType.value;
-
 
             const selectedOption =
                 standardDropdown.options[
                     standardDropdown.selectedIndex
                 ];
 
-
             const standardText =
                 selectedOption &&
                 selectedOption.value
                     ? selectedOption.text.trim()
                     : '';
-
 
             if (
                 !type ||
@@ -756,16 +865,13 @@ document.addEventListener(
                 return;
             }
 
-
             const generatedName =
                 type +
                 ' - ' +
                 standardText;
 
-
             examName.value =
                 generatedName;
-
 
             examNamePreview.value =
                 generatedName;
@@ -782,18 +888,17 @@ document.addEventListener(
             subjectId
         )
         {
-
             if (
                 !oldSubjects ||
                 typeof oldSubjects !== 'object'
             ) {
-
                 return null;
             }
 
-
             /*
+            |--------------------------------------------------------------------------
             | Laravel sends subjects keyed by subjects.id.
+            |--------------------------------------------------------------------------
             */
 
             if (
@@ -807,9 +912,10 @@ document.addEventListener(
                 ];
             }
 
-
             /*
-            | Backward compatibility for old indexed form.
+            |--------------------------------------------------------------------------
+            | BACKWARD COMPATIBILITY
+            |--------------------------------------------------------------------------
             */
 
             if (
@@ -827,7 +933,8 @@ document.addEventListener(
                     if (
                         String(
                             oldSubjects[i].subject_id
-                        ) === String(
+                        ) ===
+                        String(
                             subjectId
                         )
                     ) {
@@ -835,9 +942,7 @@ document.addEventListener(
                         return oldSubjects[i];
                     }
                 }
-
             }
-
 
             return null;
         }
@@ -853,7 +958,6 @@ document.addEventListener(
             selectedValue
         )
         {
-
             const values = [
                 20,
                 25,
@@ -863,16 +967,13 @@ document.addEventListener(
                 100
             ];
 
-
             const selected =
                 parseFloat(
                     selectedValue || 40
                 );
 
-
             let html =
                 '';
-
 
             values.forEach(
                 function (value) {
@@ -914,7 +1015,6 @@ document.addEventListener(
                 `;
             }
 
-
             return html;
         }
 
@@ -929,6 +1029,24 @@ document.addEventListener(
             standardId
         )
         {
+            if (
+                !academicYearDropdown.value
+            ) {
+
+                tableBody.innerHTML = `
+                    <tr>
+                        <td
+                            colspan="4"
+                            class="border p-3 text-center text-gray-500"
+                        >
+                            Select Academic Year First
+                        </td>
+                    </tr>
+                `;
+
+                return;
+            }
+
 
             if (
                 !standardId
@@ -1048,7 +1166,6 @@ document.addEventListener(
             subjects
         )
         {
-
             if (
                 !Array.isArray(subjects)
                 ||
@@ -1226,9 +1343,7 @@ document.addEventListener(
                                 }
 
 
-                                <!--
-                                    ACTUAL SUBJECT MASTER ID
-                                -->
+                                <!-- ACTUAL SUBJECT MASTER ID -->
 
                                 <input
                                     type="hidden"
@@ -1288,6 +1403,7 @@ document.addEventListener(
                                         subjectId
                                     )}"
                                 >
+
 
                                 <input
                                     type="hidden"
@@ -1359,7 +1475,6 @@ document.addEventListener(
 
         function bindPassingMarks()
         {
-
             document
                 .querySelectorAll(
                     '.max-mark'
@@ -1372,11 +1487,6 @@ document.addEventListener(
                         select.addEventListener(
                             'change',
                             function () {
-
-                                const subjectId =
-                                    this.dataset
-                                        .subjectId;
-
 
                                 const maxMarks =
                                     parseFloat(
@@ -1398,12 +1508,6 @@ document.addEventListener(
                                     );
 
 
-                                /*
-                                |--------------------------------------------------------------------------
-                                | DISPLAY PASSING
-                                |--------------------------------------------------------------------------
-                                */
-
                                 const passingInput =
                                     row.querySelector(
                                         '.passing-mark'
@@ -1418,12 +1522,6 @@ document.addEventListener(
                                         passingMarks;
                                 }
 
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | HIDDEN PASSING VALUE
-                                |--------------------------------------------------------------------------
-                                */
 
                                 const hiddenInput =
                                     row.querySelector(
@@ -1457,30 +1555,29 @@ document.addEventListener(
             value
         )
         {
-
             return String(
                 value
             )
-            .replace(
-                /&/g,
-                '&amp;'
-            )
-            .replace(
-                /</g,
-                '&lt;'
-            )
-            .replace(
-                />/g,
-                '&gt;'
-            )
-            .replace(
-                /"/g,
-                '&quot;'
-            )
-            .replace(
-                /'/g,
-                '&#039;'
-            );
+                .replace(
+                    /&/g,
+                    '&amp;'
+                )
+                .replace(
+                    /</g,
+                    '&lt;'
+                )
+                .replace(
+                    />/g,
+                    '&gt;'
+                )
+                .replace(
+                    /"/g,
+                    '&quot;'
+                )
+                .replace(
+                    /'/g,
+                    '&#039;'
+                );
         }
 
 
@@ -1488,11 +1585,40 @@ document.addEventListener(
             value
         )
         {
-
             return escapeHtml(
                 value
             );
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACADEMIC YEAR CHANGE
+        |--------------------------------------------------------------------------
+        */
+
+        academicYearDropdown.addEventListener(
+            'change',
+            function () {
+
+                updateAcademicYearNote();
+
+                /*
+                | Subject mapping is standard based,
+                | so reload subjects when year is changed.
+                */
+
+                if (
+                    standardDropdown.value
+                ) {
+
+                    loadSubjects(
+                        standardDropdown.value
+                    );
+                }
+
+            }
+        );
 
 
         /*
@@ -1527,6 +1653,7 @@ document.addEventListener(
             function () {
 
                 buildExamName();
+
             }
         );
 
@@ -1543,6 +1670,28 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
+                | ACADEMIC YEAR
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    !academicYearDropdown.value
+                ) {
+
+                    event.preventDefault();
+
+                    alert(
+                        'Please select Academic Year.'
+                    );
+
+                    academicYearDropdown.focus();
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
                 | STANDARD
                 |--------------------------------------------------------------------------
                 */
@@ -1556,6 +1705,8 @@ document.addEventListener(
                     alert(
                         'Please select Standard.'
                     );
+
+                    standardDropdown.focus();
 
                     return;
                 }
@@ -1576,6 +1727,8 @@ document.addEventListener(
                     alert(
                         'Please select Exam Type.'
                     );
+
+                    examType.focus();
 
                     return;
                 }
@@ -1712,18 +1865,34 @@ document.addEventListener(
         |--------------------------------------------------------------------------
         */
 
+        updateAcademicYearNote();
+
         buildExamName();
 
         updatePercentageNote();
 
 
         if (
+            academicYearDropdown.value &&
             standardDropdown.value
         ) {
 
             loadSubjects(
                 standardDropdown.value
             );
+
+        } else {
+
+            tableBody.innerHTML = `
+                <tr>
+                    <td
+                        colspan="4"
+                        class="border p-3 text-center text-gray-500"
+                    >
+                        Select Academic Year and Standard First
+                    </td>
+                </tr>
+            `;
         }
 
     });

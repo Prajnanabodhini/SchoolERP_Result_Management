@@ -28,7 +28,6 @@ class ExamProgressController extends Controller
         }
 
         if (method_exists($user, 'hasRole')) {
-
             if (
                 $user->hasRole('Administrator') ||
                 $user->hasRole('admin')
@@ -58,16 +57,6 @@ class ExamProgressController extends Controller
     |--------------------------------------------------------------------------
     | RESOLVE ACTUAL SUBJECT ID
     |--------------------------------------------------------------------------
-    |
-    | CURRENT FORMAT:
-    |
-    |   stored ID = subjects.id
-    |
-    | LEGACY FORMAT:
-    |
-    |   stored ID = standard_wise_subjects.id
-    |
-    |--------------------------------------------------------------------------
     */
 
     private function resolveActualSubjectId(
@@ -88,14 +77,10 @@ class ExamProgressController extends Controller
             return null;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | 1. CURRENT FORMAT
         |--------------------------------------------------------------------------
-        |
-        | Direct subjects.id
-        |
         */
 
         $subject = DB::table('subjects')
@@ -113,14 +98,10 @@ class ExamProgressController extends Controller
             return (int) $subject->id;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | 2. LEGACY FORMAT
         |--------------------------------------------------------------------------
-        |
-        | standard_wise_subjects.id
-        |
         */
 
         if (!$standardId) {
@@ -178,15 +159,6 @@ class ExamProgressController extends Controller
     /*
     |--------------------------------------------------------------------------
     | RESOLVE SUBJECT
-    |--------------------------------------------------------------------------
-    |
-    | Priority:
-    |
-    | 1. teacher_marks_status.subject_id
-    | 2. teacher_subject_allocations.subject_id
-    | 3. exam_master_subjects.subject_id
-    | 4. exam_master_subjects.subject_name
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -347,7 +319,9 @@ class ExamProgressController extends Controller
 
 
                 /*
+                |--------------------------------------------------------------------------
                 | Try subjects.id
+                |--------------------------------------------------------------------------
                 */
 
                 $subject = DB::table('subjects')
@@ -367,7 +341,9 @@ class ExamProgressController extends Controller
 
 
                 /*
+                |--------------------------------------------------------------------------
                 | Try standard_wise_subjects.id
+                |--------------------------------------------------------------------------
                 */
 
                 if ($standardId) {
@@ -432,7 +408,6 @@ class ExamProgressController extends Controller
                     continue;
                 }
 
-
                 $subject = DB::table('subjects')
                     ->where(
                         'is_active',
@@ -453,7 +428,6 @@ class ExamProgressController extends Controller
                 }
             }
         }
-
 
         return null;
     }
@@ -479,8 +453,7 @@ class ExamProgressController extends Controller
             abort(403);
         }
 
-        $userId =
-            (int) $user->id;
+        $userId = (int) $user->id;
 
         $isAdministrator =
             $this->isAdministrator();
@@ -662,12 +635,6 @@ class ExamProgressController extends Controller
         |--------------------------------------------------------------------------
         | TEACHER SECURITY
         |--------------------------------------------------------------------------
-        |
-        | Normal records are checked against the teacher class allocation.
-        |
-        | Orphaned old records are checked against tms.teacher_id.
-        |
-        |--------------------------------------------------------------------------
         */
 
         if (!$isAdministrator) {
@@ -675,7 +642,9 @@ class ExamProgressController extends Controller
             $query->where(function ($securityQuery) use ($userId) {
 
                 /*
+                |--------------------------------------------------------------------------
                 | Normal TSA/TCA relationship
+                |--------------------------------------------------------------------------
                 */
 
                 $securityQuery->whereExists(
@@ -707,7 +676,9 @@ class ExamProgressController extends Controller
 
 
                 /*
+                |--------------------------------------------------------------------------
                 | Orphaned old TMS record
+                |--------------------------------------------------------------------------
                 */
 
                 $securityQuery->orWhere(
@@ -754,13 +725,6 @@ class ExamProgressController extends Controller
         /*
         |--------------------------------------------------------------------------
         | LOAD STATUS RECORDS
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | tms.subject_id is explicitly loaded because orphaned status
-        | records can still contain a valid subject ID.
-        |
         |--------------------------------------------------------------------------
         */
 
@@ -868,6 +832,65 @@ class ExamProgressController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | IMPORTANT FIX
+        |--------------------------------------------------------------------------
+        |
+        | COUNT STUDENT MARKS USING:
+        |
+        | teacher_subject_allocation_id
+        | exam_master_id
+        | subject_id
+        |
+        | NOT teacher_class_allocation_id.
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        $markCounts = collect();
+
+        if (
+            $tsaIds->isNotEmpty()
+        ) {
+
+            $markCounts =
+                DB::table(
+                    'student_marks'
+                )
+                ->select([
+                    'teacher_subject_allocation_id',
+                    'exam_master_id',
+                    'subject_id',
+
+                    DB::raw(
+                        'COUNT(DISTINCT student_id) as mark_count'
+                    ),
+                ])
+                ->whereIn(
+                    'teacher_subject_allocation_id',
+                    $tsaIds
+                )
+                ->groupBy(
+                    'teacher_subject_allocation_id',
+                    'exam_master_id',
+                    'subject_id'
+                )
+                ->get()
+                ->keyBy(
+                    function ($row) {
+
+                        return
+                            $row->teacher_subject_allocation_id
+                            . '_'
+                            . $row->exam_master_id
+                            . '_'
+                            . $row->subject_id;
+                    }
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | LOAD TCA IDS
         |--------------------------------------------------------------------------
         */
@@ -927,9 +950,9 @@ class ExamProgressController extends Controller
         ) {
 
             /*
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             | NORMALIZE STATUS
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             */
 
             $status->status =
@@ -944,9 +967,9 @@ class ExamProgressController extends Controller
 
 
             /*
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             | DEFAULT DISPLAY VALUES
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             */
 
             $status->subject_name =
@@ -961,11 +984,19 @@ class ExamProgressController extends Controller
             $status->has_teacher_subject_allocation =
                 false;
 
+            /*
+            |--------------------------------------------------------------------------
+            | DEFAULT MARK COUNT
+            |--------------------------------------------------------------------------
+            */
+
+            $status->mark_count = 0;
+
 
             /*
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             | GET TSA
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             */
 
             $tsa =
@@ -987,9 +1018,9 @@ class ExamProgressController extends Controller
 
 
                 /*
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | GET TCA
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 $tca =
@@ -999,9 +1030,9 @@ class ExamProgressController extends Controller
 
 
                 /*
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | TEACHER SECURITY
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 if (
@@ -1014,9 +1045,9 @@ class ExamProgressController extends Controller
 
 
                 /*
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | STANDARD
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 $actualStandardId =
@@ -1027,9 +1058,9 @@ class ExamProgressController extends Controller
 
 
                 /*
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 | RESOLVE SUBJECT
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
                 */
 
                 $subject =
@@ -1042,9 +1073,9 @@ class ExamProgressController extends Controller
 
 
                 /*
-                |------------------------------------------------------------------
-                | DISPLAY
-                |------------------------------------------------------------------
+                |--------------------------------------------------------------------------
+                | DISPLAY SUBJECT
+                |--------------------------------------------------------------------------
                 */
 
                 if ($subject) {
@@ -1070,6 +1101,60 @@ class ExamProgressController extends Controller
                 }
 
 
+                /*
+                |--------------------------------------------------------------------------
+                | CALCULATE MARK COUNT
+                |--------------------------------------------------------------------------
+                |
+                | Example:
+                |
+                | TSA = 50
+                | Exam = 5
+                | Subject = 2
+                |
+                | Result = 50 students
+                |
+                |--------------------------------------------------------------------------
+                */
+
+                $markSubjectId =
+                    (int) (
+                        $tsa->subject_id
+                        ?? $status->subject_id
+                        ?? 0
+                    );
+
+                $markExamId =
+                    (int) (
+                        $tsa->exam_master_id
+                        ?? $status->exam_master_id
+                        ?? 0
+                    );
+
+                $markKey =
+                    (int) $tsa->id
+                    . '_'
+                    . $markExamId
+                    . '_'
+                    . $markSubjectId;
+
+
+                $markRecord =
+                    $markCounts->get(
+                        $markKey
+                    );
+
+
+                if ($markRecord) {
+
+                    $status->mark_count =
+                        (int) (
+                            $markRecord->mark_count
+                            ?? 0
+                        );
+                }
+
+
                 continue;
             }
 
@@ -1078,22 +1163,14 @@ class ExamProgressController extends Controller
             |--------------------------------------------------------------------------
             | CASE 2: ORPHANED TMS RECORD
             |--------------------------------------------------------------------------
-            |
-            | TMS exists but TSA no longer exists.
-            |
-            | Example:
-            |
-            | TMS 113
-            | subject_id = 2
-            | status = COMPLETED
-            |
-            |--------------------------------------------------------------------------
             */
 
             if (!$isAdministrator) {
 
                 /*
+                |--------------------------------------------------------------------------
                 | Teacher users may see their own orphaned TMS records
+                |--------------------------------------------------------------------------
                 */
 
                 if (
@@ -1105,9 +1182,9 @@ class ExamProgressController extends Controller
 
 
             /*
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             | STANDARD
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             */
 
             $actualStandardId =
@@ -1118,9 +1195,9 @@ class ExamProgressController extends Controller
 
 
             /*
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             | RESOLVE DIRECTLY FROM TMS SUBJECT ID
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             */
 
             $subject = null;
@@ -1146,9 +1223,9 @@ class ExamProgressController extends Controller
 
 
             /*
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             | LEGACY FALLBACK
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             */
 
             if (
@@ -1199,9 +1276,9 @@ class ExamProgressController extends Controller
 
 
             /*
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             | DISPLAY ORPHANED SUBJECT
-            |------------------------------------------------------------------
+            |--------------------------------------------------------------------------
             */
 
             if ($subject) {
@@ -1224,6 +1301,45 @@ class ExamProgressController extends Controller
 
                 $status->resolved_subject_id =
                     (int) $subject->id;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | ORPHANED RECORD MARK COUNT
+            |--------------------------------------------------------------------------
+            |
+            | There is no TSA, therefore we cannot safely associate
+            | student_marks through TSA.
+            |
+            | However, if student_marks contains the same exam + subject,
+            | we can count it as a fallback.
+            |
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $status->exam_master_id &&
+                $status->subject_id
+            ) {
+
+                $status->mark_count =
+                    (int) DB::table(
+                        'student_marks'
+                    )
+                    ->where(
+                        'exam_master_id',
+                        (int) $status->exam_master_id
+                    )
+                    ->where(
+                        'subject_id',
+                        (int) $status->subject_id
+                    )
+                    ->count(
+                        DB::raw(
+                            'DISTINCT student_id'
+                        )
+                    );
             }
         }
 
