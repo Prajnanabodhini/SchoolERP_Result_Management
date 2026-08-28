@@ -13,6 +13,8 @@ use App\Models\Division;
 use App\Models\AcademicYear;
 use App\Models\UserDesignation;
 
+use App\Helpers\StudentHelper; // <-- NEW: for fetching all ERP students
+
 class ResultSheetController extends Controller
 {
     /*
@@ -1006,35 +1008,19 @@ class ResultSheetController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | UNIQUE STUDENT IDS
+        | ERP STUDENTS (ALL ENROLLED)
         |--------------------------------------------------------------------------
-        */
-
-        $studentIds =
-            array_values(
-                array_unique(
-                    array_filter(
-                        array_map(
-                            'intval',
-                            array_keys(
-                                $marksByStudent
-                            )
-                        ),
-                        fn ($id) =>
-                            $id > 0
-                    )
-                )
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ERP STUDENTS
-        |--------------------------------------------------------------------------
+        |
+        | Fetch every student enrolled in the selected class,
+        | regardless of whether they have marks.
+        |
         */
 
         $erpStudents =
-            $this->loadERPStudentsByIds(
-                $studentIds
+            StudentHelper::getStudentsDirectERP(
+                $academicYearId,
+                $standardId,
+                $divisionId
             );
 
         /*
@@ -1047,20 +1033,17 @@ class ResultSheetController extends Controller
             collect();
 
         foreach (
-            $studentIds as $studentId
+            $erpStudents as $erp
         ) {
             $studentId =
-                (int) $studentId;
+                (int) ($erp->Studentid ?? 0);
+
+            if ($studentId <= 0) {
+                continue;
+            }
 
             $studentMarks =
-                $marksByStudent[
-                    $studentId
-                ] ?? [];
-
-            $erp =
-                $erpStudents[
-                    $studentId
-                ] ?? null;
+                $marksByStudent[$studentId] ?? [];
 
             /*
             |--------------------------------------------------------------------------
@@ -1076,24 +1059,21 @@ class ResultSheetController extends Controller
             $rollNo =
                 trim(
                     (string) (
-                        $erp->rollno
-                        ?? ''
+                        $erp->rollno ?? ''
                     )
                 );
 
             $studentName =
                 trim(
                     (string) (
-                        $erp->studname
-                        ?? ''
+                        $erp->studname ?? ''
                     )
                 );
 
             $fatherName =
                 trim(
                     (string) (
-                        $erp->fathername
-                        ?? ''
+                        $erp->fathername ?? ''
                     )
                 );
 
@@ -2450,7 +2430,7 @@ class ResultSheetController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | ERP STUDENTS
+    | ERP STUDENTS (by IDs) – kept for compatibility, but no longer used
     |--------------------------------------------------------------------------
     */
 

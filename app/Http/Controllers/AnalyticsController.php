@@ -22,11 +22,8 @@ class AnalyticsController extends Controller
         */
 
         $academicYears = AcademicYear::orderByDesc('year_name')->get();
-
         $exams = ExamMaster::orderBy('display_order')->get();
-
         $standards = Standard::orderBy('display_order')->get();
-
         $divisions = Division::orderBy('display_order')->get();
 
         /*
@@ -42,7 +39,7 @@ class AnalyticsController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Base Query
+        | Base Query – with conditional academic‑subject filter
         |--------------------------------------------------------------------------
         */
 
@@ -51,20 +48,31 @@ class AnalyticsController extends Controller
         if ($yearId) {
             $query->where('academic_year_id', $yearId);
         }
-// dd([
-//     'request_year' => $request->academic_year_id,
-//     'academic_year_record' => AcademicYear::find($request->academic_year_id),
-// ]);
         if ($examId) {
             $query->where('exam_master_id', $examId);
         }
-
         if ($standardId) {
             $query->where('standard_id', $standardId);
         }
-
         if ($divisionId) {
             $query->where('division_id', $divisionId);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔥 Apply academic‑subject filter ONLY when NO exam is selected
+        |--------------------------------------------------------------------------
+        */
+
+        if (empty($examId)) {
+            $query->join('standard_wise_subjects as sws', function ($join) {
+                $join->on('sws.standard_id', '=', 'student_marks.standard_id')
+                     ->where('sws.is_active', 1)
+                     ->where(function ($q) {
+                         $q->whereColumn('sws.subject_id', '=', 'student_marks.subject_id')
+                           ->orWhereColumn('sws.id', '=', 'student_marks.subject_id');
+                     });
+            });
         }
 
         /*
@@ -120,34 +128,29 @@ class AnalyticsController extends Controller
         */
 
         $subjectAnalysis = (clone $query)
-    ->join('subjects', 'subjects.id', '=', 'student_marks.subject_id')
-    ->leftJoin(
-        'subject_types',
-        'subject_types.id',
-        '=',
-        'subjects.subject_type_id'
-    )
-    ->select(
-        DB::raw("
-            CASE
-                WHEN subject_types.type_name = 'SKILL'
-                THEN 'SKILL SUBJECT'
-                ELSE subjects.subject_name
-            END as display_subject
-        "),
-        DB::raw("
-            AVG(
-                COALESCE(theory_obtained_marks,0)
-                +
-                COALESCE(oral_obtained_marks,0)
-                +
-                COALESCE(practical_obtained_marks,0)
-            ) as avg_marks
-        ")
-    )
-    ->groupBy('display_subject')
-    ->orderBy('display_subject')
-    ->get();
+            ->join('subjects', 'subjects.id', '=', 'student_marks.subject_id')
+            ->leftJoin('subject_types', 'subject_types.id', '=', 'subjects.subject_type_id')
+            ->select(
+                DB::raw("
+                    CASE
+                        WHEN subject_types.type_name = 'SKILL'
+                        THEN 'SKILL SUBJECT'
+                        ELSE subjects.subject_name
+                    END as display_subject
+                "),
+                DB::raw("
+                    AVG(
+                        COALESCE(theory_obtained_marks,0)
+                        +
+                        COALESCE(oral_obtained_marks,0)
+                        +
+                        COALESCE(practical_obtained_marks,0)
+                    ) as avg_marks
+                ")
+            )
+            ->groupBy('display_subject')
+            ->orderBy('display_subject')
+            ->get();
 
         /*
         |--------------------------------------------------------------------------
@@ -156,38 +159,34 @@ class AnalyticsController extends Controller
         */
 
         $passStudents = (clone $query)
-    ->select('student_id')
-    ->groupBy('student_id')
-    ->havingRaw("
-        (
-            SUM(
-                COALESCE(theory_obtained_marks,0)
-                +
-                COALESCE(oral_obtained_marks,0)
-                +
-                COALESCE(practical_obtained_marks,0)
-            )
-            /
-            NULLIF(
-                SUM(
-                    COALESCE(theory_max_marks,0)
-                    +
-                    COALESCE(oral_max_marks,0)
-                    +
-                    COALESCE(practical_max_marks,0)
-                ),
-                0
-            )
-        ) * 100 >= 35
-    ")
-    ->get()
-    ->count();
+            ->select('student_id')
+            ->groupBy('student_id')
+            ->havingRaw("
+                (
+                    SUM(
+                        COALESCE(theory_obtained_marks,0)
+                        +
+                        COALESCE(oral_obtained_marks,0)
+                        +
+                        COALESCE(practical_obtained_marks,0)
+                    )
+                    /
+                    NULLIF(
+                        SUM(
+                            COALESCE(theory_max_marks,0)
+                            +
+                            COALESCE(oral_max_marks,0)
+                            +
+                            COALESCE(practical_max_marks,0)
+                        ),
+                        0
+                    )
+                ) * 100 >= 35
+            ")
+            ->get()
+            ->count();
 
-        $passPercentage =
-            $totalStudents > 0
-            ? ($passStudents / $totalStudents) * 100
-            : 0;
-
+        $passPercentage = $totalStudents > 0 ? ($passStudents / $totalStudents) * 100 : 0;
         $failPercentage = 100 - $passPercentage;
 
         /*
@@ -249,7 +248,6 @@ class AnalyticsController extends Controller
             $request->filled('standard_id') &&
             $request->filled('division_id')
         ) {
-
             $students = StudentHelper::getStudentsDirectERP(
                 $request->academic_year_id,
                 $request->standard_id,
@@ -259,127 +257,84 @@ class AnalyticsController extends Controller
             $studentMap = $students->keyBy('Studentid');
 
             $topStudents = $topStudents->map(function ($row) use ($studentMap) {
-
                 $student = $studentMap->get($row->student_id);
-
-                $row->student_name =
-                    $student
-                    ? $student->full_name
-                    : 'Unknown Student';
-
+                $row->student_name = $student ? $student->full_name : 'Unknown Student';
                 return $row;
             });
 
             $riskStudents = $riskStudents->map(function ($row) use ($studentMap) {
-
                 $student = $studentMap->get($row->student_id);
-
-                $row->student_name =
-                    $student
-                    ? $student->full_name
-                    : 'Unknown Student';
-
+                $row->student_name = $student ? $student->full_name : 'Unknown Student';
                 return $row;
             });
         }
-// dd($request->all());
-$subjectLabels = $subjectAnalysis
-    ->pluck('display_subject')
-    ->toArray();
 
-$subjectMarks = $subjectAnalysis
-    ->pluck('avg_marks')
-    ->map(fn($m) => round($m, 2))
-    ->toArray();
+        /*
+        |--------------------------------------------------------------------------
+        | Grade Distribution
+        |--------------------------------------------------------------------------
+        */
 
-    $topStudentNames = $topStudents
-    ->pluck('student_name')
-    ->toArray();
+        $gradeCounts = [
+            'A1' => 0, 'A2' => 0, 'B1' => 0, 'B2' => 0,
+            'C1' => 0, 'C2' => 0, 'D'  => 0, 'E'  => 0,
+            'Absent' => 0, 'Left' => 0,
+        ];
 
-$topStudentMarks = $topStudents
-    ->pluck('total_marks')
-    ->map(fn($m) => round($m, 2))
-    ->toArray();
+        $studentGrades = (clone $query)
+            ->select(
+                'student_id',
+                DB::raw("MAX(COALESCE(is_absent,0)) as is_absent"),
+                DB::raw("
+                    (
+                        SUM(
+                            COALESCE(theory_obtained_marks,0)
+                            +
+                            COALESCE(oral_obtained_marks,0)
+                            +
+                            COALESCE(practical_obtained_marks,0)
+                        )
+                        /
+                        NULLIF(
+                            SUM(
+                                COALESCE(theory_max_marks,0)
+                                +
+                                COALESCE(oral_max_marks,0)
+                                +
+                                COALESCE(practical_max_marks,0)
+                            ),
+                            0
+                        )
+                    ) * 100 as percentage
+                ")
+            )
+            ->groupBy('student_id')
+            ->get();
 
-    $gradeCounts = [
-    'A1' => 0,
-    'A2' => 0,
-    'B1' => 0,
-    'B2' => 0,
-    'C1' => 0,
-    'C2' => 0,
-    'D'  => 0,
-    'E'  => 0,
-    'Absent' => 0,
-    'Left' => 0,
-];
+        foreach ($studentGrades as $student) {
+            if (($student->is_absent ?? 0) == 1) {
+                $gradeCounts['Absent']++;
+                continue;
+            }
 
-$studentGrades = (clone $query)
-    ->select(
-        'student_id',
-        DB::raw("
-            MAX(COALESCE(is_absent,0)) as is_absent
-        "),
-        DB::raw("
-            (
-                SUM(
-                    COALESCE(theory_obtained_marks,0)
-                    +
-                    COALESCE(oral_obtained_marks,0)
-                    +
-                    COALESCE(practical_obtained_marks,0)
-                )
-                /
-                NULLIF(
-                    SUM(
-                        COALESCE(theory_max_marks,0)
-                        +
-                        COALESCE(oral_max_marks,0)
-                        +
-                        COALESCE(practical_max_marks,0)
-                    ),
-                    0
-                )
-            ) * 100 as percentage
-        ")
-    )
-    ->groupBy('student_id')
-    ->get();
+            $avg = $student->percentage;
 
-foreach ($studentGrades as $student)
-{
-    if (($student->is_absent ?? 0) == 1) {
-        $gradeCounts['Absent']++;
-        continue;
-    }
+            if ($avg >= 91)      $gradeCounts['A1']++;
+            elseif ($avg >= 81)  $gradeCounts['A2']++;
+            elseif ($avg >= 71)  $gradeCounts['B1']++;
+            elseif ($avg >= 61)  $gradeCounts['B2']++;
+            elseif ($avg >= 51)  $gradeCounts['C1']++;
+            elseif ($avg >= 41)  $gradeCounts['C2']++;
+            elseif ($avg >= 35)  $gradeCounts['D']++;
+            else                 $gradeCounts['E']++;
+        }
 
-    $avg = $student->percentage;
+        // Chart data
+        $subjectLabels = $subjectAnalysis->pluck('display_subject')->toArray();
+        $subjectMarks = $subjectAnalysis->pluck('avg_marks')->map(fn($m) => round($m, 2))->toArray();
 
-    if ($avg >= 91) {
-        $gradeCounts['A1']++;
-    }
-    elseif ($avg >= 81) {
-        $gradeCounts['A2']++;
-    }
-    elseif ($avg >= 71) {
-        $gradeCounts['B1']++;
-    }
-    elseif ($avg >= 61) {
-        $gradeCounts['B2']++;
-    }
-    elseif ($avg >= 51) {
-        $gradeCounts['C1']++;
-    }
-    elseif ($avg >= 41) {
-        $gradeCounts['C2']++;
-    }
-    elseif ($avg >= 35) {
-        $gradeCounts['D']++;
-    }
-    else {
-        $gradeCounts['E']++;
-    }
-}
+        $topStudentNames = $topStudents->pluck('student_name')->toArray();
+        $topStudentMarks = $topStudents->pluck('total_marks')->map(fn($m) => round($m, 2))->toArray();
 
         return view(
             'analytics.index',

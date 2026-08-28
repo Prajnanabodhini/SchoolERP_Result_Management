@@ -38,8 +38,8 @@ use App\Http\Controllers\ExamProgressController;
 use App\Http\Controllers\Administrator\ResultGenerationController;
 use App\Http\Controllers\Administrator\ResultRegisterController;
 use App\Http\Controllers\Administrator\ReportCardController;
-use App\Http\Controllers\Administrator\ResultSheetController;
-use App\Http\Controllers\Administrator\AdminMarksController;
+use App\Http\Controllers\Administrator\ResultSheetController; // ORIGINAL – WORKING
+use App\Http\Controllers\Marks\AdminMarksController;
 use App\Http\Controllers\Administrator\MarkAuditController;
 
 /*
@@ -783,8 +783,7 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     |
     | IMPORTANT:
-    | This uses the OLD single controller:
-    |
+    | Using the original working controller:
     | App\Http\Controllers\Administrator\ResultSheetController
     |
     |--------------------------------------------------------------------------

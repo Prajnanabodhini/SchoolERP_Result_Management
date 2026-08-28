@@ -12,7 +12,6 @@ use App\Models\StudentMark;
 use App\Models\TeacherMarksStatus;
 use App\Models\TeacherSubjectAllocation;
 use App\Models\TeacherClassAllocation;
-use App\Models\ExamMasterSubject;
 use App\Models\MarkAuditLog;
 
 use App\Helpers\StudentHelper;
@@ -29,59 +28,41 @@ class AdminMarksEntryService
     {
         return [
 
-            'students' =>
-                collect(),
+            'students' => collect(),
 
-            'existingMarks' =>
-                collect(),
+            'existingMarks' => collect(),
 
-            'exam' =>
-                null,
+            'exam' => null,
 
-            'teacherSubjectAllocation' =>
-                null,
+            'teacherSubjectAllocation' => null,
 
-            'selectedClassAllocation' =>
-                null,
+            'selectedClassAllocation' => null,
 
-            'subjectConfig' =>
-                null,
+            'subjectConfig' => null,
 
-            'showTheory' =>
-                false,
+            'showTheory' => false,
 
-            'showOral' =>
-                false,
+            'showOral' => false,
 
-            'showPractical' =>
-                false,
+            'showPractical' => false,
 
-            'theoryMaxMarks' =>
-                0,
+            'theoryMaxMarks' => 0,
 
-            'theoryPassingMarks' =>
-                0,
+            'theoryPassingMarks' => 0,
 
-            'oralMaxMarks' =>
-                0,
+            'oralMaxMarks' => 0,
 
-            'oralPassingMarks' =>
-                0,
+            'oralPassingMarks' => 0,
 
-            'practicalMaxMarks' =>
-                0,
+            'practicalMaxMarks' => 0,
 
-            'practicalPassingMarks' =>
-                0,
+            'practicalPassingMarks' => 0,
 
-            'marksLocked' =>
-                false,
+            'marksLocked' => false,
 
-            'message' =>
-                '',
+            'message' => '',
 
-            'error' =>
-                '',
+            'error' => '',
         ];
     }
 
@@ -90,13 +71,6 @@ class AdminMarksEntryService
     |--------------------------------------------------------------------------
     | LOAD SELECTED DATA
     |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    |
-    | This method does nothing expensive until a teaching assignment is
-    | actually selected.
-    |
-    |--------------------------------------------------------------------------
     */
 
     public function loadSelectedData(
@@ -104,64 +78,25 @@ class AdminMarksEntryService
         $exams,
         $subjectService
     ) {
+        $data = $this->emptySelectedData();
 
-        /*
-        |--------------------------------------------------------------------------
-        | INITIAL DATA
-        |--------------------------------------------------------------------------
-        */
+        $selectionValue = $request->input(
+            'teacher_subject_allocation_id'
+        );
 
-        $data =
-            $this->emptySelectedData();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SELECTION
-        |--------------------------------------------------------------------------
-        */
-
-        $selectionValue =
-            $request->input(
-                'teacher_subject_allocation_id'
-            );
-
-
-        if (
-            !$selectionValue
-        ) {
-
+        if (!$selectionValue) {
             return $data;
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PARSE:
-        |
-        | TSA|SUBJECT
-        |--------------------------------------------------------------------------
-        */
 
         [
             $tsaId,
             $selectedSubjectId
-        ] =
-            $this->parseSelection(
-                $request
-            );
+        ] = $this->parseSelection($request);
 
-
-        if (
-            !$tsaId
-        ) {
-
-            $data['error'] =
-                'Invalid teaching assignment.';
-
+        if (!$tsaId) {
+            $data['error'] = 'Invalid teaching assignment.';
             return $data;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -169,11 +104,9 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        $requestedExamId =
-            $request->input(
-                'exam_master_id'
-            );
-
+        $requestedExamId = $request->input(
+            'exam_master_id'
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -181,61 +114,42 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        $status =
-            TeacherMarksStatus::query()
-                ->where(
-                    'teacher_subject_allocation_id',
-                    $tsaId
-                )
-                ->when(
-                    $requestedExamId !== null
-                    &&
-                    $requestedExamId !== '',
-                    function ($query) use (
-                        $requestedExamId
-                    ) {
+        $status = TeacherMarksStatus::query()
+            ->where(
+                'teacher_subject_allocation_id',
+                $tsaId
+            )
+            ->when(
+                $requestedExamId !== null
+                && $requestedExamId !== '',
+                function ($query) use ($requestedExamId) {
 
-                        $query->where(
-                            'exam_master_id',
-                            (int)
-                            $requestedExamId
-                        );
-                    }
-                )
-                ->orderByDesc(
-                    'id'
-                )
-                ->first();
-
+                    $query->where(
+                        'exam_master_id',
+                        (int) $requestedExamId
+                    );
+                }
+            )
+            ->orderByDesc('id')
+            ->first();
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD REAL TSA
-        |--------------------------------------------------------------------------
-        |
-        | Only one TSA is loaded.
+        | LOAD TSA
         |--------------------------------------------------------------------------
         */
 
-        $tsa =
-            TeacherSubjectAllocation::query()
-                ->with([
-                    'allocation.teacher',
-                    'allocation.academicYear',
-                    'allocation.section',
-                    'allocation.standard',
-                    'allocation.division',
-                ])
-                ->find(
-                    $tsaId
-                );
+        $tsa = TeacherSubjectAllocation::query()
+            ->with([
+                'allocation.teacher',
+                'allocation.academicYear',
+                'allocation.section',
+                'allocation.standard',
+                'allocation.division',
+            ])
+            ->find($tsaId);
 
-
-        if (
-            !$tsa
-            ||
-            !$tsa->allocation
-        ) {
+        if (!$tsa || !$tsa->allocation) {
 
             $data['error'] =
                 'Teacher class allocation not found.';
@@ -243,10 +157,7 @@ class AdminMarksEntryService
             return $data;
         }
 
-
-        $allocation =
-            $tsa->allocation;
-
+        $allocation = $tsa->allocation;
 
         /*
         |--------------------------------------------------------------------------
@@ -254,25 +165,18 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        $examId =
-            (int)
-            (
-                $requestedExamId
-                ??
-                $tsa->exam_master_id
-            );
+        $examId = (int) (
+            $requestedExamId
+            ?? $tsa->exam_master_id
+        );
 
-
-        if (
-            !$examId
-        ) {
+        if (!$examId) {
 
             $data['error'] =
                 'Exam linked to the selected teaching assignment was not found.';
 
             return $data;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -280,27 +184,16 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        $exam =
-            $exams->firstWhere(
-                'id',
-                $examId
-            );
+        $exam = $exams->firstWhere(
+            'id',
+            $examId
+        );
 
-
-        if (
-            !$exam
-        ) {
-
-            $exam =
-                ExamMaster::find(
-                    $examId
-                );
+        if (!$exam) {
+            $exam = ExamMaster::find($examId);
         }
 
-
-        if (
-            !$exam
-        ) {
+        if (!$exam) {
 
             $data['error'] =
                 'Exam linked to the selected teaching assignment was not found.';
@@ -308,59 +201,67 @@ class AdminMarksEntryService
             return $data;
         }
 
-
-        $data['exam'] =
-            $exam;
-
+        $data['exam'] = $exam;
 
         /*
         |--------------------------------------------------------------------------
-        | STANDARD / DIVISION / ACADEMIC YEAR
+        | STANDARD
         |--------------------------------------------------------------------------
         */
 
-        $standardId =
-            (int)
-            (
-                $status?->standard_id
-                ??
-                $allocation->standard_id
-            );
-
-
-        $divisionId =
-            (int)
-            (
-                $status?->division_id
-                ??
-                $allocation->division_id
-            );
-
-
-        $academicYearId =
-            (int)
-            (
-                $status?->academic_year_id
-                ??
-                $allocation->academic_year_id
-                ??
-                $exam->academic_year_id
-                ??
-                0
-            );
-
+        $standardId = (int) (
+            $status?->standard_id
+            ?? $allocation->standard_id
+        );
 
         /*
         |--------------------------------------------------------------------------
-        | ACADEMIC YEAR VALIDATION
+        | DIVISION
+        |--------------------------------------------------------------------------
+        */
+
+        $divisionId = (int) (
+            $status?->division_id
+            ?? $allocation->division_id
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACADEMIC YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        $academicYearId = (int) (
+            $status?->academic_year_id
+            ?? $allocation->academic_year_id
+            ?? $exam->academic_year_id
+            ?? 0
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | SECTION
+        |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        | uk_student_marks contains section_id.
+        |
+        */
+
+        $sectionId = (int) (
+            $status?->section_id
+            ?? $allocation->section_id
+            ?? 0
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDATE ACADEMIC YEAR
         |--------------------------------------------------------------------------
         */
 
         $requestedAcademicYearId =
-            $request->input(
-                'academic_year_id'
-            );
-
+            $request->input('academic_year_id');
 
         if (
             $requestedAcademicYearId !== null
@@ -369,9 +270,7 @@ class AdminMarksEntryService
             &&
             $academicYearId > 0
             &&
-            (int)
-            $requestedAcademicYearId !==
-            $academicYearId
+            (int) $requestedAcademicYearId !== $academicYearId
         ) {
 
             $data['error'] =
@@ -380,37 +279,45 @@ class AdminMarksEntryService
             return $data;
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | SUBJECT RESOLUTION
-        |--------------------------------------------------------------------------
-        |
-        | Priority:
-        |
-        | 1. Explicit subject from selection key
-        | 2. Student marks historical subject
-        | 3. TMS subject
-        | 4. TSA subject
-        |
+        | VALIDATE BASIC CLASS DATA
         |--------------------------------------------------------------------------
         */
 
-        $actualSubjectId =
-            $this->resolveSelectedSubject(
-                $selectedSubjectId,
-                $tsa,
-                $status,
-                $examId,
-                $standardId,
-                $divisionId,
-                $subjectService
-            );
-
-
         if (
-            !$actualSubjectId
+            $academicYearId <= 0
+            ||
+            $sectionId <= 0
+            ||
+            $standardId <= 0
+            ||
+            $divisionId <= 0
         ) {
+
+            $data['error'] =
+                'Unable to determine Academic Year, Section, Standard or Division.';
+
+            return $data;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT
+        |--------------------------------------------------------------------------
+        */
+
+        $actualSubjectId = $this->resolveSelectedSubject(
+            $selectedSubjectId,
+            $tsa,
+            $status,
+            $examId,
+            $standardId,
+            $divisionId,
+            $subjectService
+        );
+
+        if (!$actualSubjectId) {
 
             $data['error'] =
                 'Unable to resolve the actual Subject Master ID.';
@@ -418,41 +325,29 @@ class AdminMarksEntryService
             return $data;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | SUBJECT MASTER
         |--------------------------------------------------------------------------
         */
 
-        $subject =
-            Subject::query()
-                ->where(
-                    'id',
-                    $actualSubjectId
-                )
-                ->where(
-                    'is_active',
-                    1
-                )
-                ->first([
-                    'id',
-                    'subject_name',
-                    'subject_code',
-                    'short_name',
-                ]);
+        $subject = Subject::query()
+            ->where('id', $actualSubjectId)
+            ->where('is_active', 1)
+            ->first([
+                'id',
+                'subject_name',
+                'subject_code',
+                'short_name',
+            ]);
 
-
-        if (
-            !$subject
-        ) {
+        if (!$subject) {
 
             $data['error'] =
                 'The selected subject was not found.';
 
             return $data;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -473,7 +368,6 @@ class AdminMarksEntryService
             return $data;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | BUILD DISPLAY ASSIGNMENT
@@ -490,22 +384,15 @@ class AdminMarksEntryService
                 $selectedSubjectId
             );
 
-
-        $data[
-            'teacherSubjectAllocation'
-        ] =
+        $data['teacherSubjectAllocation'] =
             $displayAssignment;
 
-
-        $data[
-            'selectedClassAllocation'
-        ] =
+        $data['selectedClassAllocation'] =
             $allocation;
-
 
         /*
         |--------------------------------------------------------------------------
-        | EXAM SUBJECT CONFIGURATION
+        | SUBJECT CONFIGURATION
         |--------------------------------------------------------------------------
         */
 
@@ -516,10 +403,7 @@ class AdminMarksEntryService
                 $actualSubjectId
             );
 
-
-        if (
-            !$subjectConfig
-        ) {
+        if (!$subjectConfig) {
 
             $data['error'] =
                 'Marks configuration was not found for '
@@ -531,12 +415,8 @@ class AdminMarksEntryService
             return $data;
         }
 
-
-        $data[
-            'subjectConfig'
-        ] =
+        $data['subjectConfig'] =
             $subjectConfig;
-
 
         /*
         |--------------------------------------------------------------------------
@@ -550,45 +430,27 @@ class AdminMarksEntryService
                 $subjectConfig
             );
 
-
-        $data =
-            array_merge(
-                $data,
-                $component
-            );
-
+        $data = array_merge(
+            $data,
+            $component
+        );
 
         /*
         |--------------------------------------------------------------------------
         | LOAD STUDENTS
         |--------------------------------------------------------------------------
-        |
-        | This expensive ERP query runs ONLY after the assignment is selected.
-        |--------------------------------------------------------------------------
         */
 
         try {
 
-            if (
-                $academicYearId > 0
-                &&
-                $standardId > 0
-                &&
-                $divisionId > 0
-            ) {
+            $data['students'] =
+                $this->loadStudents(
+                    $academicYearId,
+                    $standardId,
+                    $divisionId
+                );
 
-                $data['students'] =
-                    $this->loadStudents(
-                        $academicYearId,
-                        $standardId,
-                        $divisionId
-                    );
-
-            }
-
-        } catch (
-            \Throwable $e
-        ) {
+        } catch (\Throwable $e) {
 
             report($e);
 
@@ -600,40 +462,33 @@ class AdminMarksEntryService
                 . $e->getMessage();
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | LOAD EXISTING MARKS
         |--------------------------------------------------------------------------
         |
-        | CRITICAL FIX:
+        | IMPORTANT:
         |
-        | Do not use the current TSA as the identity.
+        | We now use the SAME identity as uk_student_marks:
         |
-        | Historical data can have a different TSA.
+        | academic_year_id
+        | section_id
+        | exam_master_id
+        | subject_id
+        | student_id
         |
-        | Match by:
-        |
-        |     exam
-        |     student
-        |     actual subject
-        |     standard
-        |     division
-        |
-        |--------------------------------------------------------------------------
         */
 
-        $data[
-            'existingMarks'
-        ] =
+        $data['existingMarks'] =
             $this->loadExistingMarks(
                 $examId,
                 $actualSubjectId,
+                $academicYearId,
+                $sectionId,
                 $standardId,
                 $divisionId,
                 $subjectService
             );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -644,21 +499,15 @@ class AdminMarksEntryService
         $statusName =
             strtoupper(
                 trim(
-                    (string)
-                    (
+                    (string) (
                         $status?->status
-                        ??
-                        'PENDING'
+                        ?? 'PENDING'
                     )
                 )
             );
 
-
-        $data[
-            'marksLocked'
-        ] =
+        $data['marksLocked'] =
             $statusName === 'COMPLETED';
-
 
         /*
         |--------------------------------------------------------------------------
@@ -666,9 +515,7 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $data['marksLocked']
-        ) {
+        if ($data['marksLocked']) {
 
             $data['message'] =
                 'Status: COMPLETED. Administrator can modify these marks.';
@@ -689,7 +536,6 @@ class AdminMarksEntryService
                 . '. Administrator can modify these marks.';
         }
 
-
         return $data;
     }
 
@@ -709,26 +555,19 @@ class AdminMarksEntryService
                 'teacher_subject_allocation_id'
             );
 
-
         if (
             $value === null
             ||
             $value === ''
         ) {
-
             return [
                 null,
                 null,
             ];
         }
 
-
-        $tsaId =
-            null;
-
-        $subjectId =
-            null;
-
+        $tsaId = null;
+        $subjectId = null;
 
         if (
             str_contains(
@@ -743,24 +582,16 @@ class AdminMarksEntryService
                     (string) $value
                 );
 
-
             $tsaId =
-                isset(
-                    $parts[0]
-                )
-                    ? (int)
-                        $parts[0]
+                isset($parts[0])
+                    ? (int) $parts[0]
                     : null;
 
-
             $subjectId =
-                isset(
-                    $parts[1]
-                )
-                    &&
-                    $parts[1] !== ''
-                    ? (int)
-                        $parts[1]
+                isset($parts[1])
+                &&
+                $parts[1] !== ''
+                    ? (int) $parts[1]
                     : null;
 
         } else {
@@ -768,11 +599,8 @@ class AdminMarksEntryService
             $tsaId =
                 (int) $value;
 
-
             if (
-                $request->filled(
-                    'subject_id'
-                )
+                $request->filled('subject_id')
             ) {
 
                 $subjectId =
@@ -782,7 +610,6 @@ class AdminMarksEntryService
                     );
             }
         }
-
 
         return [
             $tsaId,
@@ -813,9 +640,7 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $selectedSubjectId
-        ) {
+        if ($selectedSubjectId) {
 
             $actual =
                 $subjectService->resolveActualSubjectId(
@@ -823,75 +648,15 @@ class AdminMarksEntryService
                     $standardId
                 );
 
+            if ($actual) {
 
-            if (
-                $actual
-            ) {
-
-                /*
-                | Check whether this subject actually has marks for the
-                | selected assignment. This is especially important when
-                | the TSA contains historical subject data.
-                */
-
-                $historicalExists =
-                    StudentMark::query()
-                        ->where(
-                            'exam_master_id',
-                            $examId
-                        )
-                        ->where(
-                            'standard_id',
-                            $standardId
-                        )
-                        ->where(
-                            'division_id',
-                            $divisionId
-                        )
-                        ->where(
-                            'subject_id',
-                            $actual
-                        )
-                        ->where(
-                            'teacher_subject_allocation_id',
-                            $tsa->id
-                        )
-                        ->exists();
-
-
-                if (
-                    $historicalExists
-                ) {
-
-                    return $actual;
-                }
-
-
-                /*
-                | Even if there are no marks, the selected subject from
-                | the dropdown is authoritative when it belongs to the
-                | Standard.
-                */
-
-                if (
-                    $subjectService->isMappedToStandard(
-                        $actual,
-                        $standardId
-                    )
-                ) {
-
-                    return $actual;
-                }
+                return $actual;
             }
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | 2. HISTORICAL SUBJECT FROM STUDENT MARKS
-        |--------------------------------------------------------------------------
-        |
-        | Search only one TSA + exam.
+        | 2. HISTORICAL SUBJECT
         |--------------------------------------------------------------------------
         */
 
@@ -913,21 +678,15 @@ class AdminMarksEntryService
                     'division_id',
                     $divisionId
                 )
-                ->whereNotNull(
-                    'subject_id'
-                )
-                ->orderByDesc(
-                    'id'
-                )
-                ->pluck(
-                    'subject_id'
-                )
+                ->whereNotNull('subject_id')
+                ->orderByDesc('id')
+                ->pluck('subject_id')
                 ->unique()
                 ->values();
 
-
         foreach (
-            $historicalSubjectIds as $storedSubjectId
+            $historicalSubjectIds
+            as $storedSubjectId
         ) {
 
             $actual =
@@ -936,15 +695,10 @@ class AdminMarksEntryService
                     $standardId
                 );
 
-
-            if (
-                $actual
-            ) {
-
+            if ($actual) {
                 return $actual;
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -964,15 +718,10 @@ class AdminMarksEntryService
                     $standardId
                 );
 
-
-            if (
-                $actual
-            ) {
-
+            if ($actual) {
                 return $actual;
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -992,15 +741,10 @@ class AdminMarksEntryService
                     $standardId
                 );
 
-
-            if (
-                $actual
-            ) {
-
+            if ($actual) {
                 return $actual;
             }
         }
-
 
         return null;
     }
@@ -1024,119 +768,75 @@ class AdminMarksEntryService
         $assignment =
             new TeacherSubjectAllocation();
 
-
         $assignment->id =
             (int) $tsa->id;
-
 
         $assignment->teacher_class_allocation_id =
             (int)
             $tsa->teacher_class_allocation_id;
 
-
         $assignment->exam_master_id =
-            (int)
-            $exam->id;
-
+            (int) $exam->id;
 
         $assignment->subject_id =
-            (int)
-            $subject->id;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | RELATIONS
-        |--------------------------------------------------------------------------
-        */
+            (int) $subject->id;
 
         $assignment->setRelation(
             'allocation',
             $allocation
         );
 
-
         $assignment->setRelation(
             'subject',
             $subject
         );
-
 
         $assignment->setRelation(
             'exam',
             $exam
         );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESOLVED VALUES
-        |--------------------------------------------------------------------------
-        */
-
         $assignment->resolved_subject_id =
-            (int)
-            $subject->id;
-
+            (int) $subject->id;
 
         $assignment->resolved_academic_year_id =
-            (int)
-            $allocation->academic_year_id;
+            (int) $allocation->academic_year_id;
 
+        $assignment->resolved_section_id =
+            (int) $allocation->section_id;
 
         $assignment->resolved_class_allocation_id =
-            (int)
-            $allocation->id;
-
+            (int) $allocation->id;
 
         $assignment->resolved_exam_master_id =
-            (int)
-            $exam->id;
-
+            (int) $exam->id;
 
         $assignment->resolved_standard_id =
-            (int)
-            $allocation->standard_id;
-
+            (int) $allocation->standard_id;
 
         $assignment->resolved_division_id =
-            (int)
-            $allocation->division_id;
-
+            (int) $allocation->division_id;
 
         $assignment->resolved_teacher_id =
             $allocation->user_id
-                ? (int)
-                    $allocation->user_id
+                ? (int) $allocation->user_id
                 : null;
-
 
         $assignment->resolved_tms_subject_id =
             $status?->subject_id;
 
-
         $assignment->resolved_status =
             strtoupper(
                 trim(
-                    (string)
-                    (
+                    (string) (
                         $status?->status
-                        ??
-                        'PENDING'
+                        ?? 'PENDING'
                     )
                 )
             );
 
-
         $assignment->resolved_status_id =
             $status?->id;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | HISTORICAL
-        |--------------------------------------------------------------------------
-        */
 
         $assignment->is_historical =
             (
@@ -1144,28 +844,18 @@ class AdminMarksEntryService
                 &&
                 $status
                 &&
-                (int)
-                $selectedSubjectId
+                (int) $selectedSubjectId
                 !==
-                (int)
-                (
+                (int) (
                     $status->subject_id
                     ?? 0
                 )
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | UNIQUE SELECTION KEY
-        |--------------------------------------------------------------------------
-        */
-
         $assignment->resolved_selection_key =
             $tsa->id
             . '|'
             . $subject->id;
-
 
         return $assignment;
     }
@@ -1190,20 +880,7 @@ class AdminMarksEntryService
                 $divisionId
             );
 
-
-        $students =
-            collect(
-                $students
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ROLL NUMBER SORT
-        |--------------------------------------------------------------------------
-        */
-
-        return $students
+        return collect($students)
             ->sortBy(
                 function ($student) {
 
@@ -1218,16 +895,13 @@ class AdminMarksEntryService
                         ??
                         null;
 
-
                     if (
                         $roll === null
                         ||
                         $roll === ''
                     ) {
-
                         return PHP_INT_MAX;
                     }
-
 
                     return (int) $roll;
                 }
@@ -1241,70 +915,52 @@ class AdminMarksEntryService
     | LOAD EXISTING MARKS
     |--------------------------------------------------------------------------
     |
-    | CRITICAL PERFORMANCE + DATA FIX
-    |--------------------------------------------------------------------------
+    | IMPORTANT:
     |
-    | DO NOT use:
+    | DO NOT identify marks using TSA.
     |
-    |     where teacher_subject_allocation_id = current TSA
+    | uk_student_marks identity:
     |
-    | Instead:
+    | academic_year_id
+    | section_id
+    | exam_master_id
+    | subject_id
+    | student_id
     |
-    |     exam
-    |     subject
-    |     standard
-    |     division
-    |
-    | and then one mark per student.
-    |
-    |--------------------------------------------------------------------------
     */
 
     private function loadExistingMarks(
         $examId,
         $actualSubjectId,
+        $academicYearId,
+        $sectionId,
         $standardId,
         $divisionId,
         $subjectService
     ) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | POSSIBLE SUBJECT IDs
-        |--------------------------------------------------------------------------
-        |
-        | Current:
-        |     subjects.id
-        |
-        | Legacy:
-        |     standard_wise_subjects.id
-        |--------------------------------------------------------------------------
-        */
-
         $possibleSubjectIds =
-            $subjectService
-                ->getPossibleSubjectIds(
-                    $actualSubjectId,
-                    $standardId
-                );
-
+            $subjectService->getPossibleSubjectIds(
+                $actualSubjectId,
+                $standardId
+            );
 
         if (
             $possibleSubjectIds->isEmpty()
         ) {
-
             return collect();
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SINGLE TARGETED QUERY
-        |--------------------------------------------------------------------------
-        */
-
         $marks =
             StudentMark::query()
+                ->where(
+                    'academic_year_id',
+                    $academicYearId
+                )
+                ->where(
+                    'section_id',
+                    $sectionId
+                )
                 ->where(
                     'exam_master_id',
                     $examId
@@ -1313,40 +969,20 @@ class AdminMarksEntryService
                     'subject_id',
                     $possibleSubjectIds
                 )
-                ->where(
-                    'standard_id',
-                    $standardId
-                )
-                ->where(
-                    'division_id',
-                    $divisionId
-                )
-                ->orderByDesc(
-                    'id'
-                )
+                ->orderByDesc('id')
                 ->get();
 
-
-        if (
-            $marks->isEmpty()
-        ) {
-
+        if ($marks->isEmpty()) {
             return collect();
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | NORMALIZE SUBJECT ID IN MEMORY
-        |--------------------------------------------------------------------------
-        |
-        | This is useful if an old mark still contains an SWS ID.
+        | RESOLVE SUBJECT IDs
         |--------------------------------------------------------------------------
         */
 
-        foreach (
-            $marks as $mark
-        ) {
+        foreach ($marks as $mark) {
 
             $resolved =
                 $subjectService
@@ -1355,33 +991,44 @@ class AdminMarksEntryService
                         $standardId
                     );
 
-
-            if (
-                $resolved
-            ) {
+            if ($resolved) {
 
                 $mark->resolved_subject_id =
                     (int) $resolved;
             }
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | KEEP ONLY CURRENT STANDARD/DIVISION WHEN POSSIBLE
+        |--------------------------------------------------------------------------
+        */
+
+        $marks =
+            $marks->filter(
+                function ($mark) use (
+                    $standardId,
+                    $divisionId
+                ) {
+
+                    return
+                        (int) $mark->standard_id ===
+                            (int) $standardId
+                        &&
+                        (int) $mark->division_id ===
+                            (int) $divisionId;
+                }
+            );
 
         /*
         |--------------------------------------------------------------------------
         | ONE MARK PER STUDENT
         |--------------------------------------------------------------------------
-        |
-        | Latest record wins because query is orderByDesc(id).
-        |--------------------------------------------------------------------------
         */
 
         return $marks
-            ->unique(
-                'student_id'
-            )
-            ->keyBy(
-                'student_id'
-            );
+            ->unique('student_id')
+            ->keyBy('student_id');
     }
 
 
@@ -1396,51 +1043,19 @@ class AdminMarksEntryService
         $subjectConfig
     ): array {
 
-        /*
-        |--------------------------------------------------------------------------
-        | THEORY
-        |--------------------------------------------------------------------------
-        */
-
-        $showTheory =
-            true;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ORAL
-        |--------------------------------------------------------------------------
-        */
+        $showTheory = true;
 
         $showOral =
-            (bool)
-            (
+            (bool) (
                 $exam->has_oral
-                ??
-                false
+                ?? false
             );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PRACTICAL
-        |--------------------------------------------------------------------------
-        */
 
         $showPractical =
-            (bool)
-            (
+            (bool) (
                 $exam->has_practical
-                ??
-                false
+                ?? false
             );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UNIT TEST 1
-        |--------------------------------------------------------------------------
-        */
 
         $examName =
             strtoupper(
@@ -1450,7 +1065,6 @@ class AdminMarksEntryService
                 )
             );
 
-
         if (
             str_contains(
                 $examName,
@@ -1458,13 +1072,9 @@ class AdminMarksEntryService
             )
         ) {
 
-            $showOral =
-                false;
-
-            $showPractical =
-                false;
+            $showOral = false;
+            $showPractical = false;
         }
-
 
         return [
 
@@ -1478,59 +1088,47 @@ class AdminMarksEntryService
                 $showPractical,
 
             'theoryMaxMarks' =>
-                (float)
-                (
+                (float) (
                     $subjectConfig->max_marks
-                    ??
-                    0
+                    ?? 0
                 ),
 
             'theoryPassingMarks' =>
-                (float)
-                (
+                (float) (
                     $subjectConfig->passing_marks
-                    ??
-                    0
+                    ?? 0
                 ),
 
             'oralMaxMarks' =>
                 $showOral
-                    ? (float)
-                        (
-                            $exam->oral_max_marks
-                            ??
-                            0
-                        )
+                    ? (float) (
+                        $exam->oral_max_marks
+                        ?? 0
+                    )
                     : 0,
 
             'oralPassingMarks' =>
                 $showOral
-                    ? (float)
-                        (
-                            $exam->oral_passing_marks
-                            ??
-                            0
-                        )
+                    ? (float) (
+                        $exam->oral_passing_marks
+                        ?? 0
+                    )
                     : 0,
 
             'practicalMaxMarks' =>
                 $showPractical
-                    ? (float)
-                        (
-                            $exam->practical_max_marks
-                            ??
-                            0
-                        )
+                    ? (float) (
+                        $exam->practical_max_marks
+                        ?? 0
+                    )
                     : 0,
 
             'practicalPassingMarks' =>
                 $showPractical
-                    ? (float)
-                        (
-                            $exam->practical_passing_marks
-                            ??
-                            0
-                        )
+                    ? (float) (
+                        $exam->practical_passing_marks
+                        ?? 0
+                    )
                     : 0,
         ];
     }
@@ -1559,7 +1157,6 @@ class AdminMarksEntryService
             $value =
                 (float) $value;
 
-
             if (
                 $value < 0
                 ||
@@ -1576,10 +1173,8 @@ class AdminMarksEntryService
                 );
             }
 
-
             return $value;
         }
-
 
         if (
             $required
@@ -1593,7 +1188,6 @@ class AdminMarksEntryService
                 . $studentId
             );
         }
-
 
         return null;
     }
@@ -1610,12 +1204,6 @@ class AdminMarksEntryService
         $subjectService
     ) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATION
-        |--------------------------------------------------------------------------
-        */
-
         $request->validate([
 
             'teacher_subject_allocation_id' =>
@@ -1628,7 +1216,6 @@ class AdminMarksEntryService
                 'required|array|min:1',
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | PARSE SELECTION
@@ -1638,20 +1225,12 @@ class AdminMarksEntryService
         [
             $tsaId,
             $selectedSubjectId
-        ] =
-            $this->parseSelection(
-                $request
-            );
-
+        ] = $this->parseSelection($request);
 
         $examId =
-            (int)
-            $request->exam_master_id;
+            (int) $request->exam_master_id;
 
-
-        if (
-            !$tsaId
-        ) {
+        if (!$tsaId) {
 
             return back()
                 ->withInput()
@@ -1661,10 +1240,9 @@ class AdminMarksEntryService
                 ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | LOAD TSA
+        | TSA
         |--------------------------------------------------------------------------
         */
 
@@ -1673,10 +1251,7 @@ class AdminMarksEntryService
                 $tsaId
             );
 
-
-        if (
-            !$tsa
-        ) {
+        if (!$tsa) {
 
             return back()
                 ->withInput()
@@ -1686,10 +1261,9 @@ class AdminMarksEntryService
                 ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | LOAD STATUS
+        | STATUS
         |--------------------------------------------------------------------------
         */
 
@@ -1703,15 +1277,12 @@ class AdminMarksEntryService
                     'exam_master_id',
                     $examId
                 )
-                ->orderByDesc(
-                    'id'
-                )
+                ->orderByDesc('id')
                 ->first();
-
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD CLASS ALLOCATION
+        | CLASS ALLOCATION
         |--------------------------------------------------------------------------
         */
 
@@ -1720,10 +1291,7 @@ class AdminMarksEntryService
                 $tsa->teacher_class_allocation_id
             );
 
-
-        if (
-            !$classAllocation
-        ) {
+        if (!$classAllocation) {
 
             return back()
                 ->withInput()
@@ -1733,34 +1301,40 @@ class AdminMarksEntryService
                 ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | STANDARD / DIVISION / YEAR
+        | STANDARD
         |--------------------------------------------------------------------------
         */
 
         $standardId =
-            (int)
-            (
+            (int) (
                 $status?->standard_id
                 ??
                 $classAllocation->standard_id
             );
 
+        /*
+        |--------------------------------------------------------------------------
+        | DIVISION
+        |--------------------------------------------------------------------------
+        */
 
         $divisionId =
-            (int)
-            (
+            (int) (
                 $status?->division_id
                 ??
                 $classAllocation->division_id
             );
 
+        /*
+        |--------------------------------------------------------------------------
+        | ACADEMIC YEAR
+        |--------------------------------------------------------------------------
+        */
 
         $academicYearId =
-            (int)
-            (
+            (int) (
                 $status?->academic_year_id
                 ??
                 $classAllocation->academic_year_id
@@ -1768,6 +1342,23 @@ class AdminMarksEntryService
                 0
             );
 
+        /*
+        |--------------------------------------------------------------------------
+        | SECTION
+        |--------------------------------------------------------------------------
+        |
+        | THIS WAS THE MISSING FIELD.
+        |
+        */
+
+        $sectionId =
+            (int) (
+                $status?->section_id
+                ??
+                $classAllocation->section_id
+                ??
+                0
+            );
 
         /*
         |--------------------------------------------------------------------------
@@ -1775,25 +1366,23 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $academicYearId <= 0
-        ) {
+        if ($academicYearId <= 0) {
 
-            $exam =
-                ExamMaster::find(
-                    $examId
-                );
-
+            $examForYear =
+                ExamMaster::find($examId);
 
             $academicYearId =
-                (int)
-                (
-                    $exam->academic_year_id
-                    ??
-                    0
+                (int) (
+                    $examForYear->academic_year_id
+                    ?? 0
                 );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDATE CLASS DATA
+        |--------------------------------------------------------------------------
+        */
 
         if (
             $standardId <= 0
@@ -1801,16 +1390,17 @@ class AdminMarksEntryService
             $divisionId <= 0
             ||
             $academicYearId <= 0
+            ||
+            $sectionId <= 0
         ) {
 
             return back()
                 ->withInput()
                 ->withErrors([
                     'teacher_subject_allocation_id' =>
-                        'Unable to determine Standard, Division or Academic Year for this teaching assignment.',
+                        'Unable to determine Academic Year, Section, Standard or Division for this teaching assignment.',
                 ]);
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1829,10 +1419,7 @@ class AdminMarksEntryService
                 $subjectService
             );
 
-
-        if (
-            !$actualSubjectId
-        ) {
+        if (!$actualSubjectId) {
 
             return back()
                 ->withInput()
@@ -1841,7 +1428,6 @@ class AdminMarksEntryService
                         'Unable to resolve the actual Subject Master ID.',
                 ]);
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1861,10 +1447,7 @@ class AdminMarksEntryService
                 )
                 ->first();
 
-
-        if (
-            !$subject
-        ) {
+        if (!$subject) {
 
             return back()
                 ->withInput()
@@ -1873,7 +1456,6 @@ class AdminMarksEntryService
                         'The selected subject was not found.',
                 ]);
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1896,7 +1478,6 @@ class AdminMarksEntryService
                 ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | EXAM
@@ -1915,10 +1496,7 @@ class AdminMarksEntryService
                 )
                 ->first();
 
-
-        if (
-            !$exam
-        ) {
+        if (!$exam) {
 
             return back()
                 ->withInput()
@@ -1928,10 +1506,9 @@ class AdminMarksEntryService
                 ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | EXAM CONFIGURATION
+        | EXAM SUBJECT CONFIGURATION
         |--------------------------------------------------------------------------
         */
 
@@ -1942,10 +1519,7 @@ class AdminMarksEntryService
                 $actualSubjectId
             );
 
-
-        if (
-            !$subjectConfig
-        ) {
+        if (!$subjectConfig) {
 
             return back()
                 ->withInput()
@@ -1959,7 +1533,6 @@ class AdminMarksEntryService
                 ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | COMPONENTS
@@ -1972,36 +1545,20 @@ class AdminMarksEntryService
                 $subjectConfig
             );
 
-
         $theoryMax =
-            $component[
-                'theoryMaxMarks'
-            ];
-
+            $component['theoryMaxMarks'];
 
         $showOral =
-            $component[
-                'showOral'
-            ];
-
+            $component['showOral'];
 
         $showPractical =
-            $component[
-                'showPractical'
-            ];
-
+            $component['showPractical'];
 
         $oralMax =
-            $component[
-                'oralMaxMarks'
-            ];
-
+            $component['oralMaxMarks'];
 
         $practicalMax =
-            $component[
-                'practicalMaxMarks'
-            ];
-
+            $component['practicalMaxMarks'];
 
         /*
         |--------------------------------------------------------------------------
@@ -2017,6 +1574,7 @@ class AdminMarksEntryService
                 $standardId,
                 $divisionId,
                 $academicYearId,
+                $sectionId,
                 $actualSubjectId,
                 $theoryMax,
                 $oralMax,
@@ -2031,49 +1589,51 @@ class AdminMarksEntryService
                 ) {
 
                     $studentId =
-                        (string)
-                        $studentId;
-
+                        (string) $studentId;
 
                     /*
                     |--------------------------------------------------------------------------
                     | FIND EXISTING MARK
                     |--------------------------------------------------------------------------
                     |
-                    | IMPORTANT:
+                    | CRITICAL FIX.
                     |
-                    | Do not use TSA as the identity.
+                    | The database unique key is:
                     |
-                    |--------------------------------------------------------------------------
+                    | academic_year_id
+                    | section_id
+                    | exam_master_id
+                    | subject_id
+                    | student_id
+                    |
+                    | Therefore THIS is the identity used for UPDATE.
+                    |
                     */
 
                     $mark =
                         StudentMark::query()
                             ->where(
-                                'exam_master_id',
-                                $examId
+                                'academic_year_id',
+                                $academicYearId
                             )
                             ->where(
-                                'student_id',
-                                $studentId
+                                'section_id',
+                                $sectionId
+                            )
+                            ->where(
+                                'exam_master_id',
+                                $examId
                             )
                             ->where(
                                 'subject_id',
                                 $actualSubjectId
                             )
                             ->where(
-                                'standard_id',
-                                $standardId
+                                'student_id',
+                                $studentId
                             )
-                            ->where(
-                                'division_id',
-                                $divisionId
-                            )
-                            ->orderByDesc(
-                                'id'
-                            )
+                            ->orderByDesc('id')
                             ->first();
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2084,14 +1644,11 @@ class AdminMarksEntryService
                     $oldTheory =
                         $mark?->theory_obtained_marks;
 
-
                     $oldOral =
                         $mark?->oral_obtained_marks;
 
-
                     $oldPractical =
                         $mark?->practical_obtained_marks;
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2101,19 +1658,16 @@ class AdminMarksEntryService
 
                     $isAbsent =
                         (
-                            (int)
-                            (
+                            (int) (
                                 $request
                                     ->is_absent[
                                         $studentId
                                     ]
-                                    ??
-                                    0
+                                    ?? 0
                             )
                         ) === 1
                             ? 1
                             : 0;
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2126,27 +1680,21 @@ class AdminMarksEntryService
                             ->theory_marks[
                                 $studentId
                             ]
-                            ??
-                            null;
-
+                            ?? null;
 
                     $oral =
                         $request
                             ->oral_marks[
                                 $studentId
                             ]
-                            ??
-                            null;
-
+                            ?? null;
 
                     $practical =
                         $request
                             ->practical_marks[
                                 $studentId
                             ]
-                            ??
-                            null;
-
+                            ?? null;
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2154,39 +1702,22 @@ class AdminMarksEntryService
                     |--------------------------------------------------------------------------
                     */
 
-                    if (
-                        $isAbsent
-                    ) {
+                    if ($isAbsent) {
 
-                        $theory =
-                            0;
-
-                        $oral =
-                            0;
-
-                        $practical =
-                            0;
+                        $theory = 0;
+                        $oral = 0;
+                        $practical = 0;
 
                     } else {
 
-                        if (
-                            !$showOral
-                        ) {
-
-                            $oral =
-                                null;
+                        if (!$showOral) {
+                            $oral = null;
                         }
 
-
-                        if (
-                            !$showPractical
-                        ) {
-
-                            $practical =
-                                null;
+                        if (!$showPractical) {
+                            $practical = null;
                         }
                     }
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2203,16 +1734,13 @@ class AdminMarksEntryService
                             $studentId
                         );
 
-
                     /*
                     |--------------------------------------------------------------------------
                     | ORAL
                     |--------------------------------------------------------------------------
                     */
 
-                    if (
-                        $showOral
-                    ) {
+                    if ($showOral) {
 
                         $oral =
                             $this->validateMark(
@@ -2224,16 +1752,13 @@ class AdminMarksEntryService
                             );
                     }
 
-
                     /*
                     |--------------------------------------------------------------------------
                     | PRACTICAL
                     |--------------------------------------------------------------------------
                     */
 
-                    if (
-                        $showPractical
-                    ) {
+                    if ($showPractical) {
 
                         $practical =
                             $this->validateMark(
@@ -2245,41 +1770,45 @@ class AdminMarksEntryService
                             );
                     }
 
-
                     /*
                     |--------------------------------------------------------------------------
                     | UPDATE EXISTING
                     |--------------------------------------------------------------------------
                     */
 
-                    if (
-                        $mark
-                    ) {
+                    if ($mark) {
 
                         $mark->update([
 
                             /*
-                            |--------------------------------------------------------------------------
-                            | IMPORTANT:
-                            |
-                            | Keep current selected TSA.
-                            |
-                            | The historical subject itself remains represented
-                            | by the actual subject ID.
-                            |--------------------------------------------------------------------------
+                            | Keep the current TSA for audit/reference.
                             */
 
                             'teacher_subject_allocation_id' =>
                                 $tsaId,
 
+                            /*
+                            | IMPORTANT DATABASE IDENTITY FIELDS
+                            */
+
                             'subject_id' =>
                                 $actualSubjectId,
+
+                            'academic_year_id' =>
+                                $academicYearId,
+
+                            'section_id' =>
+                                $sectionId,
 
                             'standard_id' =>
                                 $standardId,
 
                             'division_id' =>
                                 $divisionId,
+
+                            /*
+                            | MARKS
+                            */
 
                             'theory_obtained_marks' =>
                                 $theory,
@@ -2297,9 +1826,7 @@ class AdminMarksEntryService
                                 Auth::id(),
                         ]);
 
-
-                        $wasCreated =
-                            false;
+                        $wasCreated = false;
 
                     } else {
 
@@ -2307,6 +1834,9 @@ class AdminMarksEntryService
                         |--------------------------------------------------------------------------
                         | CREATE NEW MARK
                         |--------------------------------------------------------------------------
+                        |
+                        | ALL NOT-NULL FIELDS ARE NOW INCLUDED.
+                        |
                         */
 
                         $mark =
@@ -2323,6 +1853,12 @@ class AdminMarksEntryService
 
                                 'subject_id' =>
                                     $actualSubjectId,
+
+                                'academic_year_id' =>
+                                    $academicYearId,
+
+                                'section_id' =>
+                                    $sectionId,
 
                                 'standard_id' =>
                                     $standardId,
@@ -2349,11 +1885,8 @@ class AdminMarksEntryService
                                     Auth::id(),
                             ]);
 
-
-                        $wasCreated =
-                            true;
+                        $wasCreated = true;
                     }
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2385,22 +1918,19 @@ class AdminMarksEntryService
                             $oldTheory,
 
                         'new_theory_marks' =>
-                            $mark
-                                ->theory_obtained_marks,
+                            $mark->theory_obtained_marks,
 
                         'old_oral_marks' =>
                             $oldOral,
 
                         'new_oral_marks' =>
-                            $mark
-                                ->oral_obtained_marks,
+                            $mark->oral_obtained_marks,
 
                         'old_practical_marks' =>
                             $oldPractical,
 
                         'new_practical_marks' =>
-                            $mark
-                                ->practical_obtained_marks,
+                            $mark->practical_obtained_marks,
 
                         'remarks' =>
                             $wasCreated
@@ -2420,7 +1950,6 @@ class AdminMarksEntryService
                 }
             }
         );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2445,6 +1974,12 @@ class AdminMarksEntryService
 
                 'subject_id' =>
                     $actualSubjectId,
+
+                'standard_id' =>
+                    $standardId,
+
+                'division_id' =>
+                    $divisionId,
 
                 'marks_updated' =>
                     1,
@@ -2479,9 +2014,7 @@ class AdminMarksEntryService
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $selectedSubjectId
-        ) {
+        if ($selectedSubjectId) {
 
             $actual =
                 $subjectService
@@ -2490,14 +2023,10 @@ class AdminMarksEntryService
                         $standardId
                     );
 
-            if (
-                $actual
-            ) {
-
+            if ($actual) {
                 return $actual;
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2523,20 +2052,11 @@ class AdminMarksEntryService
                     'division_id',
                     $divisionId
                 )
-                ->whereNotNull(
-                    'subject_id'
-                )
-                ->orderByDesc(
-                    'id'
-                )
-                ->value(
-                    'subject_id'
-                );
+                ->whereNotNull('subject_id')
+                ->orderByDesc('id')
+                ->value('subject_id');
 
-
-        if (
-            $historicalSubject
-        ) {
+        if ($historicalSubject) {
 
             $actual =
                 $subjectService
@@ -2545,14 +2065,10 @@ class AdminMarksEntryService
                         $standardId
                     );
 
-            if (
-                $actual
-            ) {
-
+            if ($actual) {
                 return $actual;
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2573,14 +2089,10 @@ class AdminMarksEntryService
                         $standardId
                     );
 
-            if (
-                $actual
-            ) {
-
+            if ($actual) {
                 return $actual;
             }
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2601,14 +2113,10 @@ class AdminMarksEntryService
                         $standardId
                     );
 
-            if (
-                $actual
-            ) {
-
+            if ($actual) {
                 return $actual;
             }
         }
-
 
         return null;
     }
@@ -2625,12 +2133,6 @@ class AdminMarksEntryService
         $subjectService
     ) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATION
-        |--------------------------------------------------------------------------
-        */
-
         $request->validate([
 
             'exam_master_id' =>
@@ -2644,23 +2146,28 @@ class AdminMarksEntryService
 
             'division_id' =>
                 'required',
+
+            'academic_year_id' =>
+                'required',
+
+            'section_id' =>
+                'required',
         ]);
 
-
         $examId =
-            (int)
-            $request->exam_master_id;
-
+            (int) $request->exam_master_id;
 
         $standardId =
-            (int)
-            $request->standard_id;
-
+            (int) $request->standard_id;
 
         $divisionId =
-            (int)
-            $request->division_id;
+            (int) $request->division_id;
 
+        $academicYearId =
+            (int) $request->academic_year_id;
+
+        $sectionId =
+            (int) $request->section_id;
 
         /*
         |--------------------------------------------------------------------------
@@ -2675,10 +2182,7 @@ class AdminMarksEntryService
                     $standardId
                 );
 
-
-        if (
-            !$actualSubjectId
-        ) {
+        if (!$actualSubjectId) {
 
             return back()
                 ->with(
@@ -2687,15 +2191,9 @@ class AdminMarksEntryService
                 );
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | MARKS
-        |--------------------------------------------------------------------------
-        |
-        | TSA is deliberately NOT required.
-        |
-        | This supports historical marks.
+        | POSSIBLE SUBJECT IDS
         |--------------------------------------------------------------------------
         */
 
@@ -2706,9 +2204,22 @@ class AdminMarksEntryService
                     $standardId
                 );
 
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD MARKS
+        |--------------------------------------------------------------------------
+        */
 
         $marks =
             StudentMark::query()
+                ->where(
+                    'academic_year_id',
+                    $academicYearId
+                )
+                ->where(
+                    'section_id',
+                    $sectionId
+                )
                 ->where(
                     'exam_master_id',
                     $examId
@@ -2727,10 +2238,7 @@ class AdminMarksEntryService
                 )
                 ->get();
 
-
-        if (
-            $marks->isEmpty()
-        ) {
+        if ($marks->isEmpty()) {
 
             return back()
                 ->with(
@@ -2738,7 +2246,6 @@ class AdminMarksEntryService
                     'No marks found for the selected Subject.'
                 );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -2753,9 +2260,7 @@ class AdminMarksEntryService
                 $examId
             ) {
 
-                foreach (
-                    $marks as $mark
-                ) {
+                foreach ($marks as $mark) {
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2771,7 +2276,6 @@ class AdminMarksEntryService
                         'updated_by' =>
                             Auth::id(),
                     ]);
-
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2812,7 +2316,6 @@ class AdminMarksEntryService
                     ]);
                 }
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | RESET STATUS FOR TSA REFERENCES
@@ -2828,10 +2331,7 @@ class AdminMarksEntryService
                         ->unique()
                         ->values();
 
-
-                if (
-                    $tsaIds->isNotEmpty()
-                ) {
+                if ($tsaIds->isNotEmpty()) {
 
                     TeacherMarksStatus::query()
                         ->where(
@@ -2854,7 +2354,6 @@ class AdminMarksEntryService
             }
         );
 
-
         /*
         |--------------------------------------------------------------------------
         | REDIRECT
@@ -2864,6 +2363,9 @@ class AdminMarksEntryService
         return redirect()->route(
             'result-generation.admin-marks.edit',
             [
+
+                'academic_year_id' =>
+                    $academicYearId,
 
                 'exam_master_id' =>
                     $examId,
@@ -2881,6 +2383,9 @@ class AdminMarksEntryService
 
                 'division_id' =>
                     $divisionId,
+
+                'section_id' =>
+                    $sectionId,
 
                 'marks_reopened' =>
                     1,
