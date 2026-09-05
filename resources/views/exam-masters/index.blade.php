@@ -26,22 +26,226 @@
     font-weight: 700 !important;
     text-align: center;
     padding: 8px !important;
+    white-space: nowrap;
 }
 
 .exam-master-page table td {
     font-size: 13px !important;
     padding: 8px !important;
+    vertical-align: middle;
 }
 
 .exam-master-page .erp-btn {
     font-size: 13px !important;
     padding: 5px 10px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.exam-master-page .erp-btn-add {
+    background: #16A34A;
+    color: #ffffff !important;
+    border: 1px solid #15803D;
+}
+
+.exam-master-page .erp-btn-add:hover {
+    background: #15803D;
+}
+
+.exam-master-page .erp-btn-edit {
+    background: #2563EB;
+    color: #ffffff !important;
+    border: 1px solid #1D4ED8;
+}
+
+.exam-master-page .erp-btn-edit:hover {
+    background: #1D4ED8;
+}
+
+.exam-master-page .erp-btn-delete {
+    background: #DC2626;
+    color: #ffffff !important;
+    border: 1px solid #B91C1C;
+}
+
+.exam-master-page .erp-btn-delete:hover {
+    background: #B91C1C;
 }
 
 .exam-master-page .text-green-700,
 .exam-master-page .text-red-700 {
     font-size: 13px !important;
     font-weight: 600 !important;
+}
+
+
+/* ==========================================================================
+   FILTER
+   ========================================================================== */
+
+.exam-master-filter {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.exam-master-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.exam-master-filter-label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #374151;
+}
+
+.exam-master-filter-select {
+    height: 34px;
+    min-width: 190px;
+    padding: 4px 9px;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border: 1px solid #9CA3AF;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #111827;
+}
+
+.exam-master-filter-select:focus {
+    outline: none;
+    border-color: #2563EB;
+    box-shadow: 0 0 0 1px #2563EB;
+}
+
+.exam-master-filter-button {
+    height: 34px;
+    padding: 5px 12px !important;
+    background: #2563EB;
+    color: #ffffff;
+    border: 1px solid #1D4ED8;
+}
+
+.exam-master-filter-button:hover {
+    background: #1D4ED8;
+}
+
+.exam-master-clear-button {
+    height: 34px;
+    padding: 5px 12px !important;
+    background: #6B7280;
+    color: #ffffff !important;
+    border: 1px solid #4B5563;
+}
+
+.exam-master-clear-button:hover {
+    background: #4B5563;
+}
+
+
+/* ==========================================================================
+   PASSING PERCENTAGE
+   ========================================================================== */
+
+.passing-percentage-35 {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #DCFCE7;
+    color: #166534;
+    border: 1px solid #86EFAC;
+    font-weight: 700;
+    font-size: 12px !important;
+}
+
+.passing-percentage-40 {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #DBEAFE;
+    color: #1E40AF;
+    border: 1px solid #93C5FD;
+    font-weight: 700;
+    font-size: 12px !important;
+}
+
+
+/* ==========================================================================
+   EXAM / STANDARD
+   ========================================================================== */
+
+.exam-name-cell {
+    font-weight: 600;
+    min-width: 230px;
+}
+
+.standard-name-cell {
+    font-weight: 600;
+}
+
+.action-cell {
+    min-width: 180px;
+}
+
+
+/* ==========================================================================
+   ACTIVE / INACTIVE
+   ========================================================================== */
+
+.active-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #DCFCE7;
+    color: #166534;
+    border: 1px solid #86EFAC;
+    font-weight: 700;
+    font-size: 12px !important;
+}
+
+.inactive-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #FEE2E2;
+    color: #991B1B;
+    border: 1px solid #FCA5A5;
+    font-weight: 700;
+    font-size: 12px !important;
+}
+
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 800px) {
+
+    .exam-master-filter {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .exam-master-filter-group {
+        width: 100%;
+    }
+
+    .exam-master-filter-select {
+        width: 100%;
+    }
+
+    .exam-master-filter .erp-btn {
+        width: 100%;
+    }
+
 }
 
 </style>
@@ -61,6 +265,7 @@
         p-5
     ">
 
+
         {{-- =====================================================
              HEADER
         ====================================================== --}}
@@ -75,12 +280,78 @@
                 href="{{ route('exam-masters.create') }}"
                 class="erp-btn erp-btn-add"
             >
-
                 + Add Exam
-
             </a>
 
         </div>
+
+
+        {{-- =====================================================
+             ACADEMIC YEAR FILTER
+        ====================================================== --}}
+
+        <form
+            method="GET"
+            action="{{ route('exam-masters.index') }}"
+        >
+
+            <div class="exam-master-filter">
+
+                <div class="exam-master-filter-group">
+
+                    <label
+                        for="academic_year_id"
+                        class="exam-master-filter-label"
+                    >
+                        Academic Year
+                    </label>
+
+
+                    <select
+                        name="academic_year_id"
+                        id="academic_year_id"
+                        class="exam-master-filter-select"
+                    >
+
+                        <option value="">
+                            All Academic Years
+                        </option>
+
+
+                        @foreach($academicYears as $academicYear)
+
+                            <option
+                                value="{{ $academicYear->id }}"
+                                {{ (string)($academicYearId ?? request('academic_year_id')) === (string)$academicYear->id ? 'selected' : '' }}
+                            >
+                                {{ $academicYear->year_name }}
+                            </option>
+
+                        @endforeach
+
+                    </select>
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="erp-btn exam-master-filter-button"
+                >
+                    Filter
+                </button>
+
+
+                <a
+                    href="{{ route('exam-masters.index') }}"
+                    class="erp-btn exam-master-clear-button"
+                >
+                    Clear
+                </a>
+
+            </div>
+
+        </form>
 
 
         {{-- =====================================================
@@ -145,42 +416,33 @@
 
                     <tr>
 
-                        {{-- EXAM ID --}}
-
                         <th class="border">
                             Exam ID
                         </th>
-
-
-                        {{-- ACADEMIC YEAR --}}
 
                         <th class="border">
                             Academic Year
                         </th>
 
-
-                        {{-- EXAM NAME --}}
-
                         <th class="border">
                             Exam Name
                         </th>
-
-
-                        {{-- STANDARD ID --}}
 
                         <th class="border">
                             Standard ID
                         </th>
 
-
-                        {{-- STANDARD NAME --}}
-
                         <th class="border">
                             Standard Name
                         </th>
 
+                        <th class="border">
+                            Passing %
+                        </th>
 
-                        {{-- ACTION --}}
+                        <th class="border">
+                            Status
+                        </th>
 
                         <th class="border">
                             Action
@@ -193,143 +455,384 @@
 
                 <tbody>
 
-                    @forelse($examMasters as $exam)
+                @forelse($examMasters as $exam)
 
-                        <tr class="hover:bg-yellow-50">
+                    @php
 
-                            {{-- =================================================
-                                 EXAM ID
-                            ================================================== --}}
+                        /*
+                        |--------------------------------------------------------------------------
+                        | STANDARD ID
+                        |--------------------------------------------------------------------------
+                        */
 
-                            <td class="border text-center">
-
-                                {{ $exam->id }}
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 ACADEMIC YEAR
-                            ================================================== --}}
-
-                            <td class="border text-center">
-
-                                {{ $exam->academicYear->year_name ?? '-' }}
-
-                            </td>
+                        $standardId =
+                            (int) (
+                                $exam->standard_id
+                                ?? 0
+                            );
 
 
-                            {{-- =================================================
-                                 EXAM NAME
-                            ================================================== --}}
+                        /*
+                        |--------------------------------------------------------------------------
+                        | STANDARD NAME
+                        |--------------------------------------------------------------------------
+                        */
 
-                            <td class="border">
-
-                                {{ $exam->exam_name }}
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 STANDARD ID
-                            ================================================== --}}
-
-                            <td class="border text-center">
-
-                                {{ $exam->standard_id }}
-
-                            </td>
+                        $standardName =
+                            strtoupper(
+                                trim(
+                                    (string) (
+                                        optional(
+                                            $exam->standard
+                                        )->standard_name
+                                        ?? ''
+                                    )
+                                )
+                            );
 
 
-                            {{-- =================================================
-                                 STANDARD NAME
-                            ================================================== --}}
+                        /*
+                        |--------------------------------------------------------------------------
+                        | NORMALIZED STANDARD NAME
+                        |--------------------------------------------------------------------------
+                        */
 
-                            <td class="border">
-
-                                {{ $exam->standard->standard_name ?? '-' }}
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 ACTION
-                            ================================================== --}}
-
-                            <td class="
-                                border
-                                text-center
-                                whitespace-nowrap
-                            ">
-
-                                {{-- EDIT --}}
-
-                                <a
-                                    href="{{ route(
-                                        'exam-masters.edit',
-                                        $exam->id
-                                    ) }}"
-                                    class="erp-btn erp-btn-edit"
-                                >
-
-                                    Edit
-
-                                </a>
+                        $normalizedStandardName =
+                            preg_replace(
+                                '/[^A-Z0-9]+/',
+                                '',
+                                $standardName
+                            ) ?? '';
 
 
-                                {{-- DELETE --}}
+                        /*
+                        |--------------------------------------------------------------------------
+                        | PASSING PERCENTAGE
+                        |--------------------------------------------------------------------------
+                        |
+                        | 35%:
+                        |
+                        | Nursery
+                        | JrKg
+                        | SrKg
+                        | 9th
+                        | 10th
+                        | 11th
+                        | 12th
+                        |
+                        | 40%:
+                        | All other Standards
+                        |
+                        |--------------------------------------------------------------------------
+                        */
 
-                                <form
-                                    action="{{ route(
-                                        'exam-masters.destroy',
-                                        $exam->id
-                                    ) }}"
-                                    method="POST"
-                                    style="display:inline-block;"
-                                >
+                        $is35PercentStandard =
 
-                                    @csrf
+                            /*
+                            |------------------------------------------------------
+                            | FIXED STANDARD IDs
+                            |------------------------------------------------------
+                            */
 
-                                    @method('DELETE')
+                            in_array(
+                                $standardId,
+                                [
+                                    9,
+                                    10,
+                                    11,
+                                    12,
+                                ],
+                                true
+                            )
+
+                            ||
+
+                            /*
+                            |------------------------------------------------------
+                            | NURSERY / KG BY NAME
+                            |------------------------------------------------------
+                            */
+
+                            in_array(
+                                $normalizedStandardName,
+                                [
+                                    'NURSERY',
+                                    'NUR',
+
+                                    'JRKG',
+                                    'JUNIORKG',
+                                    'JUNIORKINDERGARTEN',
+
+                                    'SRKG',
+                                    'SENIORKG',
+                                    'SENIORKINDERGARTEN',
+                                ],
+                                true
+                            )
+
+                            ||
+
+                            /*
+                            |------------------------------------------------------
+                            | 9TH / 10TH BY NAME
+                            |------------------------------------------------------
+                            */
+
+                            in_array(
+                                $normalizedStandardName,
+                                [
+                                    'NINTH',
+                                    '9TH',
+                                    'IX',
+
+                                    'TENTH',
+                                    '10TH',
+                                    'X',
+                                ],
+                                true
+                            )
+
+                            ||
+
+                            /*
+                            |------------------------------------------------------
+                            | 11TH BY NAME
+                            |------------------------------------------------------
+                            |
+                            | This is the important fix for:
+                            |
+                            | ELEVENTH
+                            | ELEVENTH SCIENCE
+                            | ELEVENTH COMMERCE
+                            | ELEVENTH ARTS
+                            | ELEVENTH HUMANITIES
+                            |
+                            | Your actual record is:
+                            |
+                            | standard_id = 19
+                            | standard_name = ELEVENTH SCIENCE
+                            |
+                            | Therefore it MUST be 35%.
+                            |
+                            */
+
+                            str_contains(
+                                $normalizedStandardName,
+                                'ELEVENTH'
+                            )
+
+                            ||
+
+                            $normalizedStandardName === 'XI'
+
+                            ||
+
+                            /*
+                            |------------------------------------------------------
+                            | 12TH BY NAME
+                            |------------------------------------------------------
+                            */
+
+                            str_contains(
+                                $normalizedStandardName,
+                                'TWELFTH'
+                            )
+
+                            ||
+
+                            $normalizedStandardName === 'XII';
 
 
-                                    <button
-                                        type="submit"
-                                        class="erp-btn erp-btn-delete"
-                                        onclick="return confirmExamDelete();"
-                                    >
+                        $passingPercentage =
+                            $is35PercentStandard
+                                ? 35
+                                : 40;
 
-                                        Force Delete
+                    @endphp
 
-                                    </button>
 
-                                </form>
+                    <tr class="hover:bg-yellow-50">
 
-                            </td>
 
-                        </tr>
+                        {{-- =================================================
+                             EXAM ID
+                        ================================================== --}}
 
-                    @empty
+                        <td class="border text-center">
 
-                        <tr>
+                            {{ $exam->id }}
 
-                            <td
-                                colspan="6"
-                                class="
-                                    border
-                                    p-4
-                                    text-center
-                                    text-gray-500
-                                "
+                        </td>
+
+
+                        {{-- =================================================
+                             ACADEMIC YEAR
+                        ================================================== --}}
+
+                        <td class="border text-center">
+
+                            {{
+                                $exam->academicYear->year_name
+                                ?? '-'
+                            }}
+
+                        </td>
+
+
+                        {{-- =================================================
+                             EXAM NAME
+                        ================================================== --}}
+
+                        <td class="border exam-name-cell">
+
+                            {{ $exam->exam_name }}
+
+                        </td>
+
+
+                        {{-- =================================================
+                             STANDARD ID
+                        ================================================== --}}
+
+                        <td class="border text-center">
+
+                            {{ $exam->standard_id }}
+
+                        </td>
+
+
+                        {{-- =================================================
+                             STANDARD NAME
+                        ================================================== --}}
+
+                        <td class="border standard-name-cell">
+
+                            {{
+                                $exam->standard->standard_name
+                                ?? '-'
+                            }}
+
+                        </td>
+
+
+                        {{-- =================================================
+                             PASSING PERCENTAGE
+                        ================================================== --}}
+
+                        <td class="border text-center">
+
+                            <span
+                                class="{{
+                                    $passingPercentage === 35
+                                        ? 'passing-percentage-35'
+                                        : 'passing-percentage-40'
+                                }}"
                             >
 
-                                No Records Found
+                                {{ $passingPercentage }}%
 
-                            </td>
+                            </span>
 
-                        </tr>
+                        </td>
 
-                    @endforelse
+
+                        {{-- =================================================
+                             STATUS
+                        ================================================== --}}
+
+                        <td class="border text-center">
+
+                            @if($exam->is_active)
+
+                                <span class="active-badge">
+                                    ACTIVE
+                                </span>
+
+                            @else
+
+                                <span class="inactive-badge">
+                                    INACTIVE
+                                </span>
+
+                            @endif
+
+                        </td>
+
+
+                        {{-- =================================================
+                             ACTION
+                        ================================================== --}}
+
+                        <td class="
+                            border
+                            text-center
+                            whitespace-nowrap
+                            action-cell
+                        ">
+
+
+                            {{-- EDIT --}}
+
+                            <a
+                                href="{{ route(
+                                    'exam-masters.edit',
+                                    $exam->id
+                                ) }}"
+                                class="erp-btn erp-btn-edit"
+                            >
+                                Edit
+                            </a>
+
+
+                            {{-- DELETE --}}
+
+                            <form
+                                action="{{ route(
+                                    'exam-masters.destroy',
+                                    $exam->id
+                                ) }}"
+                                method="POST"
+                                style="display:inline-block;"
+                            >
+
+                                @csrf
+
+                                @method('DELETE')
+
+
+                                <button
+                                    type="submit"
+                                    class="erp-btn erp-btn-delete"
+                                    onclick="return confirmExamDelete();"
+                                >
+                                    Force Delete
+                                </button>
+
+                            </form>
+
+                        </td>
+
+                    </tr>
+
+                @empty
+
+                    <tr>
+
+                        <td
+                            colspan="8"
+                            class="
+                                border
+                                p-4
+                                text-center
+                                text-gray-500
+                            "
+                        >
+                            No Records Found
+                        </td>
+
+                    </tr>
+
+                @endforelse
 
                 </tbody>
 

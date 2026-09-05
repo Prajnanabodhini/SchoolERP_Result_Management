@@ -9,110 +9,22 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\Subject;
 use App\Models\ExamMaster;
-use App\Models\TeacherMarksStatus;
-use App\Models\TeacherSubjectAllocation;
 use App\Models\StudentMark;
-use App\Models\ExamMasterSubject;
+use App\Models\TeacherSubjectAllocation;
+
+use App\Helpers\MarksHelper;
 
 class MarkSaveController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | RESOLVE ACTUAL SUBJECT ID
+    | SAVE MARKS (DRAFT)
     |--------------------------------------------------------------------------
     |
-    | IMPORTANT:
+    | This method saves marks as a draft. It does NOT lock the marks.
+    | It allows empty fields for present students.
+    | All strict validations (max marks, presence) are handled at final submission.
     |
-    | teacher_subject_allocations.subject_id
-    | stores the actual subjects.id.
-    |
-    | Therefore we first verify that the ID exists in subjects.
-    |
-    */
-
-    private function resolveActualSubjectId($allocationSubjectId)
-    {
-        if (!$allocationSubjectId) {
-            return null;
-        }
-
-        $subject = Subject::where(
-            'id',
-            $allocationSubjectId
-        )
-        ->where(
-            'is_active',
-            1
-        )
-        ->first();
-
-        if ($subject) {
-            return (int) $subject->id;
-        }
-
-        return null;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | VERIFY TEACHER ASSIGNMENT
-    |--------------------------------------------------------------------------
-    |
-    | Administrator:
-    |     Can access any assignment.
-    |
-    | Teacher:
-    |     Can access only his/her own assignment.
-    |
-    */
-
-    private function verifyTeacherAssignment(
-        TeacherSubjectAllocation $teacherSubjectAllocation,
-        $examMasterId
-    ) {
-        if (!Auth::check()) {
-            return false;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Administrator
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            Auth::user()->role === 'Administrator'
-        ) {
-            return true;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Teacher
-        |--------------------------------------------------------------------------
-        */
-
-        return TeacherMarksStatus::where(
-            'teacher_subject_allocation_id',
-            $teacherSubjectAllocation->id
-        )
-        ->where(
-            'exam_master_id',
-            $examMasterId
-        )
-        ->where(
-            'teacher_id',
-            Auth::id()
-        )
-        ->exists();
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | SAVE MARKS
-    |--------------------------------------------------------------------------
     */
 
     public function save(Request $request)
@@ -144,7 +56,6 @@ class MarkSaveController extends Controller
                 'No students found.',
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | LOAD TEACHER SUBJECT ALLOCATION
@@ -160,109 +71,93 @@ class MarkSaveController extends Controller
                 'allocation.academicYear',
                 'allocation.section',
                 'subject',
-                'exam'
+                'exam',
             ])
             ->find(
                 $request->teacher_subject_allocation_id
             );
 
-
         if (!$teacherSubjectAllocation) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Teaching Assignment not found.'
-                );
+                ->with('error', 'Teaching Assignment not found.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY EXAM MATCH
+        | VERIFY EXAM
         |--------------------------------------------------------------------------
         */
 
         if (
-            (int) $teacherSubjectAllocation->exam_master_id !==
+            (int) $teacherSubjectAllocation->exam_master_id
+            !==
             (int) $request->exam_master_id
         ) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Selected Exam does not match the Teaching Assignment.'
-                );
+                ->with('error', 'Selected Exam does not match the Teaching Assignment.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY CLASS ALLOCATION
+        | CLASS ALLOCATION
         |--------------------------------------------------------------------------
         */
 
         $allocation =
             $teacherSubjectAllocation->allocation;
 
-
         if (!$allocation) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Teacher Class Allocation not found.'
-                );
+                ->with('error', 'Teacher Class Allocation not found.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY TEACHER AUTHORIZATION
+        | OPTIONAL FEATURE
+        |--------------------------------------------------------------------------
+        */
+
+        $isOptionalEnabled =
+            MarksHelper::isOptionalEnabledForAllocation(
+                $allocation
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | TEACHER AUTHORIZATION
         |--------------------------------------------------------------------------
         */
 
         if (
-            !$this->verifyTeacherAssignment(
+            !MarksHelper::verifyTeacherAssignment(
                 $teacherSubjectAllocation,
                 $request->exam_master_id
             )
         ) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'You are not authorized to enter marks for this Teaching Assignment.'
-                );
+                ->with('error', 'You are not authorized to enter marks for this Teaching Assignment.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | RESOLVE ACTUAL SUBJECT ID
+        | RESOLVE ACTUAL SUBJECT
         |--------------------------------------------------------------------------
         */
 
         $actualSubjectId =
-            $this->resolveActualSubjectId(
+            MarksHelper::resolveActualSubjectId(
                 $teacherSubjectAllocation->subject_id
             );
 
-
         if (!$actualSubjectId) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Unable to find the Subject Master record for this Teaching Assignment.'
-                );
+                ->with('error', 'Unable to find the Subject Master record for this Teaching Assignment.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -271,21 +166,15 @@ class MarkSaveController extends Controller
         */
 
         $actualSubject =
-            Subject::find(
-                $actualSubjectId
-            );
-
+            Subject::where('id', $actualSubjectId)
+                ->where('is_active', 1)
+                ->first();
 
         if (!$actualSubject) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Subject not found in Subject Master.'
-                );
+                ->with('error', 'Subject not found in Subject Master.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -294,59 +183,32 @@ class MarkSaveController extends Controller
         */
 
         $exam =
-            ExamMaster::find(
-                $request->exam_master_id
-            );
-
+            ExamMaster::where('id', $request->exam_master_id)
+                ->where('is_active', 1)
+                ->first();
 
         if (!$exam) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Exam Master not found.'
-                );
+                ->with('error', 'Exam Master not found.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | CHECK TEACHER MARK STATUS
+        | TEACHER MARK STATUS
         |--------------------------------------------------------------------------
         */
 
-        $marksStatusQuery =
-            TeacherMarksStatus::where(
-                'exam_master_id',
-                $exam->id
-            )
-            ->where(
-                'teacher_subject_allocation_id',
-                $teacherSubjectAllocation->id
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | TEACHER ONLY OWN STATUS
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            Auth::user()->role !== 'Administrator'
-        ) {
-
-            $marksStatusQuery->where(
-                'teacher_id',
-                Auth::id()
-            );
-        }
-
+        $isAdministrator =
+            MarksHelper::isAdministrator();
 
         $marksStatus =
-            $marksStatusQuery->first();
-
+            MarksHelper::getTeacherMarksStatus(
+                $exam->id,
+                $teacherSubjectAllocation->id,
+                $isAdministrator,
+                Auth::id()
+            );
 
         /*
         |--------------------------------------------------------------------------
@@ -355,53 +217,29 @@ class MarkSaveController extends Controller
         */
 
         if (
-            $marksStatus &&
-            strtoupper(
-                trim(
-                    $marksStatus->status ?? ''
-                )
-            ) === 'COMPLETED'
+            MarksHelper::isCompletedStatus(
+                $marksStatus
+            )
         ) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Final submission already completed. Marks cannot be modified.'
-                );
+                ->with('error', 'Final submission already completed. Marks cannot be modified.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | FIND EXAM SUBJECT CONFIGURATION
+        | SUBJECT CONFIGURATION
         |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | exam_master_subjects.subject_id
-        | = actual subjects.id
-        |
         */
 
         $subjectConfig =
-            ExamMasterSubject::where(
-                'exam_master_id',
-                $exam->id
-            )
-            ->where(
-                'standard_id',
-                $allocation->standard_id
-            )
-            ->where(
-                'subject_id',
+            MarksHelper::resolveExamSubjectConfig(
+                $exam,
+                $allocation->standard_id,
                 $actualSubjectId
-            )
-            ->first();
-
+            );
 
         if (!$subjectConfig) {
-
             return back()
                 ->withInput()
                 ->with(
@@ -414,36 +252,70 @@ class MarkSaveController extends Controller
                 );
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | THEORY CONFIGURATION
+        | EXAM COMPONENTS
         |--------------------------------------------------------------------------
         */
 
+        $components =
+            MarksHelper::getComponentMaxMarks(
+                $exam,
+                $subjectConfig
+            );
+
+        $showTheory =
+            $components['show_theory'];
+
+        $showOral =
+            $components['show_oral'];
+
+        $showPractical =
+            $components['show_practical'];
+
         $theoryMaxMarks =
-            (float) (
-                $subjectConfig->max_marks ?? 0
-            );
+            $components['theory_max'];
 
+        $oralMaxMarks =
+            $components['oral_max'];
 
-        $theoryPassingMarks =
-            (float) (
-                $subjectConfig->passing_marks ?? 0
-            );
-
+        $practicalMaxMarks =
+            $components['practical_max'];
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY MAXIMUM MARKS
+        | PASSING MARKS
+        |--------------------------------------------------------------------------
+        */
+
+        $theoryPassingMarks =
+            MarksHelper::getPassingMarks(
+                $allocation->standard_id,
+                $theoryMaxMarks
+            );
+
+        $oralPassingMarks =
+            MarksHelper::getPassingMarks(
+                $allocation->standard_id,
+                $oralMaxMarks
+            );
+
+        $practicalPassingMarks =
+            MarksHelper::getPassingMarks(
+                $allocation->standard_id,
+                $practicalMaxMarks
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | THEORY MAXIMUM CHECK
         |--------------------------------------------------------------------------
         */
 
         if (
-            $theoryMaxMarks <= 0 &&
-            $exam->has_theory
+            $showTheory &&
+            $theoryMaxMarks <= 0
         ) {
-
             return back()
                 ->withInput()
                 ->with(
@@ -454,190 +326,121 @@ class MarkSaveController extends Controller
                 );
         }
 
+        // ============================================================
+        // REMOVED: MARK VALIDATION RULES AND PRESENCE VALIDATION
+        // ============================================================
 
         /*
         |--------------------------------------------------------------------------
-        | EXAM COMPONENTS
+        | CHECK EXISTING RECORDS (to prevent cross-class conflicts)
         |--------------------------------------------------------------------------
         */
 
-        $showTheory =
-            (bool) (
-                $exam->has_theory ?? 1
-            );
+        foreach ($request->student_ids as $studentId) {
 
+            $existingMark =
+                StudentMark::where(
+                    'academic_year_id',
+                    $allocation->academic_year_id
+                )
+                ->where('section_id', $allocation->section_id)
+                ->where('student_id', $studentId)
+                ->where('exam_master_id', $exam->id)
+                ->where('subject_id', $actualSubjectId)
+                ->first();
 
-        $showOral =
-            (bool) (
-                $exam->has_oral ?? 0
-            );
-
-
-        $showPractical =
-            (bool) (
-                $exam->has_practical ?? 0
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ORAL CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
-
-        $oralMaxMarks =
-            (float) (
-                $exam->oral_max_marks ?? 0
-            );
-
-
-        $oralPassingMarks =
-            (float) (
-                $exam->oral_passing_marks ?? 0
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PRACTICAL CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
-
-        $practicalMaxMarks =
-            (float) (
-                $exam->practical_max_marks ?? 0
-            );
-
-
-        $practicalPassingMarks =
-            (float) (
-                $exam->practical_passing_marks ?? 0
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUILD VALIDATION RULES
-        |--------------------------------------------------------------------------
-        */
-
-        $rules = [];
-
-
-        foreach (
-            $request->student_ids
-            as $studentId
-        ) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | ABSENT
-            |--------------------------------------------------------------------------
-            |
-            | If student is absent, marks are not mandatory.
-            |
-            */
-
-            $isAbsent =
-                !empty(
-                    $request->is_absent[$studentId] ?? 0
-                );
-
-
-            if ($isAbsent) {
+            if (!$existingMark) {
                 continue;
             }
 
+            $sameStandard =
+                (int) $existingMark->standard_id
+                ===
+                (int) $allocation->standard_id;
 
-            /*
-            |--------------------------------------------------------------------------
-            | THEORY
-            |--------------------------------------------------------------------------
-            */
+            $sameDivision =
+                (int) $existingMark->division_id
+                ===
+                (int) $allocation->division_id;
 
-            if ($showTheory) {
-
-                $rules[
-                    "theory_marks.$studentId"
-                ] =
-                    'required|numeric|min:0|max:'
-                    . $theoryMaxMarks;
+            if ($sameStandard && $sameDivision) {
+                // Already locked?
+                if ((int) $existingMark->is_locked === 1) {
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'Marks for Student ID '
+                            . $studentId
+                            . ' have already been submitted for '
+                            . $actualSubject->subject_name
+                            . ' in '
+                            . $exam->exam_name
+                            . '. Marks cannot be modified.'
+                        );
+                }
+                continue;
             }
 
+            // Different standard/division – error
+            $existingDivisionName =
+                DB::table('divisions')
+                    ->where('id', $existingMark->division_id)
+                    ->value('division_name');
 
-            /*
-            |--------------------------------------------------------------------------
-            | ORAL
-            |--------------------------------------------------------------------------
-            */
+            $currentDivisionName =
+                optional($allocation->division)->division_name;
 
-            if ($showOral) {
+            $existingStandardName =
+                DB::table('standards')
+                    ->where('id', $existingMark->standard_id)
+                    ->value('standard_name');
 
-                $rules[
-                    "oral_marks.$studentId"
-                ] =
-                    'required|numeric|min:0|max:'
-                    . $oralMaxMarks;
-            }
+            $currentStandardName =
+                optional($allocation->standard)->standard_name;
 
+            $existingDivisionName =
+                $existingDivisionName
+                ?: 'Division ID ' . $existingMark->division_id;
 
-            /*
-            |--------------------------------------------------------------------------
-            | PRACTICAL
-            |--------------------------------------------------------------------------
-            */
+            $currentDivisionName =
+                $currentDivisionName
+                ?: 'Division ID ' . $allocation->division_id;
 
-            if ($showPractical) {
+            $existingStandardName =
+                $existingStandardName
+                ?: 'Standard ID ' . $existingMark->standard_id;
 
-                $rules[
-                    "practical_marks.$studentId"
-                ] =
-                    'required|numeric|min:0|max:'
-                    . $practicalMaxMarks;
-            }
+            $currentStandardName =
+                $currentStandardName
+                ?: 'Standard ID ' . $allocation->standard_id;
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Marks could not be saved for Student ID '
+                    . $studentId
+                    . '. A mark record already exists for '
+                    . $actualSubject->subject_name
+                    . ' in '
+                    . $exam->exam_name
+                    . ' under '
+                    . $existingStandardName
+                    . ' / '
+                    . $existingDivisionName
+                    . '. You are trying to save marks under '
+                    . $currentStandardName
+                    . ' / '
+                    . $currentDivisionName
+                    . '. Please verify the selected Standard and Division.'
+                );
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | VALIDATE MARKS
+        | CHECK SELECTED CLASS FOR LOCKED RECORDS (additional safety)
         |--------------------------------------------------------------------------
-        */
-
-        $request->validate(
-            $rules,
-            [
-
-                'required' =>
-                    'Marks are required.',
-
-                'numeric' =>
-                    'Only numeric values are allowed.',
-
-                'min' =>
-                    'Marks cannot be negative.',
-
-                'max' =>
-                    'Marks exceed the maximum allowed marks.',
-            ]
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK EXISTING LOCKED MARKS
-        |--------------------------------------------------------------------------
-        |
-        | Do NOT use section only.
-        |
-        | Check the exact:
-        |
-        | Academic Year
-        | Standard
-        | Division
-        | Exam
-        | Subject
-        |
         */
 
         $marksLocked =
@@ -645,258 +448,172 @@ class MarkSaveController extends Controller
                 'academic_year_id',
                 $allocation->academic_year_id
             )
-            ->where(
-                'section_id',
-                $allocation->section_id
-            )
-            ->where(
-                'standard_id',
-                $allocation->standard_id
-            )
-            ->where(
-                'division_id',
-                $allocation->division_id
-            )
-            ->where(
-                'exam_master_id',
-                $exam->id
-            )
-            ->where(
-                'subject_id',
-                $actualSubjectId
-            )
-            ->where(
-                'is_locked',
-                1
-            )
+            ->where('section_id', $allocation->section_id)
+            ->where('standard_id', $allocation->standard_id)
+            ->where('division_id', $allocation->division_id)
+            ->where('exam_master_id', $exam->id)
+            ->where('subject_id', $actualSubjectId)
+            ->where('is_locked', 1)
             ->exists();
 
-
         if ($marksLocked) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Marks already submitted for this Exam, Standard, Division and Subject. Contact Administrator for modification.'
-                );
+                ->with('error', 'Marks have already been submitted for this Exam, Subject and Division. Marks cannot be modified.');
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | EXTRA MARK VALIDATION
+        | SAVE MARKS (DRAFT – NO LOCKING)
         |--------------------------------------------------------------------------
         */
 
-        foreach (
-            $request->student_ids
-            as $studentId
-        ) {
-
-            $isAbsent =
-                !empty(
-                    $request->is_absent[$studentId] ?? 0
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | ABSENT STUDENT
-            |--------------------------------------------------------------------------
-            */
-
-            if ($isAbsent) {
-                continue;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | THEORY
-            |--------------------------------------------------------------------------
-            */
-
-            if ($showTheory) {
-
-                if (
-                    !isset(
-                        $request->theory_marks[$studentId]
-                    )
-                    ||
-                    $request->theory_marks[$studentId] === ''
-                ) {
-
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            'Please enter Theory marks for all students.'
-                        );
-                }
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | ORAL
-            |--------------------------------------------------------------------------
-            */
-
-            if ($showOral) {
-
-                if (
-                    !isset(
-                        $request->oral_marks[$studentId]
-                    )
-                    ||
-                    $request->oral_marks[$studentId] === ''
-                ) {
-
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            'Please enter Oral marks for all students.'
-                        );
-                }
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | PRACTICAL
-            |--------------------------------------------------------------------------
-            */
-
-            if ($showPractical) {
-
-                if (
-                    !isset(
-                        $request->practical_marks[$studentId]
-                    )
-                    ||
-                    $request->practical_marks[$studentId] === ''
-                ) {
-
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            'Please enter Practical marks for all students.'
-                        );
-                }
-            }
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SAVE MARKS
-        |--------------------------------------------------------------------------
-        */
-
-        DB::transaction(function () use (
-            $request,
-            $allocation,
-            $teacherSubjectAllocation,
-            $exam,
-            $actualSubjectId,
-            $theoryMaxMarks,
-            $theoryPassingMarks,
-            $oralMaxMarks,
-            $oralPassingMarks,
-            $practicalMaxMarks,
-            $practicalPassingMarks,
-            $showTheory,
-            $showOral,
-            $showPractical
-        ) {
-
-            foreach (
-                $request->student_ids
-                as $studentId
+        DB::transaction(
+            function () use (
+                $request,
+                $allocation,
+                $teacherSubjectAllocation,
+                $exam,
+                $actualSubjectId,
+                $theoryMaxMarks,
+                $theoryPassingMarks,
+                $oralMaxMarks,
+                $oralPassingMarks,
+                $practicalMaxMarks,
+                $practicalPassingMarks,
+                $showTheory,
+                $showOral,
+                $showPractical,
+                $isOptionalEnabled
             ) {
 
-                /*
-                |--------------------------------------------------------------------------
-                | ABSENT
-                |--------------------------------------------------------------------------
-                */
+                foreach ($request->student_ids as $studentId) {
 
-                $isAbsent =
-                    !empty(
-                        $request->is_absent[$studentId] ?? 0
-                    );
+                    /*
+                    |--------------------------------------------------------------------------
+                    | OPTIONAL / ABSENT
+                    |--------------------------------------------------------------------------
+                    */
 
+                    $values =
+                        MarksHelper::getOptionalMarkValues(
+                            $request,
+                            $studentId,
+                            $isOptionalEnabled
+                        );
 
-                /*
-                |--------------------------------------------------------------------------
-                | THEORY
-                |--------------------------------------------------------------------------
-                */
+                    $isOptional = $values['is_optional'];
+                    $isAbsent = $values['is_absent'];
 
-                $theoryObtained =
-                    $isAbsent
-                        ? 0
-                        : (
+                    /*
+                    |--------------------------------------------------------------------------
+                    | OBTAINED MARKS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $theoryObtained =
+                        MarksHelper::resolveObtainedMark(
+                            $request,
+                            'theory_marks',
+                            $studentId,
+                            $isAbsent,
+                            $isOptional,
                             $showTheory
-                                ? (
-                                    $request->theory_marks[$studentId]
-                                    ?? null
-                                )
-                                : null
                         );
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | ORAL
-                |--------------------------------------------------------------------------
-                */
-
-                $oralObtained =
-                    $isAbsent
-                        ? 0
-                        : (
+                    $oralObtained =
+                        MarksHelper::resolveObtainedMark(
+                            $request,
+                            'oral_marks',
+                            $studentId,
+                            $isAbsent,
+                            $isOptional,
                             $showOral
-                                ? (
-                                    $request->oral_marks[$studentId]
-                                    ?? null
-                                )
-                                : null
                         );
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | PRACTICAL
-                |--------------------------------------------------------------------------
-                */
-
-                $practicalObtained =
-                    $isAbsent
-                        ? 0
-                        : (
+                    $practicalObtained =
+                        MarksHelper::resolveObtainedMark(
+                            $request,
+                            'practical_marks',
+                            $studentId,
+                            $isAbsent,
+                            $isOptional,
                             $showPractical
-                                ? (
-                                    $request->practical_marks[$studentId]
-                                    ?? null
-                                )
-                                : null
                         );
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | FIND EXISTING RECORD
+                    |--------------------------------------------------------------------------
+                    */
 
-                /*
-                |--------------------------------------------------------------------------
-                | UPDATE OR CREATE
-                |--------------------------------------------------------------------------
-                */
+                    $existingMark =
+                        StudentMark::where(
+                            'academic_year_id',
+                            $allocation->academic_year_id
+                        )
+                        ->where('section_id', $allocation->section_id)
+                        ->where('student_id', $studentId)
+                        ->where('exam_master_id', $exam->id)
+                        ->where('subject_id', $actualSubjectId)
+                        ->first();
 
-                StudentMark::updateOrCreate(
+                    if ($existingMark) {
+                        // UPDATE – KEEP IS_LOCKED = 0 (DRAFT)
+                        $existingMark->teacher_subject_allocation_id =
+                            $teacherSubjectAllocation->id;
 
-                    [
+                        $existingMark->theory_max_marks =
+                            $theoryMaxMarks;
 
+                        $existingMark->theory_passing_marks =
+                            $theoryPassingMarks;
+
+                        $existingMark->theory_obtained_marks =
+                            $theoryObtained;
+
+                        $existingMark->oral_max_marks =
+                            $oralMaxMarks;
+
+                        $existingMark->oral_passing_marks =
+                            $oralPassingMarks;
+
+                        $existingMark->oral_obtained_marks =
+                            $oralObtained;
+
+                        $existingMark->practical_max_marks =
+                            $practicalMaxMarks;
+
+                        $existingMark->practical_passing_marks =
+                            $practicalPassingMarks;
+
+                        $existingMark->practical_obtained_marks =
+                            $practicalObtained;
+
+                        $existingMark->is_absent =
+                            $isAbsent ? 1 : 0;
+
+                        $existingMark->is_optional =
+                            $isOptional ? 1 : 0;
+
+                        // --- IMPORTANT: DO NOT LOCK ---
+                        $existingMark->is_locked = 0;
+
+                        $existingMark->updated_by =
+                            Auth::id();
+
+                        $existingMark->save();
+
+                        continue;
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | CREATE NEW RECORD
+                    |--------------------------------------------------------------------------
+                    */
+
+                    StudentMark::create([
                         'academic_year_id' =>
                             $allocation->academic_year_id,
 
@@ -915,33 +632,11 @@ class MarkSaveController extends Controller
                         'exam_master_id' =>
                             $exam->id,
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ACTUAL SUBJECT MASTER ID
-                        |--------------------------------------------------------------------------
-                        */
-
                         'subject_id' =>
                             $actualSubjectId,
-                    ],
-
-                    [
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | TEACHER ASSIGNMENT
-                        |--------------------------------------------------------------------------
-                        */
 
                         'teacher_subject_allocation_id' =>
                             $teacherSubjectAllocation->id,
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | THEORY
-                        |--------------------------------------------------------------------------
-                        */
 
                         'theory_max_marks' =>
                             $theoryMaxMarks,
@@ -952,13 +647,6 @@ class MarkSaveController extends Controller
                         'theory_obtained_marks' =>
                             $theoryObtained,
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ORAL
-                        |--------------------------------------------------------------------------
-                        */
-
                         'oral_max_marks' =>
                             $oralMaxMarks,
 
@@ -967,13 +655,6 @@ class MarkSaveController extends Controller
 
                         'oral_obtained_marks' =>
                             $oralObtained,
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | PRACTICAL
-                        |--------------------------------------------------------------------------
-                        */
 
                         'practical_max_marks' =>
                             $practicalMaxMarks,
@@ -984,43 +665,24 @@ class MarkSaveController extends Controller
                         'practical_obtained_marks' =>
                             $practicalObtained,
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ABSENT
-                        |--------------------------------------------------------------------------
-                        */
-
                         'is_absent' =>
                             $isAbsent ? 1 : 0,
 
+                        'is_optional' =>
+                            $isOptional ? 1 : 0,
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | KEEP UNLOCKED
-                        |--------------------------------------------------------------------------
-                        */
-
-                        'is_locked' =>
-                            0,
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | USER
-                        |--------------------------------------------------------------------------
-                        */
+                        // --- IMPORTANT: DO NOT LOCK ---
+                        'is_locked' => 0,
 
                         'created_by' =>
                             Auth::id(),
 
                         'updated_by' =>
                             Auth::id(),
-                    ]
-                );
+                    ]);
+                }
             }
-        });
-
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -1029,28 +691,27 @@ class MarkSaveController extends Controller
         */
 
         return redirect()
-    ->route(
-        'marks-entry.index',
-        [
-            'academic_year_id' =>
-                $request->academic_year_id,
+            ->route(
+                'marks-entry.index',
+                [
+                    'academic_year_id' =>
+                        $request->academic_year_id,
 
-            'exam_master_id' =>
-                $request->exam_master_id,
+                    'exam_master_id' =>
+                        $request->exam_master_id,
 
-            'teacher_subject_allocation_id' =>
-                $request->teacher_subject_allocation_id,
+                    'teacher_subject_allocation_id' =>
+                        $request->teacher_subject_allocation_id,
 
-            'marks_saved' =>
-                1,
-        ]
-    )
-    ->with(
-        'success',
-        'Marks Saved Successfully.'
-    );
+                    'marks_saved' =>
+                        1,
+                ]
+            )
+            ->with(
+                'success',
+                'Marks Saved Successfully (Draft).'
+            );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -1067,7 +728,6 @@ class MarkSaveController extends Controller
         */
 
         $request->validate([
-
             'student_id' =>
                 'required',
 
@@ -1079,37 +739,33 @@ class MarkSaveController extends Controller
 
             'field' =>
                 'required',
-
-            'value' =>
-                'required|numeric|min:0',
         ]);
-
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD ALLOCATION
+        | LOAD TSA
         |--------------------------------------------------------------------------
         */
 
         $teacherSubjectAllocation =
             TeacherSubjectAllocation::with([
                 'allocation',
-                'subject'
+                'allocation.standard',
+                'allocation.division',
+                'subject',
+                'exam',
             ])
             ->find(
                 $request->teacher_subject_allocation_id
             );
 
-
         if (!$teacherSubjectAllocation) {
-
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'Teaching Assignment not found.'
+                    'Teaching Assignment not found.',
             ], 404);
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -1118,167 +774,311 @@ class MarkSaveController extends Controller
         */
 
         if (
-            (int) $teacherSubjectAllocation->exam_master_id !==
+            (int) $teacherSubjectAllocation->exam_master_id
+            !==
             (int) $request->exam_master_id
         ) {
-
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'Exam does not match Teaching Assignment.'
+                    'Exam does not match Teaching Assignment.',
             ], 422);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | VERIFY TEACHER
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            !$this->verifyTeacherAssignment(
-                $teacherSubjectAllocation,
-                $request->exam_master_id
-            )
-        ) {
-
-            return response()->json([
-                'success' => false,
-                'message' =>
-                    'You are not authorized for this Teaching Assignment.'
-            ], 403);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESOLVE SUBJECT
-        |--------------------------------------------------------------------------
-        */
-
-        $actualSubjectId =
-            $this->resolveActualSubjectId(
-                $teacherSubjectAllocation->subject_id
-            );
-
-
-        if (!$actualSubjectId) {
-
-            return response()->json([
-                'success' => false,
-                'message' =>
-                    'Unable to resolve Subject ID.'
-            ], 422);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD ALLOCATION
+        | ALLOCATION
         |--------------------------------------------------------------------------
         */
 
         $allocation =
             $teacherSubjectAllocation->allocation;
 
-
         if (!$allocation) {
-
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'Teacher Class Allocation not found.'
+                    'Teacher Class Allocation not found.',
             ], 422);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | CHECK MARKS STATUS
+        | OPTIONAL
         |--------------------------------------------------------------------------
         */
 
-        $statusQuery =
-            TeacherMarksStatus::where(
-                'exam_master_id',
+        $isOptionalEnabled =
+            MarksHelper::isOptionalEnabledForAllocation(
+                $allocation
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | TEACHER AUTHORIZATION
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !MarksHelper::verifyTeacherAssignment(
+                $teacherSubjectAllocation,
                 $request->exam_master_id
             )
-            ->where(
-                'teacher_subject_allocation_id',
-                $teacherSubjectAllocation->id
-            );
-
-
-        if (
-            Auth::user()->role !== 'Administrator'
         ) {
-
-            $statusQuery->where(
-                'teacher_id',
-                Auth::id()
-            );
-        }
-
-
-        $marksStatus =
-            $statusQuery->first();
-
-
-        if (
-            $marksStatus &&
-            strtoupper(
-                trim(
-                    $marksStatus->status ?? ''
-                )
-            ) === 'COMPLETED'
-        ) {
-
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'Marks entry has already been completed.'
-            ], 422);
+                    'You are not authorized for this Teaching Assignment.',
+            ], 403);
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | ALLOWED FIELDS
+        | SUBJECT
         |--------------------------------------------------------------------------
         */
 
-        $allowedFields = [
+        $actualSubjectId =
+            MarksHelper::resolveActualSubjectId(
+                $teacherSubjectAllocation->subject_id
+            );
 
-            'theory_obtained_marks',
-
-            'oral_obtained_marks',
-
-            'practical_obtained_marks',
-
-        ];
-
-
-        if (
-            !in_array(
-                $request->field,
-                $allowedFields,
-                true
-            )
-        ) {
-
+        if (!$actualSubjectId) {
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'Invalid mark field.'
+                    'Unable to resolve Subject ID.',
             ], 422);
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | STATUS
+        |--------------------------------------------------------------------------
+        */
+
+        $isAdministrator =
+            MarksHelper::isAdministrator();
+
+        $marksStatus =
+            MarksHelper::getTeacherMarksStatus(
+                $request->exam_master_id,
+                $teacherSubjectAllocation->id,
+                $isAdministrator,
+                Auth::id()
+            );
+
+        if (
+            MarksHelper::isCompletedStatus(
+                $marksStatus
+            )
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'Marks entry has already been completed.',
+            ], 422);
+        }
 
         /*
         |--------------------------------------------------------------------------
-        | FIND MARK
+        | ALLOWED FIELD
         |--------------------------------------------------------------------------
+        */
+
+        if (
+            !MarksHelper::isAllowedMarkField(
+                $request->field
+            )
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'Invalid mark field.',
+            ], 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | OPTIONAL FIELD
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $request->field === 'is_optional'
+        ) {
+
+            if (!$isOptionalEnabled) {
+                return response()->json([
+                    'success' => false,
+                    'message' =>
+                        'Optional status is available only for 11th and 12th standards.',
+                ], 422);
+            }
+
+            /*
+            |----------------------------------------------------------------------
+            | OPTIONAL VALUE
+            |----------------------------------------------------------------------
+            */
+
+            $optionalValue =
+                MarksHelper::toBoolean(
+                    $request->value
+                );
+
+            /*
+            |----------------------------------------------------------------------
+            | FIND MARK USING CURRENT DATABASE UNIQUE KEY
+            |----------------------------------------------------------------------
+            */
+
+            $mark =
+                StudentMark::where(
+                    'academic_year_id',
+                    $allocation->academic_year_id
+                )
+                ->where(
+                    'section_id',
+                    $allocation->section_id
+                )
+                ->where(
+                    'student_id',
+                    $request->student_id
+                )
+                ->where(
+                    'exam_master_id',
+                    $request->exam_master_id
+                )
+                ->where(
+                    'subject_id',
+                    $actualSubjectId
+                )
+                ->first();
+
+            if (!$mark) {
+                return response()->json([
+                    'success' => false,
+                    'message' =>
+                        'Mark record not found. Please save marks first.',
+                ], 404);
+            }
+
+            /*
+            |----------------------------------------------------------------------
+            | CROSS STANDARD / DIVISION
+            |----------------------------------------------------------------------
+            */
+
+            if (
+                (int) $mark->standard_id
+                !==
+                (int) $allocation->standard_id
+                ||
+                (int) $mark->division_id
+                !==
+                (int) $allocation->division_id
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' =>
+                        'This student already has marks for this Exam and Subject under another Standard or Division. Please verify the selected class and Division.',
+                ], 422);
+            }
+
+            /*
+            |----------------------------------------------------------------------
+            | INDIVIDUAL LOCK
+            |----------------------------------------------------------------------
+            */
+
+            if (
+                (int) $mark->is_locked === 1
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' =>
+                        'Marks have already been submitted for this student. This mark is locked and cannot be modified.',
+                ], 422);
+            }
+
+            /*
+            |----------------------------------------------------------------------
+            | SAVE OPTIONAL
+            |----------------------------------------------------------------------
+            */
+
+            $mark->is_optional =
+                $optionalValue ? 1 : 0;
+
+            /*
+            |----------------------------------------------------------------------
+            | OPTIONAL OVERRIDES ABSENT
+            |----------------------------------------------------------------------
+            */
+
+            if ($optionalValue) {
+                $mark->is_absent =
+                    0;
+
+                $mark->theory_obtained_marks =
+                    0;
+
+                $mark->oral_obtained_marks =
+                    0;
+
+                $mark->practical_obtained_marks =
+                    0;
+            }
+
+            $mark->updated_by =
+                Auth::id();
+
+            $mark->save();
+
+            return response()->json([
+                'success' => true,
+                'message' =>
+                    $optionalValue
+                        ? 'Student marked as Optional.'
+                        : 'Student marked as applicable.',
+            ]);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | NUMERIC VALUE
+        |--------------------------------------------------------------------------
+        */
+
+        $request->validate([
+            'value' =>
+                'required|numeric|min:0',
+        ], [
+
+            'value.required' =>
+                'Marks value is required.',
+
+            'value.numeric' =>
+                'Only numeric values are allowed.',
+
+            'value.min' =>
+                'Marks cannot be negative.',
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | FIND EXISTING MARK
+        |--------------------------------------------------------------------------
+        |
+        | Use the database's current unique-key identity:
+        |
+        | academic_year_id
+        | section_id
+        | exam_master_id
+        | subject_id
+        | student_id
+        |
         */
 
         $mark =
@@ -1291,14 +1091,6 @@ class MarkSaveController extends Controller
                 $allocation->section_id
             )
             ->where(
-                'standard_id',
-                $allocation->standard_id
-            )
-            ->where(
-                'division_id',
-                $allocation->division_id
-            )
-            ->where(
                 'student_id',
                 $request->student_id
             )
@@ -1307,81 +1099,102 @@ class MarkSaveController extends Controller
                 $request->exam_master_id
             )
             ->where(
-                'teacher_subject_allocation_id',
-                $teacherSubjectAllocation->id
-            )
-            ->where(
                 'subject_id',
                 $actualSubjectId
             )
             ->first();
 
-
         if (!$mark) {
-
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'Mark record not found. Please save marks first.'
+                    'Mark record not found. Please save marks first.',
             ], 404);
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | CROSS STANDARD / DIVISION
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            (int) $mark->standard_id
+            !==
+            (int) $allocation->standard_id
+            ||
+            (int) $mark->division_id
+            !==
+            (int) $allocation->division_id
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'This student already has marks for this Exam and Subject under another Standard or Division. Please verify the selected class and Division.',
+            ], 422);
+        }
 
         /*
         |--------------------------------------------------------------------------
-        | CHECK INDIVIDUAL LOCK
+        | INDIVIDUAL LOCK
         |--------------------------------------------------------------------------
         */
 
         if (
             (int) $mark->is_locked === 1
         ) {
-
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'This mark is locked and cannot be modified.'
+                    'Marks have already been submitted for this student. This mark is locked and cannot be modified.',
             ], 422);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | CHECK FIELD MAXIMUM
+        | LOAD EXAM
         |--------------------------------------------------------------------------
         */
 
         $exam =
-            ExamMaster::find(
+            ExamMaster::where(
+                'id',
                 $request->exam_master_id
-            );
-
-
-        $subjectConfig =
-            ExamMasterSubject::where(
-                'exam_master_id',
-                $exam->id
             )
             ->where(
-                'standard_id',
-                $allocation->standard_id
-            )
-            ->where(
-                'subject_id',
-                $actualSubjectId
+                'is_active',
+                1
             )
             ->first();
 
-
-        if (!$subjectConfig) {
-
+        if (!$exam) {
             return response()->json([
                 'success' => false,
                 'message' =>
-                    'Subject marks configuration not found.'
-            ], 422);
+                    'Exam not found.',
+            ], 404);
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT CONFIGURATION
+        |--------------------------------------------------------------------------
+        */
+
+        $subjectConfig =
+            MarksHelper::resolveExamSubjectConfig(
+                $exam,
+                $allocation->standard_id,
+                $actualSubjectId
+            );
+
+        if (!$subjectConfig) {
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'Subject marks configuration not found.',
+            ], 422);
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -1389,55 +1202,52 @@ class MarkSaveController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $maxMarks = 0;
+        $maxMarks =
+            MarksHelper::getFieldMaxMarks(
+                $request->field,
+                $exam,
+                $subjectConfig
+            );
 
-
-        switch ($request->field) {
-
-            case 'theory_obtained_marks':
-
-                $maxMarks =
-                    (float) (
-                        $subjectConfig->max_marks ?? 0
-                    );
-
-                break;
-
-
-            case 'oral_obtained_marks':
-
-                $maxMarks =
-                    (float) (
-                        $exam->oral_max_marks ?? 0
-                    );
-
-                break;
-
-
-            case 'practical_obtained_marks':
-
-                $maxMarks =
-                    (float) (
-                        $exam->practical_max_marks ?? 0
-                    );
-
-                break;
-        }
-
+        /*
+        |--------------------------------------------------------------------------
+        | MAXIMUM CHECK
+        |--------------------------------------------------------------------------
+        */
 
         if (
-            (float) $request->value >
-            $maxMarks
+            !MarksHelper::validateFieldMaximum(
+                $request->value,
+                $maxMarks
+            )
         ) {
-
             return response()->json([
                 'success' => false,
                 'message' =>
                     'Marks cannot exceed maximum marks of '
-                    . $maxMarks
+                    . MarksHelper::formatMark(
+                        $maxMarks
+                    ),
             ], 422);
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | OPTIONAL PROTECTION
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            MarksHelper::isOptionalStudent(
+                $mark
+            )
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'This student is marked Optional. Disable Optional before entering marks.',
+            ], 422);
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -1453,11 +1263,10 @@ class MarkSaveController extends Controller
 
         $mark->save();
 
-
         return response()->json([
             'success' => true,
             'message' =>
-                'Marks saved successfully.'
+                'Marks saved successfully.',
         ]);
     }
 }

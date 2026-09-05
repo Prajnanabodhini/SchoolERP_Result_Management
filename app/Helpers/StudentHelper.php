@@ -431,25 +431,22 @@ public static function getStudentsForMarksEntry($yearId, $standardId, $divisionI
 ) {
     /*
     |--------------------------------------------------------------------------
-    | Find ERP Standard
+    | 1. Get Laravel Standard
     |--------------------------------------------------------------------------
     */
 
-    $standardMap = DB::table('standard_year_mappings')
-        ->where('academic_year_id', $yearId)
-        ->where('standard_id', $laravelStandardId)
+    $standard = DB::table('standards')
+        ->where('id', $laravelStandardId)
+        ->where('is_active', 1)
         ->first();
 
-    if (!$standardMap || empty($standardMap->old_standard_id)) {
+    if (!$standard) {
         return collect();
     }
 
-    $oldStandardId = $standardMap->old_standard_id;
-
-
     /*
     |--------------------------------------------------------------------------
-    | Find Local Division
+    | 2. Get Laravel Division
     |--------------------------------------------------------------------------
     */
 
@@ -462,22 +459,133 @@ public static function getStudentsForMarksEntry($yearId, $standardId, $divisionI
         return collect();
     }
 
-    $divisionName = trim($division->division_name);
+    $standardName = strtoupper(
+        trim($standard->standard_name)
+    );
 
+    $divisionName = strtoupper(
+        trim($division->division_name)
+    );
 
     /*
     |--------------------------------------------------------------------------
-    | Find ERP Division
+    | 3. Map Laravel Standard Name to Old ERP Standard
+    |--------------------------------------------------------------------------
+    |
+    | Normal standards use standard_year_mappings.
+    |
+    | XII Science  -> XIISCI -> 3163
+    | XII Commerce -> XIICOM -> 3162
+    |
+    */
+
+    $erpStandardId = null;
+
+    /*
+    |--------------------------------------------------------------------------
+    | XII SCIENCE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        in_array($standardName, [
+            'TWELFTH SCIENCE',
+            '12TH SCIENCE',
+            '12 SCIENCE',
+            'XII SCIENCE',
+        ])
+    ) {
+        $erpStandard = DB::connection('sqlsrv_olderp')
+            ->table('StandardMst')
+            ->where('yearid', $yearId)
+            ->where('standard', 'XIISCI')
+            ->first();
+
+        if ($erpStandard) {
+            $erpStandardId = $erpStandard->standardid;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | XII COMMERCE
+    |--------------------------------------------------------------------------
+    */
+
+    elseif (
+        in_array($standardName, [
+            'TWELFTH COMMERCE',
+            '12TH COMMERCE',
+            '12 COMMERCE',
+            'XII COMMERCE',
+        ])
+    ) {
+        $erpStandard = DB::connection('sqlsrv_olderp')
+            ->table('StandardMst')
+            ->where('yearid', $yearId)
+            ->where('standard', 'XIICOM')
+            ->first();
+
+        if ($erpStandard) {
+            $erpStandardId = $erpStandard->standardid;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Other Standards
+    |--------------------------------------------------------------------------
+    */
+
+    else {
+
+        $standardMap = DB::table('standard_year_mappings')
+            ->where('academic_year_id', $yearId)
+            ->where('standard_id', $laravelStandardId)
+            ->first();
+
+        if (
+            $standardMap &&
+            !empty($standardMap->old_standard_id)
+        ) {
+            $erpStandardId = $standardMap->old_standard_id;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Fallback to Standard.old_standard_id
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$erpStandardId && !empty($standard->old_standard_id)) {
+
+            $erpStandardId = $standard->old_standard_id;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 4. Stop if ERP Standard Not Found
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$erpStandardId) {
+        return collect();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 5. Find ERP Division
     |--------------------------------------------------------------------------
     */
 
     $erpDivision = DB::connection('sqlsrv_olderp')
         ->table('DivisionMst')
         ->where('yearid', $yearId)
-        ->where('standardid', $oldStandardId)
+        ->where('standardid', $erpStandardId)
         ->whereRaw(
             'UPPER(LTRIM(RTRIM(division))) = ?',
-            [strtoupper($divisionName)]
+            [$divisionName]
         )
         ->first();
 
@@ -485,58 +593,76 @@ public static function getStudentsForMarksEntry($yearId, $standardId, $divisionI
         return collect();
     }
 
-    $oldDivisionId = $erpDivision->divisionid;
-
-
     /*
     |--------------------------------------------------------------------------
-    | Fetch Students
+    | 6. Fetch Students
     |--------------------------------------------------------------------------
+    |
+    | This is the same SQL structure that you confirmed is working.
+    |
     */
 
     return DB::connection('sqlsrv_olderp')
-        ->table('SubStudentMst as s')
+        ->table('SubStudentMst as ss')
+
         ->join(
-            'FeeMstStudent as f',
-            'f.Studentid',
+            'FeeMstStudent as fs',
+            'fs.Studentid',
             '=',
-            's.Studentid'
+            'ss.Studentid'
         )
+
         ->select(
-            's.Studentid',
-            's.regno',
-            's.rollno',
-            's.standardid',
-            's.divisionid',
-            's.yearid',
+            'ss.Studentid',
+            'ss.regno',
 
-            'f.studname',
-            'f.fathername',
-            'f.fathermobile',
-            'f.gender',
+            'fs.studname',
+            'fs.fathername',
 
-            'f.birthdate',
-            'f.admitdate',
+            'ss.standardid',
+            'ss.divisionid',
 
-            'f.adharno',
-            'f.nationality',
-            'f.reasonofleaving',
-            'f.leavingdate',
+            'ss.rollno',
+            'ss.yearid',
+            'ss.sectionid',
 
             DB::raw("
-                RTRIM(f.studname)
+                RTRIM(fs.studname)
                 +
                 CASE
-                    WHEN f.fathername IS NOT NULL
-                    THEN ' ' + RTRIM(f.fathername)
+                    WHEN fs.fathername IS NOT NULL
+                         AND LTRIM(RTRIM(fs.fathername)) <> ''
+                    THEN ' ' + RTRIM(fs.fathername)
                     ELSE ''
                 END AS full_name
-            ")
+            "),
+
+            'fs.fathermobile',
+            'fs.gender',
+            'fs.birthdate',
+            'fs.admitdate',
+            'fs.adharno',
+            'fs.nationality',
+            'fs.reasonofleaving',
+            'fs.leavingdate'
         )
-        ->where('s.yearid', $yearId)
-        ->where('s.standardid', $oldStandardId)
-        ->where('s.divisionid', $oldDivisionId)
-        ->orderByRaw('TRY_CAST(s.rollno AS INT)')
+
+        ->where('ss.yearid', $yearId)
+
+        ->where(
+            'ss.standardid',
+            $erpStandardId
+        )
+
+        ->where(
+            'ss.divisionid',
+            $erpDivision->divisionid
+        )
+
+        ->orderByRaw(
+            'TRY_CAST(ss.rollno AS INT)'
+        )
+
         ->get();
 }
 

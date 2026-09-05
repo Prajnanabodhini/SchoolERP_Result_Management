@@ -16,6 +16,7 @@ use App\Models\TeacherMarksStatus;
 use App\Models\StudentMark;
 
 use App\Helpers\StudentHelper;
+use App\Helpers\ResultHelper;
 
 class MarkViewController extends Controller
 {
@@ -162,7 +163,7 @@ class MarkViewController extends Controller
     |
     | TSA subject is PRIMARY.
     | TMS subject is only a legacy fallback.
-    |--------------------------------------------------------------------------
+    |
     */
 
     private function resolveDisplaySubject(
@@ -352,6 +353,15 @@ class MarkViewController extends Controller
         $showPractical = false;
 
         $error = null;
+
+        /*
+        |--------------------------------------------------------------------------
+        | NEW:
+        | STANDARD PASSING PERCENTAGE
+        |--------------------------------------------------------------------------
+        */
+
+        $passingPercentage = 40;
 
 
         /*
@@ -571,6 +581,22 @@ class MarkViewController extends Controller
             $allocation
                 ? (int) $allocation->academic_year_id
                 : 0;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | NEW:
+        | CALCULATE PASSING PERCENTAGE
+        |--------------------------------------------------------------------------
+        */
+
+        if ($standardId > 0) {
+
+            $passingPercentage =
+                ResultHelper::getPassingPercentage(
+                    $standardId
+                );
+        }
 
 
         /*
@@ -797,6 +823,31 @@ class MarkViewController extends Controller
                         'exam_master_subjects.display_order',
                     ])
                     ->get();
+
+            /*
+            |--------------------------------------------------------------------------
+            | IMPORTANT:
+            |
+            | Replace the displayed passing marks with the centralized
+            | standard-based calculation.
+            |--------------------------------------------------------------------------
+            */
+
+            $subjects =
+                $subjects->map(
+                    function ($subject) use (
+                        $standardId
+                    ) {
+
+                        $subject->passing_marks =
+                            ResultHelper::getPassingMarks(
+                                $standardId,
+                                $subject->max_marks
+                            );
+
+                        return $subject;
+                    }
+                );
         }
 
 
@@ -920,24 +971,8 @@ class MarkViewController extends Controller
         | LOAD SAVED MARKS
         |--------------------------------------------------------------------------
         |
-        | IMPORTANT:
+        | SAME AS MARK ENTRY.
         |
-        | SAME AS MARK ENTRY:
-        |
-        | exam_master_id
-        | +
-        | teacher_subject_allocation_id
-        |
-        | We intentionally DO NOT filter here by:
-        |
-        | subject_id
-        | standard_id
-        | division_id
-        |
-        | because MarkEntryController also loads existing marks using
-        | only Exam + TSA.
-        |
-        |--------------------------------------------------------------------------
         */
 
         $existingMarks =
@@ -1069,15 +1104,46 @@ class MarkViewController extends Controller
                         $student->gender
                         ?? '',
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | ABSENT
+                    |--------------------------------------------------------------------------
+                    */
+
                     'is_absent' =>
                         (int)(
                             $savedMark->is_absent
                             ?? 0
                         ),
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | NEW:
+                    | OPTIONAL
+                    |--------------------------------------------------------------------------
+                    */
+
+                    'is_optional' =>
+                        (int)(
+                            $savedMark->is_optional
+                            ?? 0
+                        ),
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | STATUS
+                    |--------------------------------------------------------------------------
+                    */
+
                     'status' =>
                         $savedMark->status
                         ?? null,
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | THEORY
+                    |--------------------------------------------------------------------------
+                    */
 
                     'theory_max_marks' =>
                         $savedMark->theory_max_marks
@@ -1086,16 +1152,31 @@ class MarkViewController extends Controller
                             ?? 0
                         ),
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | STANDARD-BASED PASSING MARKS
+                    |--------------------------------------------------------------------------
+                    */
+
                     'theory_passing_marks' =>
-                        $savedMark->theory_passing_marks
-                        ?? (
-                            $subjectConfig->passing_marks
-                            ?? 0
+                        ResultHelper::getPassingMarks(
+                            $standardId,
+                            $savedMark->theory_max_marks
+                            ?? (
+                                $subjectConfig->max_marks
+                                ?? 0
+                            )
                         ),
 
                     'theory_obtained_marks' =>
                         $savedMark->theory_obtained_marks
                         ?? null,
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | ORAL
+                    |--------------------------------------------------------------------------
+                    */
 
                     'oral_max_marks' =>
                         $savedMark->oral_max_marks
@@ -1115,6 +1196,12 @@ class MarkViewController extends Controller
                         $savedMark->oral_obtained_marks
                         ?? null,
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | PRACTICAL
+                    |--------------------------------------------------------------------------
+                    */
+
                     'practical_max_marks' =>
                         $savedMark->practical_max_marks
                         ?? (
@@ -1132,6 +1219,12 @@ class MarkViewController extends Controller
                     'practical_obtained_marks' =>
                         $savedMark->practical_obtained_marks
                         ?? null,
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SUBJECT
+                    |--------------------------------------------------------------------------
+                    */
 
                     'subject_name' =>
                         $selectedSubject
@@ -1212,7 +1305,15 @@ class MarkViewController extends Controller
                 'showPractical',
                 'selectedTsa',
                 'selectedSubject',
-                'error'
+                'error',
+
+                /*
+                |--------------------------------------------------------------------------
+                | NEW
+                |--------------------------------------------------------------------------
+                */
+
+                'passingPercentage'
             )
         );
     }

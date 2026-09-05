@@ -10,7 +10,6 @@ use App\Models\ExamMasterSubject;
 use App\Models\Standard;
 use App\Models\AcademicYear;
 use App\Models\ExamSubject;
-use App\Models\Subject;
 
 class ExamMasterController extends Controller
 {
@@ -25,6 +24,7 @@ class ExamMasterController extends Controller
         $academicYearId =
             $request->input('academic_year_id');
 
+
         $examMasters =
             ExamMaster::with([
                 'standard',
@@ -32,7 +32,9 @@ class ExamMasterController extends Controller
             ])
             ->when(
                 $academicYearId,
-                function ($query) use ($academicYearId) {
+                function ($query) use (
+                    $academicYearId
+                ) {
 
                     $query->where(
                         'academic_year_id',
@@ -43,6 +45,7 @@ class ExamMasterController extends Controller
             ->orderByDesc('id')
             ->get();
 
+
         $academicYears =
             AcademicYear::where(
                 'is_active',
@@ -50,6 +53,7 @@ class ExamMasterController extends Controller
             )
             ->orderByDesc('id')
             ->get();
+
 
         return view(
             'exam-masters.index',
@@ -66,18 +70,163 @@ class ExamMasterController extends Controller
     |--------------------------------------------------------------------------
     | PASSING PERCENTAGE
     |--------------------------------------------------------------------------
+    |
+    | 35% passing:
+    |
+    | Nursery
+    | JrKg
+    | SrKg
+    | 9th
+    | 10th
+    | 11th
+    | 12th
+    |
+    | 40% passing:
+    |
+    | All other standards.
+    |
+    | For 9th-12th we use known Standard IDs.
+    |
+    | For Nursery / JrKg / SrKg we use the Standard Name because
+    | their database IDs should not be assumed.
+    |--------------------------------------------------------------------------
     */
 
     private function getPassingPercentage(
         $standardId
     ): float {
-        return in_array(
-            (int) $standardId,
-            [9, 10],
-            true
-        )
-            ? 35.0
-            : 40.0;
+
+        $standardId =
+            (int) $standardId;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 9TH / 10TH / 11TH / 12TH
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            in_array(
+                $standardId,
+                [9, 10, 11, 12],
+                true
+            )
+        ) {
+
+            return 35.0;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD STANDARD NAME
+        |--------------------------------------------------------------------------
+        */
+
+        $standardName =
+            DB::table(
+                'standards'
+            )
+            ->where(
+                'id',
+                $standardId
+            )
+            ->value(
+                'standard_name'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | NORMALIZE NAME
+        |--------------------------------------------------------------------------
+        */
+
+        $normalizedName =
+            preg_replace(
+                '/[^A-Z0-9]+/',
+                '',
+                strtoupper(
+                    trim(
+                        (string) $standardName
+                    )
+                )
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | NURSERY
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            in_array(
+                $normalizedName,
+                [
+                    'NURSERY',
+                    'NUR',
+                ],
+                true
+            )
+        ) {
+
+            return 35.0;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | JRKG
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            in_array(
+                $normalizedName,
+                [
+                    'JRKG',
+                    'JUNIORKG',
+                    'JUNIORKINDERGARTEN',
+                ],
+                true
+            )
+        ) {
+
+            return 35.0;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SRKG
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            in_array(
+                $normalizedName,
+                [
+                    'SRKG',
+                    'SENIORKG',
+                    'SENIORKINDERGARTEN',
+                ],
+                true
+            )
+        ) {
+
+            return 35.0;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DEFAULT
+        |--------------------------------------------------------------------------
+        */
+
+        return 40.0;
     }
 
 
@@ -95,14 +244,20 @@ class ExamMasterController extends Controller
         $maxMarks =
             (float) $maxMarks;
 
-        if ($maxMarks <= 0) {
+
+        if (
+            $maxMarks <= 0
+        ) {
+
             return 0;
         }
+
 
         $percentage =
             $this->getPassingPercentage(
                 $standardId
             );
+
 
         return (int) ceil(
             $maxMarks *
@@ -115,7 +270,41 @@ class ExamMasterController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | LOAD STANDARD SUBJECTS
+    | GET STANDARD NAME
+    |--------------------------------------------------------------------------
+    */
+
+    private function getStandardName(
+        $standardId
+    ): string {
+
+        return trim(
+            (string) (
+                DB::table(
+                    'standards'
+                )
+                ->where(
+                    'id',
+                    (int) $standardId
+                )
+                ->value(
+                    'standard_name'
+                )
+                ?? ''
+            )
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET STANDARD SUBJECTS
+    |--------------------------------------------------------------------------
+    |
+    | Authoritative subject list for the selected Standard.
+    |
+    | is_optional is included because 11th / 12th may have optional
+    | subjects such as Biology, Geography, Mathematics, etc.
     |--------------------------------------------------------------------------
     */
 
@@ -189,6 +378,7 @@ class ExamMasterController extends Controller
             ->orderByDesc('id')
             ->get();
 
+
         $standards =
             Standard::where(
                 'is_active',
@@ -199,12 +389,14 @@ class ExamMasterController extends Controller
             )
             ->get();
 
+
         $nextDisplayOrder =
             (
                 ExamMaster::max(
                     'display_order'
                 ) ?? 0
             ) + 1;
+
 
         return view(
             'exam-masters.create',
@@ -226,6 +418,7 @@ class ExamMasterController extends Controller
     public function store(
         Request $request
     ) {
+
         $request->validate([
 
             'academic_year_id' => [
@@ -273,11 +466,14 @@ class ExamMasterController extends Controller
                 'At least one subject configuration is required.',
         ]);
 
+
         $academicYearId =
             (int) $request->academic_year_id;
 
+
         $standardId =
             (int) $request->standard_id;
+
 
         $examName =
             strtoupper(
@@ -291,9 +487,6 @@ class ExamMasterController extends Controller
         |--------------------------------------------------------------------------
         | DUPLICATE EXAM
         |--------------------------------------------------------------------------
-        |
-        | Same Exam Name is allowed in different Academic Years.
-        |
         */
 
         $exists =
@@ -310,6 +503,7 @@ class ExamMasterController extends Controller
                 $examName
             )
             ->exists();
+
 
         if ($exists) {
 
@@ -368,7 +562,6 @@ class ExamMasterController extends Controller
                                 $request->boolean(
                                     'is_active'
                                 ),
-
                         ]);
 
 
@@ -383,6 +576,7 @@ class ExamMasterController extends Controller
                             $standardId
                         );
 
+
                     if (
                         $standardSubjects->isEmpty()
                     ) {
@@ -395,7 +589,22 @@ class ExamMasterController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | SAVE SUBJECT CONFIG
+                    | PASSING PERCENTAGE
+                    |--------------------------------------------------------------------------
+                    |
+                    | Calculated once for this standard.
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $passingPercentage =
+                        $this->getPassingPercentage(
+                            $standardId
+                        );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SAVE SUBJECT CONFIGURATION
                     |--------------------------------------------------------------------------
                     */
 
@@ -406,10 +615,12 @@ class ExamMasterController extends Controller
 
                         $subjectConfig =
                             $request->input(
-                                'subjects.' .
+                                'subjects.'
+                                .
                                 $standardSubject->subject_id,
                                 []
                             );
+
 
                         $maxMarks =
                             isset(
@@ -419,17 +630,34 @@ class ExamMasterController extends Controller
                                     $subjectConfig['max_marks']
                                 : 40.0;
 
+
                         if (
                             $maxMarks < 0
                         ) {
-                            $maxMarks = 0;
+
+                            $maxMarks =
+                                0;
                         }
 
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | PASSING MARKS
+                        |--------------------------------------------------------------------------
+                        */
+
                         $passingMarks =
-                            $this->calculatePassingMarks(
-                                $maxMarks,
-                                $standardId
-                            );
+                            $maxMarks > 0
+                                ? (int) ceil(
+                                    $maxMarks *
+                                    (
+                                        $passingPercentage
+                                        /
+                                        100
+                                    )
+                                )
+                                : 0;
+
 
                         $displayOrder =
                             isset(
@@ -438,12 +666,13 @@ class ExamMasterController extends Controller
                                 ? (int)
                                     $subjectConfig['display_order']
                                 : (
-                                    (int)
-                                    (
-                                        $standardSubject->sort_order
+                                    (int) (
+                                        $standardSubject
+                                            ->sort_order
                                         ?? 0
                                     )
                                 );
+
 
                         ExamMasterSubject::create([
 
@@ -471,6 +700,7 @@ class ExamMasterController extends Controller
                     }
                 }
             );
+
 
             return redirect()
                 ->route(
@@ -505,6 +735,7 @@ class ExamMasterController extends Controller
     public function edit(
         ExamMaster $examMaster
     ) {
+
         $academicYears =
             AcademicYear::where(
                 'is_active',
@@ -512,6 +743,7 @@ class ExamMasterController extends Controller
             )
             ->orderByDesc('id')
             ->get();
+
 
         $standards =
             Standard::where(
@@ -526,120 +758,222 @@ class ExamMasterController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD SUBJECTS
+        | LOAD STANDARD SUBJECTS
+        |--------------------------------------------------------------------------
+        */
+
+        $standardSubjects =
+            $this->getStandardSubjects(
+                (int) $examMaster->standard_id
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD EXISTING EXAM SUBJECT CONFIGURATION
+        |--------------------------------------------------------------------------
+        */
+
+        $existingConfigs =
+            ExamMasterSubject::query()
+                ->where(
+                    'exam_master_id',
+                    $examMaster->id
+                )
+                ->where(
+                    'standard_id',
+                    $examMaster->standard_id
+                )
+                ->get()
+                ->keyBy(
+                    'subject_id'
+                );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PASSING PERCENTAGE
+        |--------------------------------------------------------------------------
+        */
+
+        $passingPercentage =
+            $this->getPassingPercentage(
+                $examMaster->standard_id
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUILD EDIT SUBJECT DATA
+        |--------------------------------------------------------------------------
+        |
+        | We intentionally build this collection in PHP instead of using
+        | the old SQL CASE which only handled 9th and 10th.
         |--------------------------------------------------------------------------
         */
 
         $subjects =
-            DB::table(
-                'standard_wise_subjects as sws'
-            )
-            ->join(
-                'subjects as s',
-                's.id',
-                '=',
-                'sws.subject_id'
-            )
-            ->leftJoin(
-                'exam_master_subjects as ems',
-                function ($join) use (
-                    $examMaster
-                ) {
+            collect();
 
-                    $join->on(
-                        'ems.subject_id',
-                        '=',
-                        's.id'
-                    )
-                    ->where(
-                        'ems.exam_master_id',
-                        '=',
-                        $examMaster->id
-                    )
-                    ->where(
-                        'ems.standard_id',
-                        '=',
-                        $examMaster->standard_id
+
+        foreach (
+            $standardSubjects as
+            $standardSubject
+        ) {
+
+            $existingConfig =
+                $existingConfigs->get(
+                    $standardSubject->subject_id
+                );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | MAX MARKS
+            |--------------------------------------------------------------------------
+            */
+
+            $maxMarks =
+                $existingConfig
+                    ? (float)
+                        $existingConfig->max_marks
+                    : 40.0;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | PASSING MARKS
+            |--------------------------------------------------------------------------
+            |
+            | Existing configured value is preserved for existing records.
+            |
+            | If the subject was not previously configured, calculate using
+            | the current standard's passing percentage.
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $existingConfig
+            ) {
+
+                $passingMarks =
+                    (int) (
+                        $existingConfig->passing_marks
+                        ?? 0
                     );
-                }
-            )
-            ->where(
-                'sws.standard_id',
-                $examMaster->standard_id
-            )
-            ->where(
-                'sws.is_active',
-                1
-            )
-            ->where(
-                's.is_active',
-                1
-            )
-            ->select([
 
-                'sws.id as standard_wise_subject_id',
+            } else {
 
-                's.id as subject_id',
+                $passingMarks =
+                    $maxMarks > 0
+                        ? (int) ceil(
+                            $maxMarks *
+                            (
+                                $passingPercentage
+                                /
+                                100
+                            )
+                        )
+                        : 0;
+            }
 
-                's.subject_name',
 
-                's.subject_code',
+            /*
+            |--------------------------------------------------------------------------
+            | DISPLAY ORDER
+            |--------------------------------------------------------------------------
+            */
 
-                's.short_name',
-
-                'sws.sort_order',
-
-                'sws.is_optional',
-
-                DB::raw(
-                    'COALESCE(
-                        ems.max_marks,
-                        40
-                    ) as max_marks'
-                ),
-
-                DB::raw(
-                    '
-                    CASE
-                        WHEN ems.id IS NOT NULL
-                            THEN ems.passing_marks
-
-                        WHEN sws.standard_id IN (9,10)
-                            THEN CEIL(40 * 0.35)
-
-                        ELSE CEIL(40 * 0.40)
-                    END AS passing_marks
-                    '
-                ),
-
-                DB::raw(
-                    '
-                    COALESCE(
-                        ems.display_order,
-                        sws.sort_order,
+            $displayOrder =
+                $existingConfig
+                    ? (int) (
+                        $existingConfig
+                            ->display_order
+                        ??
+                        $standardSubject
+                            ->sort_order
+                        ??
                         0
-                    ) AS display_order
-                    '
-                ),
+                    )
+                    : (int) (
+                        $standardSubject
+                            ->sort_order
+                        ??
+                        0
+                    );
 
-                DB::raw(
-                    '
-                    CASE
-                        WHEN ems.id IS NULL
-                            THEN 0
-                        ELSE 1
-                    END AS configured
-                    '
-                ),
 
-            ])
-            ->orderBy(
-                'sws.sort_order'
-            )
-            ->orderBy(
-                's.id'
-            )
-            ->get();
+            /*
+            |--------------------------------------------------------------------------
+            | CONFIGURED
+            |--------------------------------------------------------------------------
+            */
+
+            $configured =
+                $existingConfig
+                    ? 1
+                    : 0;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | BUILD OBJECT
+            |--------------------------------------------------------------------------
+            */
+
+            $subjects->push(
+                (object) [
+
+                    'standard_wise_subject_id' =>
+                        $standardSubject
+                            ->standard_wise_subject_id,
+
+                    'subject_id' =>
+                        $standardSubject
+                            ->subject_id,
+
+                    'subject_name' =>
+                        $standardSubject
+                            ->subject_name,
+
+                    'subject_code' =>
+                        $standardSubject
+                            ->subject_code,
+
+                    'short_name' =>
+                        $standardSubject
+                            ->short_name,
+
+                    'sort_order' =>
+                        $standardSubject
+                            ->sort_order,
+
+                    /*
+                    | Optional subject information
+                    */
+
+                    'is_optional' =>
+                        (int) (
+                            $standardSubject
+                                ->is_optional
+                            ?? 0
+                        ),
+
+                    'max_marks' =>
+                        $maxMarks,
+
+                    'passing_marks' =>
+                        $passingMarks,
+
+                    'display_order' =>
+                        $displayOrder,
+
+                    'configured' =>
+                        $configured,
+                ]
+            );
+        }
+
 
         return view(
             'exam-masters.edit',
@@ -663,6 +997,7 @@ class ExamMasterController extends Controller
         Request $request,
         $id
     ) {
+
         $request->validate([
 
             'academic_year_id' => [
@@ -707,16 +1042,20 @@ class ExamMasterController extends Controller
                 'Please select Standard.',
         ]);
 
+
         $examMaster =
             ExamMaster::findOrFail(
                 $id
             );
 
+
         $academicYearId =
             (int) $request->academic_year_id;
 
+
         $standardId =
             (int) $request->standard_id;
+
 
         $examName =
             strtoupper(
@@ -751,6 +1090,7 @@ class ExamMasterController extends Controller
                 $examMaster->id
             )
             ->exists();
+
 
         if ($duplicate) {
 
@@ -817,6 +1157,7 @@ class ExamMasterController extends Controller
                             $standardId
                         );
 
+
                     if (
                         $standardSubjects->isEmpty()
                     ) {
@@ -825,6 +1166,18 @@ class ExamMasterController extends Controller
                             'No active subjects are mapped to the selected Standard.'
                         );
                     }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | PASSING PERCENTAGE
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $passingPercentage =
+                        $this->getPassingPercentage(
+                            $standardId
+                        );
 
 
                     /*
@@ -847,10 +1200,12 @@ class ExamMasterController extends Controller
 
                         $subjectConfig =
                             $request->input(
-                                'subjects.' .
+                                'subjects.'
+                                .
                                 $standardSubject->subject_id,
                                 []
                             );
+
 
                         $maxMarks =
                             isset(
@@ -860,17 +1215,40 @@ class ExamMasterController extends Controller
                                     $subjectConfig['max_marks']
                                 : 40.0;
 
+
                         if (
                             $maxMarks < 0
                         ) {
-                            $maxMarks = 0;
+
+                            $maxMarks =
+                                0;
                         }
 
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | PASSING MARKS
+                        |--------------------------------------------------------------------------
+                        */
+
                         $passingMarks =
-                            $this->calculatePassingMarks(
-                                $maxMarks,
-                                $standardId
-                            );
+                            $maxMarks > 0
+                                ? (int) ceil(
+                                    $maxMarks *
+                                    (
+                                        $passingPercentage
+                                        /
+                                        100
+                                    )
+                                )
+                                : 0;
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | DISPLAY ORDER
+                        |--------------------------------------------------------------------------
+                        */
 
                         $displayOrder =
                             isset(
@@ -879,12 +1257,13 @@ class ExamMasterController extends Controller
                                 ? (int)
                                     $subjectConfig['display_order']
                                 : (
-                                    (int)
-                                    (
-                                        $standardSubject->sort_order
+                                    (int) (
+                                        $standardSubject
+                                            ->sort_order
                                         ?? 0
                                     )
                                 );
+
 
                         ExamMasterSubject::create([
 
@@ -912,6 +1291,7 @@ class ExamMasterController extends Controller
                     }
                 }
             );
+
 
             return redirect()
                 ->route(
@@ -946,8 +1326,10 @@ class ExamMasterController extends Controller
     public function loadSubjects(
         $standardId
     ) {
+
         $standardId =
             (int) $standardId;
+
 
         $subjects =
             DB::table(
@@ -998,6 +1380,7 @@ class ExamMasterController extends Controller
             ])
             ->get();
 
+
         return response()->json(
             $subjects
         );
@@ -1013,10 +1396,13 @@ class ExamMasterController extends Controller
     public function destroy(
         $id
     ) {
+
         try {
 
             DB::transaction(
-                function () use ($id) {
+                function () use (
+                    $id
+                ) {
 
                     /*
                     |--------------------------------------------------------------------------
@@ -1123,7 +1509,7 @@ class ExamMasterController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | EXAM SUBJECTS
+                    | LEGACY EXAM SUBJECTS
                     |--------------------------------------------------------------------------
                     */
 
@@ -1168,6 +1554,7 @@ class ExamMasterController extends Controller
                     ->delete();
                 }
             );
+
 
             return redirect()
                 ->route(

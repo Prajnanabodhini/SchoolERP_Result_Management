@@ -129,6 +129,48 @@
         $latestModifiedMark->updated_at
         ?? null;
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | OPTIONAL COLUMN FLAG
+    |--------------------------------------------------------------------------
+    */
+
+    $selectedAllocationForOptional =
+        $teacherSubjectAllocation?->allocation
+        ?? $selectedClassAllocation
+        ?? null;
+
+
+    $selectedStandardId =
+        (int) (
+            $selectedAllocationForOptional?->standard_id
+            ?? 0
+        );
+
+
+    $optionalStandardIds = [
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+    ];
+
+
+    $showOptionalColumn =
+        (bool) (
+            $isOptionalEnabled
+            ?? false
+        )
+        ||
+        in_array(
+            $selectedStandardId,
+            $optionalStandardIds,
+            true
+        );
+
 @endphp
 
 
@@ -686,6 +728,52 @@
 
 .admin-absent-btn:hover {
     background: #b91c1c;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| OPTIONAL
+|--------------------------------------------------------------------------
+*/
+
+.admin-optional-btn {
+    min-width: 82px;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 4px;
+    color: #fff;
+    background: #6b7280;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+
+.admin-optional-btn:hover {
+    background: #4b5563;
+}
+
+
+.admin-optional-active-btn {
+    background: #d97706 !important;
+}
+
+
+.admin-optional-active-btn:hover {
+    background: #b45309 !important;
+}
+
+
+.admin-optional-input {
+    background: #fff7ed !important;
+    border-color: #f59e0b !important;
+}
+
+
+.admin-status-optional {
+    color: #d97706;
+    font-weight: 700;
 }
 
 
@@ -1454,6 +1542,26 @@
 
                 </span>
 
+
+                {{-- OPTIONAL LABEL --}}
+
+                @if($showOptionalColumn)
+
+                    <span class="admin-selected-separator">
+                        |
+                    </span>
+
+                    <span
+                        style="
+                            color:#b45309;
+                            font-weight:700;
+                        "
+                    >
+                        Optional Selection: Enabled
+                    </span>
+
+                @endif
+
             </div>
 
 
@@ -1692,6 +1800,17 @@
                                 </th>
 
 
+                                {{-- OPTIONAL HEADER --}}
+
+                                @if($showOptionalColumn)
+
+                                    <th style="background:#fef3c7;color:#92400e;">
+                                        Optional
+                                    </th>
+
+                                @endif
+
+
                                 @if($showTheory)
 
                                     <th>
@@ -1782,6 +1901,21 @@
                                         ===
                                         1
                                     );
+
+
+                                $isOptional =
+                                    $isOptionalEnabled &&
+                                    $studentMark &&
+                                    (
+                                        (int)
+                                        ($studentMark->is_optional ?? 0)
+                                        === 1
+                                    );
+
+
+                                if ($isOptional) {
+                                    $isAbsent = false;
+                                }
 
 
                                 $fatherName =
@@ -1936,6 +2070,33 @@
                                 </td>
 
 
+                                {{-- OPTIONAL COLUMN --}}
+
+                                @if($showOptionalColumn)
+
+                                    <td class="admin-center">
+
+                                        <input
+                                            type="hidden"
+                                            name="is_optional[{{ $studentId }}]"
+                                            id="admin_optional_{{ $studentId }}"
+                                            value="{{ $isOptional ? 1 : 0 }}"
+                                        >
+
+                                        <button
+                                            type="button"
+                                            id="admin_optional_btn_{{ $studentId }}"
+                                            class="admin-optional-btn {{ $isOptional ? 'admin-optional-active-btn' : '' }}"
+                                            onclick="toggleAdminOptional('{{ $studentId }}')"
+                                        >
+                                            {{ $isOptional ? 'OPTIONAL' : 'NORMAL' }}
+                                        </button>
+
+                                    </td>
+
+                                @endif
+
+
                                 {{-- THEORY --}}
 
                                 @if($showTheory)
@@ -1981,7 +2142,7 @@
                                             "
                                             data-student="{{ $studentId }}"
                                             {{
-                                                $isAbsent
+                                                ($isAbsent || $isOptional)
                                                     ? 'readonly'
                                                     : ''
                                             }}
@@ -2037,7 +2198,7 @@
                                             "
                                             data-student="{{ $studentId }}"
                                             {{
-                                                $isAbsent
+                                                ($isAbsent || $isOptional)
                                                     ? 'readonly'
                                                     : ''
                                             }}
@@ -2093,7 +2254,7 @@
                                             "
                                             data-student="{{ $studentId }}"
                                             {{
-                                                $isAbsent
+                                                ($isAbsent || $isOptional)
                                                     ? 'readonly'
                                                     : ''
                                             }}
@@ -2112,17 +2273,25 @@
                                         id="admin_status_{{ $studentId }}"
                                         class="
                                             {{
-                                                $isAbsent
-                                                    ? 'admin-status-absent'
-                                                    : 'admin-status-present'
+                                                $isOptional
+                                                    ? 'admin-status-optional'
+                                                    : (
+                                                        $isAbsent
+                                                            ? 'admin-status-absent'
+                                                            : 'admin-status-present'
+                                                    )
                                             }}
                                         "
                                     >
 
                                         {{
-                                            $isAbsent
-                                                ? 'ABSENT'
-                                                : 'PRESENT'
+                                            $isOptional
+                                                ? 'OPTIONAL'
+                                                : (
+                                                    $isAbsent
+                                                        ? 'ABSENT'
+                                                        : 'PRESENT'
+                                                )
                                         }}
 
                                     </span>
@@ -2954,7 +3123,164 @@ document.addEventListener(
 
 /*
 |--------------------------------------------------------------------------
-| PRESENT / ABSENT
+| OPTIONAL TOGGLE
+|--------------------------------------------------------------------------
+*/
+
+function toggleAdminOptional(
+    studentId
+) {
+
+    const optionalField =
+        document.getElementById(
+            'admin_optional_' + studentId
+        );
+
+    const optionalButton =
+        document.getElementById(
+            'admin_optional_btn_' + studentId
+        );
+
+    const absentField =
+        document.getElementById(
+            'admin_absent_' + studentId
+        );
+
+    const attendanceButton =
+        document.getElementById(
+            'admin_attendance_btn_' + studentId
+        );
+
+    const status =
+        document.getElementById(
+            'admin_status_' + studentId
+        );
+
+    const inputs =
+        document.querySelectorAll(
+            '.admin-mark-input-' + studentId
+        );
+
+    if (!optionalField || !optionalButton || !status) {
+        return;
+    }
+
+
+    if (
+        absentField &&
+        absentField.value === '1'
+    ) {
+
+        Swal.fire({
+            icon: 'warning',
+            title: 'Student is Absent',
+            text: 'An absent student cannot be marked as Optional.',
+            confirmButtonText: 'OK'
+        });
+
+        return;
+    }
+
+
+    if (optionalField.value === '0') {
+
+        Swal.fire({
+            icon: 'warning',
+            title: 'Mark Student Optional?',
+            text: 'This student will be excluded from marks calculation for this subject.',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Optional',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#d97706'
+        }).then(function (result) {
+
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            optionalField.value = '1';
+
+            if (absentField) {
+                absentField.value = '0';
+            }
+
+            if (attendanceButton) {
+                attendanceButton.textContent = 'PRESENT';
+                attendanceButton.classList.remove('admin-absent-btn');
+                attendanceButton.classList.add('admin-present-btn');
+            }
+
+            optionalButton.textContent = 'OPTIONAL';
+            optionalButton.classList.add('admin-optional-active-btn');
+
+            status.textContent = 'OPTIONAL';
+            status.classList.remove(
+                'admin-status-present',
+                'admin-status-absent'
+            );
+            status.classList.add('admin-status-optional');
+
+            inputs.forEach(function (input) {
+                input.value = '0';
+                input.readOnly = true;
+                input.classList.remove('admin-absent-input');
+                input.classList.add('admin-optional-input');
+            });
+        });
+
+        return;
+    }
+
+
+    Swal.fire({
+        icon: 'question',
+        title: 'Remove Optional Status?',
+        text: 'This student will become a normal PRESENT student.',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Normal',
+        cancelButtonText: 'Cancel'
+    }).then(function (result) {
+
+        if (!result.isConfirmed) {
+            return;
+        }
+
+        optionalField.value = '0';
+        optionalButton.textContent = 'NORMAL';
+        optionalButton.classList.remove('admin-optional-active-btn');
+
+        status.textContent = 'PRESENT';
+        status.classList.remove(
+            'admin-status-optional',
+            'admin-status-absent'
+        );
+        status.classList.add('admin-status-present');
+
+        if (absentField) {
+            absentField.value = '0';
+        }
+
+        if (attendanceButton) {
+            attendanceButton.textContent = 'PRESENT';
+            attendanceButton.classList.remove('admin-absent-btn');
+            attendanceButton.classList.add('admin-present-btn');
+        }
+
+        inputs.forEach(function (input) {
+            input.readOnly = false;
+            input.classList.remove('admin-optional-input');
+
+            if (input.value === '0') {
+                input.value = '';
+            }
+        });
+    });
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| PRESENT / ABSENT TOGGLE (with confirmations)
 |--------------------------------------------------------------------------
 */
 
@@ -2967,157 +3293,107 @@ function toggleAdminAttendance(
             'admin_absent_' + studentId
         );
 
-
     const button =
         document.getElementById(
             'admin_attendance_btn_' + studentId
         );
-
 
     const status =
         document.getElementById(
             'admin_status_' + studentId
         );
 
-
     const inputs =
         document.querySelectorAll(
             '.admin-mark-input-' + studentId
         );
 
-
-    if (
-        !hidden ||
-        !button ||
-        !status
-    ) {
-
+    if (!hidden || !button || !status) {
         return;
-
     }
 
+    const currentlyAbsent = hidden.value === '1';
+    const optionalField = document.getElementById('admin_optional_' + studentId);
 
-    const currentlyAbsent =
-        hidden.value === '1';
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ABSENT -> PRESENT
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        currentlyAbsent
-    ) {
-
-        hidden.value =
-            '0';
-
-
-        button.textContent =
-            'PRESENT';
-
-
-        button.classList.remove(
-            'admin-absent-btn'
-        );
-
-
-        button.classList.add(
-            'admin-present-btn'
-        );
-
-
-        status.textContent =
-            'PRESENT';
-
-
-        status.classList.remove(
-            'admin-status-absent'
-        );
-
-
-        status.classList.add(
-            'admin-status-present'
-        );
-
-
-        inputs.forEach(
-            function(input) {
-
-                input.readOnly =
-                    false;
-
-
-                input.classList.remove(
-                    'admin-absent-input'
-                );
-
+    // If the student is Optional, ask to remove Optional first
+    if (optionalField && optionalField.value === '1') {
+        Swal.fire({
+            icon: 'question',
+            title: 'Student is Optional',
+            text: 'Remove Optional status before changing Attendance?',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Continue',
+            cancelButtonText: 'Cancel'
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
             }
-        );
-
-
+            toggleAdminOptional(studentId);
+        });
         return;
     }
 
+    // PRESENT -> ABSENT
+    if (!currentlyAbsent) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Mark Student Absent?',
+            text: 'Student will be marked ABSENT and all marks will become 0.',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Mark Absent',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#dc2626'
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PRESENT -> ABSENT
-    |--------------------------------------------------------------------------
-    */
+            hidden.value = '1';
+            button.textContent = 'ABSENT';
+            button.classList.remove('admin-present-btn');
+            button.classList.add('admin-absent-btn');
+            status.textContent = 'ABSENT';
+            status.classList.remove('admin-status-present');
+            status.classList.add('admin-status-absent');
 
-    hidden.value =
-        '1';
+            inputs.forEach(function (input) {
+                input.value = '0';
+                input.readOnly = true;
+                input.classList.add('admin-absent-input');
+            });
+        });
+        return;
+    }
 
-
-    button.textContent =
-        'ABSENT';
-
-
-    button.classList.remove(
-        'admin-present-btn'
-    );
-
-
-    button.classList.add(
-        'admin-absent-btn'
-    );
-
-
-    status.textContent =
-        'ABSENT';
-
-
-    status.classList.remove(
-        'admin-status-present'
-    );
-
-
-    status.classList.add(
-        'admin-status-absent'
-    );
-
-
-    inputs.forEach(
-        function(input) {
-
-            input.value =
-                '0';
-
-
-            input.readOnly =
-                true;
-
-
-            input.classList.add(
-                'admin-absent-input'
-            );
-
+    // ABSENT -> PRESENT
+    Swal.fire({
+        icon: 'question',
+        title: 'Mark Student Present?',
+        text: 'Change student status back to PRESENT?',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Present',
+        cancelButtonText: 'Cancel'
+    }).then(function (result) {
+        if (!result.isConfirmed) {
+            return;
         }
-    );
 
+        hidden.value = '0';
+        button.textContent = 'PRESENT';
+        button.classList.remove('admin-absent-btn');
+        button.classList.add('admin-present-btn');
+        status.textContent = 'PRESENT';
+        status.classList.remove('admin-status-absent');
+        status.classList.add('admin-status-present');
+
+        inputs.forEach(function (input) {
+            input.readOnly = false;
+            input.classList.remove('admin-absent-input');
+            if (input.value === '0') {
+                input.value = '';
+            }
+        });
+    });
 }
 
 </script>

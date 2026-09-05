@@ -14,15 +14,17 @@ use App\Models\ExamMaster;
 use App\Models\ExamMasterSubject;
 
 use App\Helpers\ExamHelper;
+use App\Helpers\MarksHelper;
 use App\Helpers\StudentHelper;
 
 class MarkSubmitController extends Controller
 {
-    /**
-     * ============================================================
-     * FINAL SUBMIT
-     * ============================================================
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | FINAL SUBMIT
+    |--------------------------------------------------------------------------
+    */
+
     public function submitFinal(Request $request)
     {
         /*
@@ -150,7 +152,7 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | TEACHER AUTHORIZATION
+        | AUTHENTICATION
         |--------------------------------------------------------------------------
         */
 
@@ -164,6 +166,12 @@ class MarkSubmitController extends Controller
                 );
         }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | TEACHER AUTHORIZATION
+        |--------------------------------------------------------------------------
+        */
 
         if (
             Auth::user()->role !== 'Administrator' &&
@@ -233,12 +241,6 @@ class MarkSubmitController extends Controller
         |--------------------------------------------------------------------------
         | CANONICAL SUBJECT ID
         |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | teacher_subject_allocations.subject_id
-        | is expected to contain subjects.id.
-        |
         */
 
         $actualSubjectId =
@@ -260,7 +262,7 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY SUBJECT EXISTS
+        | VERIFY SUBJECT
         |--------------------------------------------------------------------------
         */
 
@@ -292,7 +294,7 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY SUBJECT BELONGS TO STANDARD
+        | VERIFY SUBJECT MAPPING
         |--------------------------------------------------------------------------
         */
 
@@ -332,7 +334,19 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | ALREADY COMPLETED
+        | OPTIONAL
+        |--------------------------------------------------------------------------
+        */
+
+        $optionalEnabled =
+            MarksHelper::isOptionalEnabled(
+                $allocation->standard_id
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK ALREADY COMPLETED
         |--------------------------------------------------------------------------
         */
 
@@ -394,7 +408,7 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | NORMALIZE ERP STUDENTS
+        | CHECK STUDENTS
         |--------------------------------------------------------------------------
         */
 
@@ -414,61 +428,14 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | BUILD ERP STUDENT IDS
+        | ERP STUDENT IDS
         |--------------------------------------------------------------------------
-        |
-        | Marks Entry uses Studentid.
-        | Support Studentid, student_id and id.
-        |
         */
 
         $erpStudentIds =
-            collect($students)
-                ->map(
-                    function ($student) {
-
-                        if (
-                            isset(
-                                $student->Studentid
-                            ) &&
-                            $student->Studentid !== ''
-                        ) {
-
-                            return (string)
-                                $student->Studentid;
-                        }
-
-
-                        if (
-                            isset(
-                                $student->student_id
-                            ) &&
-                            $student->student_id !== ''
-                        ) {
-
-                            return (string)
-                                $student->student_id;
-                        }
-
-
-                        if (
-                            isset(
-                                $student->id
-                            ) &&
-                            $student->id !== ''
-                        ) {
-
-                            return (string)
-                                $student->id;
-                        }
-
-
-                        return null;
-                    }
-                )
-                ->filter()
-                ->unique()
-                ->values();
+            MarksHelper::getStudentIds(
+                $students
+            );
 
 
         if (
@@ -488,17 +455,6 @@ class MarkSubmitController extends Controller
         |--------------------------------------------------------------------------
         | LOAD SAVED MARKS
         |--------------------------------------------------------------------------
-        |
-        | Filter by exact:
-        |
-        | Academic Year
-        | Section
-        | Standard
-        | Division
-        | Exam
-        | TSA
-        | Subject
-        |
         */
 
         $marks =
@@ -553,22 +509,14 @@ class MarkSubmitController extends Controller
         */
 
         $savedStudentIds =
-            $marks
-                ->pluck(
-                    'student_id'
-                )
-                ->map(
-                    fn ($id) =>
-                        (string) $id
-                )
-                ->filter()
-                ->unique()
-                ->values();
+            MarksHelper::getSavedStudentIds(
+                $marks
+            );
 
 
         /*
         |--------------------------------------------------------------------------
-        | FIND MISSING STUDENTS
+        | MISSING STUDENTS
         |--------------------------------------------------------------------------
         */
 
@@ -634,97 +582,39 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | COMPONENT VISIBILITY
+        | COMPONENT CONFIGURATION
         |--------------------------------------------------------------------------
         */
+
+        $components =
+            MarksHelper::getComponentMaxMarks(
+                $exam,
+                $subjectConfig
+            );
+
 
         $showTheory =
-            (bool) (
-                $exam->has_theory ?? true
-            );
-
+            $components['show_theory'];
 
         $showOral =
-            (bool) (
-                $exam->has_oral ?? false
-            );
-
+            $components['show_oral'];
 
         $showPractical =
-            (bool) (
-                $exam->has_practical ?? false
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UNIT TEST 1
-        |--------------------------------------------------------------------------
-        |
-        | Requirement:
-        | Oral and Practical are not applicable.
-        |
-        */
-
-        $examName =
-            strtoupper(
-                trim(
-                    (string) (
-                        $exam->exam_name ?? ''
-                    )
-                )
-            );
-
-
-        if (
-            str_contains(
-                $examName,
-                'UNIT TEST 1'
-            )
-        ) {
-
-            $showOral =
-                false;
-
-            $showPractical =
-                false;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | MAX MARKS
-        |--------------------------------------------------------------------------
-        */
+            $components['show_practical'];
 
         $theoryMax =
-            (float) (
-                $subjectConfig->max_marks
-                ?? 0
-            );
-
+            $components['theory_max'];
 
         $oralMax =
-            $showOral
-                ? (float) (
-                    $exam->oral_max_marks
-                    ?? 0
-                )
-                : 0;
-
+            $components['oral_max'];
 
         $practicalMax =
-            $showPractical
-                ? (float) (
-                    $exam->practical_max_marks
-                    ?? 0
-                )
-                : 0;
+            $components['practical_max'];
 
 
         /*
         |--------------------------------------------------------------------------
-        | VALIDATE ALL SAVED MARKS
+        | VALIDATE SAVED MARKS
         |--------------------------------------------------------------------------
         */
 
@@ -734,12 +624,37 @@ class MarkSubmitController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | ABSENT
+            | OPTIONAL STUDENT
+            |--------------------------------------------------------------------------
+            |
+            | Optional students do not require marks.
+            |
+            | IMPORTANT:
+            | is_optional is NEVER changed here.
+            |
+            */
+
+            if (
+                $optionalEnabled &&
+                MarksHelper::isOptionalStudent(
+                    $mark
+                )
+            ) {
+
+                continue;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | ABSENT STUDENT
             |--------------------------------------------------------------------------
             */
 
             if (
-                (int) $mark->is_absent === 1
+                MarksHelper::isAbsent(
+                    $mark
+                )
             ) {
 
                 continue;
@@ -754,42 +669,22 @@ class MarkSubmitController extends Controller
 
             if ($showTheory) {
 
-                if (
-                    $mark->theory_obtained_marks === null
-                    ||
-                    $mark->theory_obtained_marks === ''
-                ) {
+                $error =
+                    MarksHelper::validateObtainedMarks(
+                        $mark->theory_obtained_marks,
+                        $theoryMax,
+                        'Theory',
+                        $mark->student_id
+                    );
+
+
+                if ($error !== null) {
 
                     return back()
                         ->withInput()
                         ->with(
                             'error',
-                            'Theory marks are missing for one or more students.'
-                        );
-                }
-
-
-                $theoryObtained =
-                    (float)
-                    $mark->theory_obtained_marks;
-
-
-                if (
-                    $theoryObtained < 0
-                    ||
-                    (
-                        $theoryMax > 0 &&
-                        $theoryObtained > $theoryMax
-                    )
-                ) {
-
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            'Invalid Theory marks found for Student ID '
-                            . $mark->student_id
-                            . '.'
+                            $error
                         );
                 }
             }
@@ -803,42 +698,22 @@ class MarkSubmitController extends Controller
 
             if ($showOral) {
 
-                if (
-                    $mark->oral_obtained_marks === null
-                    ||
-                    $mark->oral_obtained_marks === ''
-                ) {
+                $error =
+                    MarksHelper::validateObtainedMarks(
+                        $mark->oral_obtained_marks,
+                        $oralMax,
+                        'Oral',
+                        $mark->student_id
+                    );
+
+
+                if ($error !== null) {
 
                     return back()
                         ->withInput()
                         ->with(
                             'error',
-                            'Oral marks are missing for one or more students.'
-                        );
-                }
-
-
-                $oralObtained =
-                    (float)
-                    $mark->oral_obtained_marks;
-
-
-                if (
-                    $oralObtained < 0
-                    ||
-                    (
-                        $oralMax > 0 &&
-                        $oralObtained > $oralMax
-                    )
-                ) {
-
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            'Invalid Oral marks found for Student ID '
-                            . $mark->student_id
-                            . '.'
+                            $error
                         );
                 }
             }
@@ -852,42 +727,22 @@ class MarkSubmitController extends Controller
 
             if ($showPractical) {
 
-                if (
-                    $mark->practical_obtained_marks === null
-                    ||
-                    $mark->practical_obtained_marks === ''
-                ) {
+                $error =
+                    MarksHelper::validateObtainedMarks(
+                        $mark->practical_obtained_marks,
+                        $practicalMax,
+                        'Practical',
+                        $mark->student_id
+                    );
+
+
+                if ($error !== null) {
 
                     return back()
                         ->withInput()
                         ->with(
                             'error',
-                            'Practical marks are missing for one or more students.'
-                        );
-                }
-
-
-                $practicalObtained =
-                    (float)
-                    $mark->practical_obtained_marks;
-
-
-                if (
-                    $practicalObtained < 0
-                    ||
-                    (
-                        $practicalMax > 0 &&
-                        $practicalObtained > $practicalMax
-                    )
-                ) {
-
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            'Invalid Practical marks found for Student ID '
-                            . $mark->student_id
-                            . '.'
+                            $error
                         );
                 }
             }
@@ -902,9 +757,8 @@ class MarkSubmitController extends Controller
 
         DB::transaction(
             function () use (
-                $marks,
-                $tsa,
                 $allocation,
+                $tsa,
                 $exam,
                 $actualSubjectId,
                 $academicYearId
@@ -912,8 +766,17 @@ class MarkSubmitController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | LOCK STUDENT MARKS
+                | LOCK MARKS ONLY
                 |--------------------------------------------------------------------------
+                |
+                | DO NOT modify:
+                |
+                | is_optional
+                | is_absent
+                | theory_obtained_marks
+                | oral_obtained_marks
+                | practical_obtained_marks
+                |
                 */
 
                 StudentMark::where(
@@ -945,9 +808,6 @@ class MarkSubmitController extends Controller
                     $actualSubjectId
                 )
                 ->update([
-                    'subject_id' =>
-                        $actualSubjectId,
-
                     'is_locked' =>
                         1,
 
@@ -961,7 +821,7 @@ class MarkSubmitController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | UPDATE TEACHER MARK STATUS
+                | TEACHER MARK STATUS
                 |--------------------------------------------------------------------------
                 */
 
@@ -982,13 +842,6 @@ class MarkSubmitController extends Controller
 
                         'division_id' =>
                             $allocation->division_id,
-
-                        /*
-                        |--------------------------------------------------------------
-                        | IMPORTANT:
-                        | Always store subjects.id.
-                        |--------------------------------------------------------------
-                        */
 
                         'subject_id' =>
                             $actualSubjectId,
@@ -1024,20 +877,13 @@ class MarkSubmitController extends Controller
 
         } catch (\Throwable $e) {
 
-            /*
-            |--------------------------------------------------------------------------
-            | Do not make a successful marks submission appear
-            | unsuccessful because an optional completion helper failed.
-            |--------------------------------------------------------------------------
-            */
-
             report($e);
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | SUCCESS REDIRECT
+        | SUCCESS
         |--------------------------------------------------------------------------
         */
 

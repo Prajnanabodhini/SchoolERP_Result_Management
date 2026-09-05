@@ -148,231 +148,195 @@
     "
 >
 
-    <div
-        style="
-            background:white;
-            border-radius:12px;
-            padding:20px;
-            border:1px solid #d1d5db;
-            box-shadow:0 4px 10px rgba(0,0,0,.15);
-        "
+<div
+    style="
+        background:white;
+        border-radius:12px;
+        padding:20px;
+        border:1px solid #d1d5db;
+        box-shadow:0 4px 10px rgba(0,0,0,.15);
+    "
+>
+
+
+    {{-- =====================================================
+         TITLE
+    ====================================================== --}}
+
+    <h2 class="text-center text-blue-600 mb-4">
+        Edit Exam
+    </h2>
+
+
+    {{-- =====================================================
+         VALIDATION ERRORS
+    ====================================================== --}}
+
+    @if($errors->any())
+
+        <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
+
+            <ul class="list-disc ml-5">
+
+                @foreach($errors->all() as $error)
+
+                    <li>
+                        {{ $error }}
+                    </li>
+
+                @endforeach
+
+            </ul>
+
+        </div>
+
+    @endif
+
+
+    {{-- =====================================================
+         SUCCESS
+    ====================================================== --}}
+
+    @if(session('success'))
+
+        <div class="bg-green-100 text-green-700 p-3 rounded mb-4">
+
+            {{ session('success') }}
+
+        </div>
+
+    @endif
+
+
+    {{-- =====================================================
+         ERROR
+    ====================================================== --}}
+
+    @if(session('error'))
+
+        <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
+
+            {{ session('error') }}
+
+        </div>
+
+    @endif
+
+
+    {{-- =====================================================
+         FORM
+    ====================================================== --}}
+
+    <form
+        method="POST"
+        action="{{ route(
+            'exam-masters.update',
+            $examMaster->id
+        ) }}"
+        id="examEditForm"
     >
 
+        @csrf
 
-        {{-- =====================================================
-             TITLE
-        ====================================================== --}}
+        @method('PUT')
 
-        <h2 class="text-center text-blue-600 mb-4">
-            Edit Exam
-        </h2>
 
+        {{-- =================================================
+             ACADEMIC YEAR + STANDARD
+        ================================================== --}}
 
-        {{-- =====================================================
-             VALIDATION ERRORS
-        ====================================================== --}}
+        <div class="grid grid-cols-2 gap-4 mb-5">
 
-        @if($errors->any())
 
-            <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
+            {{-- ACADEMIC YEAR --}}
 
-                <ul class="list-disc ml-5">
-
-                    @foreach($errors->all() as $error)
-
-                        <li>
-                            {{ $error }}
-                        </li>
-
-                    @endforeach
-
-                </ul>
-
-            </div>
-
-        @endif
-
-
-        {{-- =====================================================
-             SUCCESS
-        ====================================================== --}}
-
-        @if(session('success'))
-
-            <div class="bg-green-100 text-green-700 p-3 rounded mb-4">
-
-                {{ session('success') }}
-
-            </div>
-
-        @endif
-
-
-        {{-- =====================================================
-             ERROR
-        ====================================================== --}}
-
-        @if(session('error'))
-
-            <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
-
-                {{ session('error') }}
-
-            </div>
-
-        @endif
-
-
-        {{-- =====================================================
-             FORM
-        ====================================================== --}}
-
-        <form
-            method="POST"
-            action="{{ route(
-                'exam-masters.update',
-                $examMaster->id
-            ) }}"
-            id="examEditForm"
-        >
-
-            @csrf
-
-            @method('PUT')
-
-
-            {{-- =================================================
-                 ACADEMIC YEAR + STANDARD
-            ================================================== --}}
-
-            <div class="grid grid-cols-2 gap-4 mb-5">
-
-
-                {{-- ACADEMIC YEAR --}}
-
-                <div>
-
-                    <label
-                        for="academic_year_id"
-                        class="block font-semibold mb-2"
-                    >
-                        Academic Year
-                    </label>
-
-                    <select
-                        name="academic_year_id"
-                        id="academic_year_id"
-                        class="w-full border rounded p-2"
-                        required
-                    >
-
-                        <option value="">
-                            Select Academic Year
-                        </option>
-
-                        @foreach($academicYears as $academicYear)
-
-                            <option
-                                value="{{ $academicYear->id }}"
-                                {{ (string)$currentAcademicYearId === (string)$academicYear->id ? 'selected' : '' }}
-                            >
-                                {{ $academicYear->year_name }}
-                            </option>
-
-                        @endforeach
-
-                    </select>
-
-
-                    <div
-                        id="academicYearNote"
-                        class="academic-year-note"
-                    >
-                    </div>
-
-
-                    @error('academic_year_id')
-
-                        <div class="text-red-600 mt-1">
-                            {{ $message }}
-                        </div>
-
-                    @enderror
-
-                </div>
-
-
-                {{-- STANDARD --}}
-
-                <div>
-
-                    <label
-                        for="standard_id"
-                        class="block font-semibold mb-2"
-                    >
-                        Standard
-                    </label>
-
-                    <select
-                        name="standard_id"
-                        id="standard_id"
-                        class="w-full border rounded p-2"
-                        required
-                    >
-
-                        <option value="">
-                            Select Standard
-                        </option>
-
-                        @foreach($standards as $standard)
-
-                            <option
-                                value="{{ $standard->id }}"
-                                {{ (int)$examMaster->standard_id === (int)$standard->id ? 'selected' : '' }}
-                            >
-                                {{ $standard->standard_name }}
-                            </option>
-
-                        @endforeach
-
-                    </select>
-
-                </div>
-
-            </div>
-
-
-            {{-- =================================================
-                 EXAM TYPE
-            ================================================== --}}
-
-            <div class="mb-5">
+            <div>
 
                 <label
-                    for="exam_type"
+                    for="academic_year_id"
                     class="block font-semibold mb-2"
                 >
-                    Exam Type
+                    Academic Year
                 </label>
 
+
                 <select
-                    id="exam_type"
-                    name="exam_type"
+                    name="academic_year_id"
+                    id="academic_year_id"
                     class="w-full border rounded p-2"
                     required
                 >
 
                     <option value="">
-                        Select Exam Type
+                        Select Academic Year
                     </option>
 
-                    @foreach($examTypes as $type)
+
+                    @foreach($academicYears as $academicYear)
 
                         <option
-                            value="{{ $type }}"
-                            {{ $examTypeValue === $type ? 'selected' : '' }}
+                            value="{{ $academicYear->id }}"
+                            {{ (string)$currentAcademicYearId === (string)$academicYear->id ? 'selected' : '' }}
                         >
-                            {{ ucwords(strtolower($type)) }}
+                            {{ $academicYear->year_name }}
+                        </option>
+
+                    @endforeach
+
+                </select>
+
+
+                <div
+                    id="academicYearNote"
+                    class="academic-year-note"
+                >
+                </div>
+
+
+                @error('academic_year_id')
+
+                    <div class="text-red-600 mt-1">
+
+                        {{ $message }}
+
+                    </div>
+
+                @enderror
+
+            </div>
+
+
+            {{-- STANDARD --}}
+
+            <div>
+
+                <label
+                    for="standard_id"
+                    class="block font-semibold mb-2"
+                >
+                    Standard
+                </label>
+
+
+                <select
+                    name="standard_id"
+                    id="standard_id"
+                    class="w-full border rounded p-2"
+                    required
+                >
+
+                    <option value="">
+                        Select Standard
+                    </option>
+
+
+                    @foreach($standards as $standard)
+
+                        <option
+                            value="{{ $standard->id }}"
+                            {{ (int)$examMaster->standard_id === (int)$standard->id ? 'selected' : '' }}
+                        >
+                            {{ $standard->standard_name }}
                         </option>
 
                     @endforeach
@@ -381,528 +345,772 @@
 
             </div>
 
+        </div>
 
-            {{-- =================================================
-                 EXAM NAME
-            ================================================== --}}
+
+        {{-- =================================================
+             EXAM TYPE
+        ================================================== --}}
+
+        <div class="mb-5">
+
+            <label
+                for="exam_type"
+                class="block font-semibold mb-2"
+            >
+                Exam Type
+            </label>
+
+
+            <select
+                id="exam_type"
+                name="exam_type"
+                class="w-full border rounded p-2"
+                required
+            >
+
+                <option value="">
+                    Select Exam Type
+                </option>
+
+
+                @foreach($examTypes as $type)
+
+                    <option
+                        value="{{ $type }}"
+                        {{ $examTypeValue === $type ? 'selected' : '' }}
+                    >
+                        {{ ucwords(strtolower($type)) }}
+                    </option>
+
+                @endforeach
+
+            </select>
+
+        </div>
+
+
+        {{-- =================================================
+             EXAM NAME
+        ================================================== --}}
+
+        <input
+            type="hidden"
+            name="exam_name"
+            id="exam_name"
+            value="{{ old(
+                'exam_name',
+                $examMaster->exam_name
+            ) }}"
+        >
+
+
+        <div class="mb-5">
+
+            <label
+                for="exam_name_preview"
+                class="block font-semibold mb-2"
+            >
+                Exam Name
+            </label>
+
 
             <input
-                type="hidden"
-                name="exam_name"
-                id="exam_name"
+                type="text"
+                id="exam_name_preview"
                 value="{{ old(
                     'exam_name',
                     $examMaster->exam_name
                 ) }}"
+                readonly
+                class="w-full border rounded p-2 bg-gray-100"
             >
 
+        </div>
 
-            <div class="mb-5">
 
-                <label
-                    for="exam_name_preview"
-                    class="block font-semibold mb-2"
+        {{-- =================================================
+             SUBJECT MARKS CONFIGURATION
+        ================================================== --}}
+
+        <div
+            class="border rounded section-box mb-6 bg-gray-50"
+        >
+
+            <div
+                class="flex justify-between items-center mb-3"
+            >
+
+                <h3 class="font-bold">
+                    Subject Wise Marks Configuration
+                </h3>
+
+
+                <span
+                    id="subjectLoading"
+                    class="text-blue-600"
+                    style="display:none;"
                 >
-                    Exam Name
-                </label>
-
-                <input
-                    type="text"
-                    id="exam_name_preview"
-                    value="{{ old(
-                        'exam_name',
-                        $examMaster->exam_name
-                    ) }}"
-                    readonly
-                    class="w-full border rounded p-2 bg-gray-100"
-                >
+                    Loading subjects...
+                </span>
 
             </div>
 
 
-            {{-- =================================================
-                 SUBJECT MARKS CONFIGURATION
-            ================================================== --}}
+            {{-- PASSING PERCENTAGE --}}
 
             <div
-                class="border rounded section-box mb-6 bg-gray-50"
+                id="passingPercentageNote"
+                class="passing-percentage-note"
             >
+            </div>
 
-                <div
-                    class="flex justify-between items-center mb-3"
+
+            {{-- SUBJECT TABLE --}}
+
+            <div class="overflow-x-auto">
+
+                <table
+                    class="w-full border bg-white"
                 >
 
-                    <h3 class="font-bold">
-                        Subject Wise Marks Configuration
-                    </h3>
+                    <thead>
+
+                        <tr class="bg-blue-100">
+
+                            <th
+                                class="border p-2"
+                                style="width:45%;"
+                            >
+                                Subject
+                            </th>
 
 
-                    <span
-                        id="subjectLoading"
-                        class="text-blue-600"
-                        style="display:none;"
-                    >
-                        Loading subjects...
-                    </span>
-
-                </div>
+                            <th
+                                class="border p-2"
+                                style="width:20%;"
+                            >
+                                Max Marks
+                            </th>
 
 
-                {{-- PASSING PERCENTAGE --}}
+                            <th
+                                class="border p-2"
+                                style="width:20%;"
+                            >
+                                Passing Marks
+                            </th>
 
-                <div
-                    id="passingPercentageNote"
-                    class="passing-percentage-note"
-                >
-                </div>
+
+                            <th
+                                class="border p-2"
+                                style="width:15%;"
+                            >
+                                Type
+                            </th>
+
+                        </tr>
+
+                    </thead>
 
 
-                {{-- SUBJECT TABLE --}}
+                    <tbody id="subjectTableBody">
 
-                <div class="overflow-x-auto">
+                        @if($subjects->isEmpty())
 
-                    <table
-                        class="w-full border bg-white"
-                    >
+                            <tr>
 
-                        <thead>
-
-                            <tr class="bg-blue-100">
-
-                                <th
-                                    class="border p-2"
-                                    style="width:45%;"
+                                <td
+                                    colspan="4"
+                                    class="border p-3 text-center text-red-600"
                                 >
-                                    Subject
-                                </th>
-
-
-                                <th
-                                    class="border p-2"
-                                    style="width:20%;"
-                                >
-                                    Max Marks
-                                </th>
-
-
-                                <th
-                                    class="border p-2"
-                                    style="width:20%;"
-                                >
-                                    Passing Marks
-                                </th>
-
-
-                                <th
-                                    class="border p-2"
-                                    style="width:15%;"
-                                >
-                                    Type
-                                </th>
+                                    No active subjects are mapped
+                                    to this Standard.
+                                </td>
 
                             </tr>
 
-                        </thead>
+                        @else
+
+                            @foreach(
+                                $subjects as $index => $subject
+                            )
+
+                                @php
+
+                                    $subjectId =
+                                        (int)
+                                        $subject->subject_id;
 
 
-                        <tbody id="subjectTableBody">
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | MAX MARKS
+                                    |--------------------------------------------------------------------------
+                                    */
 
-                            @if($subjects->isEmpty())
+                                    $maxMarks =
+                                        (float) (
+                                            $subject->max_marks
+                                            ?? 40
+                                        );
+
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | STANDARD NAME
+                                    |--------------------------------------------------------------------------
+                                    |
+                                    | IMPORTANT:
+                                    | Do not rely only on standard_id.
+                                    |
+                                    | Example:
+                                    |
+                                    | ELEVENTH SCIENCE
+                                    | standard_id = 19
+                                    |
+                                    | must still use 35%.
+                                    |
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    $standardName =
+                                        strtoupper(
+                                            trim(
+                                                (string) (
+                                                    $examMaster
+                                                        ->standard
+                                                        ?->standard_name
+                                                    ?? ''
+                                                )
+                                            )
+                                        );
+
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | NORMALIZE STANDARD NAME
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    $normalizedStandardName =
+                                        preg_replace(
+                                            '/[^A-Z0-9]+/',
+                                            '',
+                                            $standardName
+                                        ) ?? '';
+
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | PASSING PERCENTAGE
+                                    |--------------------------------------------------------------------------
+                                    |
+                                    | 35%:
+                                    |
+                                    | Nursery
+                                    | JrKg
+                                    | SrKg
+                                    | 9th
+                                    | 10th
+                                    | 11th
+                                    | 12th
+                                    |
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    $is35PercentStandard =
+
+                                        /*
+                                        |------------------------------------------------------
+                                        | FIXED IDs
+                                        |------------------------------------------------------
+                                        */
+
+                                        in_array(
+                                            (int)
+                                            $examMaster->standard_id,
+                                            [
+                                                9,
+                                                10,
+                                                11,
+                                                12,
+                                            ],
+                                            true
+                                        )
+
+                                        ||
+
+                                        /*
+                                        |------------------------------------------------------
+                                        | NURSERY / KG
+                                        |------------------------------------------------------
+                                        */
+
+                                        in_array(
+                                            $normalizedStandardName,
+                                            [
+                                                'NURSERY',
+                                                'NUR',
+
+                                                'JRKG',
+                                                'JUNIORKG',
+                                                'JUNIORKINDERGARTEN',
+
+                                                'SRKG',
+                                                'SENIORKG',
+                                                'SENIORKINDERGARTEN',
+                                            ],
+                                            true
+                                        )
+
+                                        ||
+
+                                        /*
+                                        |------------------------------------------------------
+                                        | 9TH / 10TH BY NAME
+                                        |------------------------------------------------------
+                                        */
+
+                                        in_array(
+                                            $normalizedStandardName,
+                                            [
+                                                'NINTH',
+                                                '9TH',
+                                                'IX',
+
+                                                'TENTH',
+                                                '10TH',
+                                                'X',
+                                            ],
+                                            true
+                                        )
+
+                                        ||
+
+                                        /*
+                                        |------------------------------------------------------
+                                        | 11TH BY NAME
+                                        |------------------------------------------------------
+                                        */
+
+                                        str_contains(
+                                            $normalizedStandardName,
+                                            'ELEVENTH'
+                                        )
+
+                                        ||
+
+                                        $normalizedStandardName === 'XI'
+
+                                        ||
+
+                                        /*
+                                        |------------------------------------------------------
+                                        | 12TH BY NAME
+                                        |------------------------------------------------------
+                                        */
+
+                                        str_contains(
+                                            $normalizedStandardName,
+                                            'TWELFTH'
+                                        )
+
+                                        ||
+
+                                        $normalizedStandardName === 'XII';
+
+
+                                    $passingPercentage =
+                                        $is35PercentStandard
+                                            ? 35
+                                            : 40;
+
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | PASSING MARKS
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    $passingMarks =
+                                        $maxMarks > 0
+                                            ? (int) ceil(
+                                                $maxMarks *
+                                                (
+                                                    $passingPercentage
+                                                    /
+                                                    100
+                                                )
+                                            )
+                                            : 0;
+
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | DISPLAY ORDER
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    $displayOrder =
+                                        $subject->display_order
+                                        ??
+                                        $subject->sort_order
+                                        ??
+                                        (
+                                            $index + 1
+                                        );
+
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | OPTIONAL
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    $isOptional =
+                                        (
+                                            (int) (
+                                                $subject->is_optional
+                                                ?? 0
+                                            )
+                                        ) === 1;
+
+                                @endphp
+
 
                                 <tr>
 
+
+                                    {{-- =================================================
+                                         SUBJECT
+                                    ================================================== --}}
+
                                     <td
-                                        colspan="4"
-                                        class="border p-3 text-center text-red-600"
+                                        class="border p-2"
                                     >
-                                        No active subjects are mapped
-                                        to this Standard.
+
+                                        <div
+                                            style="
+                                                font-weight:600;
+                                            "
+                                        >
+                                            {{ $subject->subject_name }}
+                                        </div>
+
+
+                                        @if(
+                                            !empty(
+                                                $subject->subject_code
+                                            )
+                                        )
+
+                                            <div
+                                                class="subject-code"
+                                            >
+                                                Code:
+                                                {{ $subject->subject_code }}
+                                            </div>
+
+                                        @endif
+
+
+                                        {{-- ACTUAL SUBJECT MASTER ID --}}
+
+                                        <input
+                                            type="hidden"
+                                            name="subjects[{{ $subjectId }}][subject_id]"
+                                            value="{{ $subjectId }}"
+                                        >
+
+
+                                        {{-- DISPLAY ORDER --}}
+
+                                        <input
+                                            type="hidden"
+                                            name="subjects[{{ $subjectId }}][display_order]"
+                                            value="{{ $displayOrder }}"
+                                        >
+
+                                    </td>
+
+
+                                    {{-- =================================================
+                                         MAX MARKS
+                                    ================================================== --}}
+
+                                    <td
+                                        class="border p-2"
+                                    >
+
+                                        <select
+                                            name="subjects[{{ $subjectId }}][max_marks]"
+                                            class="max-mark w-full border rounded p-1"
+                                            data-subject-id="{{ $subjectId }}"
+                                        >
+
+                                            @foreach(
+                                                [20,25,40,50,80,100]
+                                                as $maxOption
+                                            )
+
+                                                <option
+                                                    value="{{ $maxOption }}"
+                                                    {{ (float)$maxMarks === (float)$maxOption ? 'selected' : '' }}
+                                                >
+                                                    {{ $maxOption }}
+                                                </option>
+
+                                            @endforeach
+
+
+                                            @if(
+                                                $maxMarks > 0
+                                                &&
+                                                !in_array(
+                                                    $maxMarks,
+                                                    [
+                                                        20.0,
+                                                        25.0,
+                                                        40.0,
+                                                        50.0,
+                                                        80.0,
+                                                        100.0
+                                                    ],
+                                                    true
+                                                )
+                                            )
+
+                                                <option
+                                                    value="{{ $maxMarks }}"
+                                                    selected
+                                                >
+                                                    {{ $maxMarks }}
+                                                </option>
+
+                                            @endif
+
+                                        </select>
+
+                                    </td>
+
+
+                                    {{-- =================================================
+                                         PASSING MARKS
+                                    ================================================== --}}
+
+                                    <td
+                                        class="border p-2"
+                                    >
+
+                                        <input
+                                            type="number"
+                                            readonly
+                                            value="{{ $passingMarks }}"
+                                            class="passing-mark w-full border rounded p-1 bg-gray-100"
+                                            data-subject-id="{{ $subjectId }}"
+                                        >
+
+
+                                        <input
+                                            type="hidden"
+                                            name="subjects[{{ $subjectId }}][passing_marks]"
+                                            value="{{ $passingMarks }}"
+                                            class="passing-mark-hidden"
+                                            data-subject-id="{{ $subjectId }}"
+                                        >
+
+                                    </td>
+
+
+                                    {{-- =================================================
+                                         TYPE
+                                    ================================================== --}}
+
+                                    <td
+                                        class="border p-2 text-center"
+                                    >
+
+                                        @if($isOptional)
+
+                                            <span
+                                                style="
+                                                    color:#92400e;
+                                                    font-weight:600;
+                                                "
+                                            >
+                                                Optional
+                                            </span>
+
+                                        @else
+
+                                            <span
+                                                style="
+                                                    color:#166534;
+                                                    font-weight:600;
+                                                "
+                                            >
+                                                Compulsory
+                                            </span>
+
+                                        @endif
+
                                     </td>
 
                                 </tr>
 
-                            @else
+                            @endforeach
 
-                                @foreach(
-                                    $subjects as $index => $subject
-                                )
+                        @endif
 
-                                    @php
+                    </tbody>
 
-                                        $subjectId =
-                                            (int) $subject->subject_id;
-
-
-                                        $maxMarks =
-                                            (float) (
-                                                $subject->max_marks
-                                                ?? 40
-                                            );
-
-
-                                        $passingPercentage =
-                                            (
-                                                (int)
-                                                $examMaster->standard_id
-                                            ) === 9
-                                            ||
-                                            (
-                                                (int)
-                                                $examMaster->standard_id
-                                            ) === 10
-                                                ? 35
-                                                : 40;
-
-
-                                        $passingMarks =
-                                            $maxMarks > 0
-                                                ? (int) ceil(
-                                                    $maxMarks *
-                                                    (
-                                                        $passingPercentage /
-                                                        100
-                                                    )
-                                                )
-                                                : 0;
-
-
-                                        $displayOrder =
-                                            $subject->display_order
-                                            ??
-                                            $subject->sort_order
-                                            ??
-                                            (
-                                                $index + 1
-                                            );
-
-
-                                        $isOptional =
-                                            (
-                                                (int) (
-                                                    $subject->is_optional
-                                                    ?? 0
-                                                )
-                                            ) === 1;
-
-                                    @endphp
-
-
-                                    <tr>
-
-                                        {{-- SUBJECT --}}
-
-                                        <td
-                                            class="border p-2"
-                                        >
-
-                                            <div
-                                                style="
-                                                    font-weight:600;
-                                                "
-                                            >
-
-                                                {{ $subject->subject_name }}
-
-                                            </div>
-
-
-                                            @if(
-                                                !empty(
-                                                    $subject->subject_code
-                                                )
-                                            )
-
-                                                <div
-                                                    class="subject-code"
-                                                >
-
-                                                    Code:
-                                                    {{ $subject->subject_code }}
-
-                                                </div>
-
-                                            @endif
-
-
-                                            {{-- ACTUAL SUBJECT MASTER ID --}}
-
-                                            <input
-                                                type="hidden"
-                                                name="subjects[{{ $subjectId }}][subject_id]"
-                                                value="{{ $subjectId }}"
-                                            >
-
-
-                                            {{-- DISPLAY ORDER --}}
-
-                                            <input
-                                                type="hidden"
-                                                name="subjects[{{ $subjectId }}][display_order]"
-                                                value="{{ $displayOrder }}"
-                                            >
-
-                                        </td>
-
-
-                                        {{-- MAX MARKS --}}
-
-                                        <td
-                                            class="border p-2"
-                                        >
-
-                                            <select
-                                                name="subjects[{{ $subjectId }}][max_marks]"
-                                                class="max-mark w-full border rounded p-1"
-                                                data-subject-id="{{ $subjectId }}"
-                                            >
-
-                                                @foreach(
-                                                    [20,25,40,50,80,100]
-                                                    as $maxOption
-                                                )
-
-                                                    <option
-                                                        value="{{ $maxOption }}"
-                                                        {{ (float)$maxMarks === (float)$maxOption ? 'selected' : '' }}
-                                                    >
-                                                        {{ $maxOption }}
-                                                    </option>
-
-                                                @endforeach
-
-
-                                                @if(
-                                                    $maxMarks > 0
-                                                    &&
-                                                    !in_array(
-                                                        $maxMarks,
-                                                        [
-                                                            20.0,
-                                                            25.0,
-                                                            40.0,
-                                                            50.0,
-                                                            80.0,
-                                                            100.0
-                                                        ],
-                                                        true
-                                                    )
-                                                )
-
-                                                    <option
-                                                        value="{{ $maxMarks }}"
-                                                        selected
-                                                    >
-                                                        {{ $maxMarks }}
-                                                    </option>
-
-                                                @endif
-
-                                            </select>
-
-                                        </td>
-
-
-                                        {{-- PASSING MARKS --}}
-
-                                        <td
-                                            class="border p-2"
-                                        >
-
-                                            <input
-                                                type="number"
-                                                readonly
-                                                value="{{ $passingMarks }}"
-                                                class="passing-mark w-full border rounded p-1 bg-gray-100"
-                                                data-subject-id="{{ $subjectId }}"
-                                            >
-
-
-                                            <input
-                                                type="hidden"
-                                                name="subjects[{{ $subjectId }}][passing_marks]"
-                                                value="{{ $passingMarks }}"
-                                                class="passing-mark-hidden"
-                                                data-subject-id="{{ $subjectId }}"
-                                            >
-
-                                        </td>
-
-
-                                        {{-- TYPE --}}
-
-                                        <td
-                                            class="border p-2 text-center"
-                                        >
-
-                                            @if($isOptional)
-
-                                                <span
-                                                    style="
-                                                        color:#92400e;
-                                                        font-weight:600;
-                                                    "
-                                                >
-                                                    Optional
-                                                </span>
-
-                                            @else
-
-                                                <span
-                                                    style="
-                                                        color:#166534;
-                                                        font-weight:600;
-                                                    "
-                                                >
-                                                    Compulsory
-                                                </span>
-
-                                            @endif
-
-                                        </td>
-
-                                    </tr>
-
-                                @endforeach
-
-                            @endif
-
-                        </tbody>
-
-                    </table>
-
-                </div>
+                </table>
 
             </div>
 
-
-            {{-- =================================================
-                 DISPLAY ORDER
-            ================================================== --}}
-
-            <div class="mb-5">
-
-                <label
-                    for="display_order"
-                    class="block font-semibold mb-2"
-                >
-                    Display Order
-                </label>
-
-                <input
-                    type="number"
-                    id="display_order"
-                    name="display_order"
-                    value="{{ old(
-                        'display_order',
-                        $examMaster->display_order
-                    ) }}"
-                    readonly
-                    class="w-full border rounded p-2 bg-gray-100"
-                >
-
-            </div>
+        </div>
 
 
-            {{-- =================================================
-                 ACTIVE
-            ================================================== --}}
+        {{-- =================================================
+             DISPLAY ORDER
+        ================================================== --}}
 
-            <div class="mb-5">
+        <div class="mb-5">
 
-                <label class="flex items-center gap-2">
-
-                    <input
-                        type="checkbox"
-                        name="is_active"
-                        value="1"
-                        {{ old(
-                            'is_active',
-                            $examMaster->is_active
-                        ) ? 'checked' : '' }}
-                    >
-
-                    <span>
-                        Active
-                    </span>
-
-                </label>
-
-            </div>
+            <label
+                for="display_order"
+                class="block font-semibold mb-2"
+            >
+                Display Order
+            </label>
 
 
-            {{-- =================================================
-                 INFORMATION / WARNING
-            ================================================== --}}
-
-            <div class="info-note mb-5">
-
-                <strong>Important:</strong>
-
-                All active subjects currently mapped to the selected
-                Standard are automatically included in this Exam.
-
-                <br>
-
-                Subject selection is controlled by the
-                <strong>Standard Wise Subject Master</strong>.
-
-                <br><br>
-
-                You only need to change the
-                <strong>Max Marks</strong>.
-
-                Passing Marks are calculated automatically according
-                to the Standard's passing percentage.
-
-                <br><br>
-
-                <strong>Academic Year:</strong>
-
-                This Exam Master now belongs to the selected Academic
-                Year. Do not change Academic Year for an exam that is
-                already being used for teacher allocations or marks.
-
-            </div>
-
-
-            {{-- =================================================
-                 BUTTONS
-            ================================================== --}}
-
-            <div
-                class="flex justify-between items-center mt-6"
+            <input
+                type="number"
+                id="display_order"
+                name="display_order"
+                value="{{ old(
+                    'display_order',
+                    $examMaster->display_order
+                ) }}"
+                readonly
+                class="w-full border rounded p-2 bg-gray-100"
             >
 
-                <div></div>
+        </div>
 
 
-                <div class="flex gap-2">
+        {{-- =================================================
+             ACTIVE
+        ================================================== --}}
 
-                    <button
-                        type="submit"
-                        class="erp-btn erp-btn-save"
-                        id="updateExamButton"
-                    >
-                        Update
-                    </button>
+        <div class="mb-5">
+
+            <label class="flex items-center gap-2">
+
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    {{ old(
+                        'is_active',
+                        $examMaster->is_active
+                    ) ? 'checked' : '' }}
+                >
+
+                <span>
+                    Active
+                </span>
+
+            </label>
+
+        </div>
 
 
-                    <a
-                        href="{{ route(
-                            'exam-masters.index'
-                        ) }}"
-                        class="erp-btn erp-btn-cancel"
-                    >
-                        Cancel
-                    </a>
+        {{-- =================================================
+             INFORMATION / WARNING
+        ================================================== --}}
 
-                </div>
+        <div class="info-note mb-5">
+
+            <strong>Important:</strong>
+
+            All active subjects currently mapped to the selected
+            Standard are automatically included in this Exam.
+
+            <br>
+
+            Subject selection is controlled by the
+            <strong>Standard Wise Subject Master</strong>.
+
+            <br><br>
+
+            You only need to change the
+            <strong>Max Marks</strong>.
+
+            Passing Marks are calculated automatically according
+            to the Standard's passing percentage.
+
+            <br><br>
+
+            <strong>Passing Percentage Rule:</strong>
+
+            Nursery, JrKg, SrKg, 9th, 10th, 11th and 12th use
+            <strong>35%</strong>.
+
+            All other Standards use
+            <strong>40%</strong>.
+
+            <br><br>
+
+            <strong>Academic Year:</strong>
+
+            This Exam Master now belongs to the selected Academic
+            Year. Do not change Academic Year for an exam that is
+            already being used for teacher allocations or marks.
+
+        </div>
+
+
+        {{-- =================================================
+             BUTTONS
+        ================================================== --}}
+
+        <div
+            class="flex justify-between items-center mt-6"
+        >
+
+            <div></div>
+
+
+            <div class="flex gap-2">
+
+                <button
+                    type="submit"
+                    class="erp-btn erp-btn-save"
+                    id="updateExamButton"
+                >
+                    Update
+                </button>
+
+
+                <a
+                    href="{{ route(
+                        'exam-masters.index'
+                    ) }}"
+                    class="erp-btn erp-btn-cancel"
+                >
+                    Cancel
+                </a>
 
             </div>
 
-        </form>
+        </div>
 
-    </div>
+    </form>
+
+</div>
 
 </div>
 
@@ -989,10 +1197,42 @@ document.addEventListener(
         |--------------------------------------------------------------------------
         | PASSING PERCENTAGE
         |--------------------------------------------------------------------------
+        |
+        | 35%:
+        |
+        | Nursery
+        | JrKg
+        | SrKg
+        | 9th
+        | 10th
+        | 11th
+        | 12th
+        |
+        | 40%:
+        | All other Standards
+        |
+        |--------------------------------------------------------------------------
         */
+
+        function normalizeStandardName(
+            value
+        ) {
+
+            return String(
+                value || ''
+            )
+                .trim()
+                .toUpperCase()
+                .replace(
+                    /[^A-Z0-9]+/g,
+                    ''
+                );
+        }
+
 
         function getPassingPercentage()
         {
+
             const standardId =
                 parseInt(
                     standardDropdown.value || 0,
@@ -1000,15 +1240,168 @@ document.addEventListener(
                 );
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | FIXED STANDARD IDS
+            |--------------------------------------------------------------------------
+            */
+
             if (
                 standardId === 9
                 ||
                 standardId === 10
+                ||
+                standardId === 11
+                ||
+                standardId === 12
             ) {
 
                 return 35;
+
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | STANDARD NAME
+            |--------------------------------------------------------------------------
+            |
+            | IMPORTANT:
+            | Handles IDs such as:
+            |
+            | 19 = ELEVENTH SCIENCE
+            |
+            |--------------------------------------------------------------------------
+            */
+
+            const option =
+                standardDropdown.options[
+                    standardDropdown.selectedIndex
+                ];
+
+
+            const standardName =
+                normalizeStandardName(
+                    option
+                        ? option.text
+                        : ''
+                );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | NURSERY / JRKG / SRKG
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                [
+                    'NURSERY',
+                    'NUR',
+
+                    'JRKG',
+                    'JUNIORKG',
+                    'JUNIORKINDERGARTEN',
+
+                    'SRKG',
+                    'SENIORKG',
+                    'SENIORKINDERGARTEN',
+                ].includes(
+                    standardName
+                )
+            ) {
+
+                return 35;
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 9TH / 10TH BY NAME
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                [
+                    'NINTH',
+                    '9TH',
+                    'IX',
+
+                    'TENTH',
+                    '10TH',
+                    'X',
+                ].includes(
+                    standardName
+                )
+            ) {
+
+                return 35;
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 11TH BY NAME
+            |--------------------------------------------------------------------------
+            |
+            | Examples:
+            |
+            | ELEVENTH
+            | ELEVENTH SCIENCE
+            | ELEVENTH COMMERCE
+            | ELEVENTH ARTS
+            |
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                standardName.includes(
+                    'ELEVENTH'
+                )
+                ||
+                standardName === 'XI'
+            ) {
+
+                return 35;
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | 12TH BY NAME
+            |--------------------------------------------------------------------------
+            |
+            | Examples:
+            |
+            | TWELFTH
+            | TWELFTH SCIENCE
+            | TWELFTH COMMERCE
+            | TWELFTH ARTS
+            |
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                standardName.includes(
+                    'TWELFTH'
+                )
+                ||
+                standardName === 'XII'
+            ) {
+
+                return 35;
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | DEFAULT
+            |--------------------------------------------------------------------------
+            */
 
             return 40;
         }
@@ -1022,6 +1415,7 @@ document.addEventListener(
 
         function updateAcademicYearNote()
         {
+
             if (
                 !academicYearDropdown.value
             ) {
@@ -1067,6 +1461,7 @@ document.addEventListener(
 
         function updatePercentageNote()
         {
+
             if (
                 !standardDropdown.value
             ) {
@@ -1095,8 +1490,8 @@ document.addEventListener(
 
         function calculatePassingMarks(
             maxMarks
-        )
-        {
+        ) {
+
             const max =
                 parseFloat(
                     maxMarks || 0
@@ -1112,11 +1507,13 @@ document.addEventListener(
 
 
             return Math.ceil(
+
                 max
                 *
                 getPassingPercentage()
                 /
                 100
+
             );
         }
 
@@ -1129,6 +1526,7 @@ document.addEventListener(
 
         function buildExamName()
         {
+
             const type =
                 examType.value;
 
@@ -1188,8 +1586,8 @@ document.addEventListener(
 
         function buildMaxMarksOptions(
             selectedValue
-        )
-        {
+        ) {
+
             const values = [
                 20,
                 25,
@@ -1211,9 +1609,12 @@ document.addEventListener(
 
 
             values.forEach(
-                function (value) {
+                function (
+                    value
+                ) {
 
                     html += `
+
                         <option
                             value="${value}"
                             ${
@@ -1224,6 +1625,7 @@ document.addEventListener(
                         >
                             ${value}
                         </option>
+
                     `;
 
                 }
@@ -1239,12 +1641,14 @@ document.addEventListener(
             ) {
 
                 html += `
+
                     <option
                         value="${selected}"
                         selected
                     >
                         ${selected}
                     </option>
+
                 `;
             }
 
@@ -1260,28 +1664,30 @@ document.addEventListener(
         */
 
         async function loadSubjects(
-            standardId,
-            preserveValues = false
-        )
-        {
+            standardId
+        ) {
+
             if (
                 !standardId
             ) {
 
                 tableBody.innerHTML = `
+
                     <tr>
+
                         <td
                             colspan="4"
                             class="border p-3 text-center text-gray-500"
                         >
                             Select Standard First
                         </td>
+
                     </tr>
+
                 `;
 
 
                 updatePercentageNote();
-
 
                 return;
             }
@@ -1292,14 +1698,18 @@ document.addEventListener(
 
 
             tableBody.innerHTML = `
+
                 <tr>
+
                     <td
                         colspan="4"
                         class="border p-3 text-center"
                     >
                         Loading subjects...
                     </td>
+
                 </tr>
+
             `;
 
 
@@ -1307,13 +1717,17 @@ document.addEventListener(
 
                 const response =
                     await fetch(
+
                         "{{ url('/exam-masters/load-subjects') }}/"
                         +
                         encodeURIComponent(
                             standardId
                         ),
+
                         {
-                            method: 'GET',
+
+                            method:
+                                'GET',
 
                             headers: {
 
@@ -1324,7 +1738,9 @@ document.addEventListener(
                                     'XMLHttpRequest'
 
                             }
+
                         }
+
                     );
 
 
@@ -1344,20 +1760,9 @@ document.addEventListener(
                     await response.json();
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Normally this is not used on initial load because PHP already
-                | loaded the existing Exam Master configuration.
-                |
-                | If Standard is changed, we reload with default values.
-                |--------------------------------------------------------------------------
-                */
-
                 renderSubjects(
-                    subjects,
-                    preserveValues
+                    subjects
                 );
-
 
             } catch (
                 error
@@ -1370,14 +1775,18 @@ document.addEventListener(
 
 
                 tableBody.innerHTML = `
+
                     <tr>
+
                         <td
                             colspan="4"
                             class="border p-3 text-center text-red-600"
                         >
                             Unable to load subjects.
                         </td>
+
                     </tr>
+
                 `;
 
             } finally {
@@ -1385,6 +1794,7 @@ document.addEventListener(
                 loading.style.display =
                     'none';
             }
+
         }
 
 
@@ -1395,10 +1805,8 @@ document.addEventListener(
         */
 
         function renderSubjects(
-            subjects,
-            preserveValues = false
-        )
-        {
+            subjects
+        ) {
 
             if (
                 !Array.isArray(
@@ -1409,19 +1817,22 @@ document.addEventListener(
             ) {
 
                 tableBody.innerHTML = `
+
                     <tr>
+
                         <td
                             colspan="4"
                             class="border p-3 text-center text-red-600"
                         >
                             No active subjects are mapped to this Standard.
                         </td>
+
                     </tr>
+
                 `;
 
 
                 updatePercentageNote();
-
 
                 return;
             }
@@ -1479,7 +1890,7 @@ document.addEventListener(
 
                     /*
                     |--------------------------------------------------------------------------
-                    | DEFAULT PASSING MARKS
+                    | PASSING MARKS
                     |--------------------------------------------------------------------------
                     */
 
@@ -1511,6 +1922,7 @@ document.addEventListener(
                                 ${
                                     subjectCode
                                         ? `
+
                                             <div
                                                 class="subject-code"
                                             >
@@ -1519,6 +1931,7 @@ document.addEventListener(
                                                     subjectCode
                                                 )}
                                             </div>
+
                                         `
                                         : ''
                                 }
@@ -1599,7 +2012,9 @@ document.addEventListener(
 
                                 ${
                                     isOptional
+
                                         ? `
+
                                             <span
                                                 style="
                                                     color:#92400e;
@@ -1608,8 +2023,11 @@ document.addEventListener(
                                             >
                                                 Optional
                                             </span>
+
                                         `
+
                                         : `
+
                                             <span
                                                 style="
                                                     color:#166534;
@@ -1618,6 +2036,7 @@ document.addEventListener(
                                             >
                                                 Compulsory
                                             </span>
+
                                         `
                                 }
 
@@ -1626,6 +2045,7 @@ document.addEventListener(
                         </tr>
 
                     `;
+
                 }
             );
 
@@ -1649,6 +2069,7 @@ document.addEventListener(
 
         function bindMaxMarks()
         {
+
             document
                 .querySelectorAll(
                     '.max-mark'
@@ -1659,7 +2080,9 @@ document.addEventListener(
                     ) {
 
                         select.addEventListener(
+
                             'change',
+
                             function () {
 
                                 const row =
@@ -1712,10 +2135,12 @@ document.addEventListener(
                                 }
 
                             }
+
                         );
 
                     }
                 );
+
         }
 
 
@@ -1727,6 +2152,7 @@ document.addEventListener(
 
         function updateAllPassingMarks()
         {
+
             document
                 .querySelectorAll(
                     '.max-mark'
@@ -1787,6 +2213,7 @@ document.addEventListener(
 
                     }
                 );
+
         }
 
 
@@ -1798,38 +2225,38 @@ document.addEventListener(
 
         function escapeHtml(
             value
-        )
-        {
+        ) {
+
             return String(
                 value
             )
-            .replace(
-                /&/g,
-                '&amp;'
-            )
-            .replace(
-                /</g,
-                '&lt;'
-            )
-            .replace(
-                />/g,
-                '&gt;'
-            )
-            .replace(
-                /"/g,
-                '&quot;'
-            )
-            .replace(
-                /'/g,
-                '&#039;'
-            );
+                .replace(
+                    /&/g,
+                    '&amp;'
+                )
+                .replace(
+                    /</g,
+                    '&lt;'
+                )
+                .replace(
+                    />/g,
+                    '&gt;'
+                )
+                .replace(
+                    /"/g,
+                    '&quot;'
+                )
+                .replace(
+                    /'/g,
+                    '&#039;'
+                );
         }
 
 
         function escapeAttribute(
             value
-        )
-        {
+        ) {
+
             return escapeHtml(
                 value
             );
@@ -1843,12 +2270,15 @@ document.addEventListener(
         */
 
         academicYearDropdown.addEventListener(
+
             'change',
+
             function () {
 
                 updateAcademicYearNote();
 
             }
+
         );
 
 
@@ -1859,7 +2289,9 @@ document.addEventListener(
         */
 
         standardDropdown.addEventListener(
+
             'change',
+
             async function () {
 
                 buildExamName();
@@ -1868,16 +2300,17 @@ document.addEventListener(
 
 
                 /*
-                | When the Standard changes, existing subject configuration
-                | cannot safely be reused because the subject list changes.
+                |--------------------------------------------------------------------------
+                | When Standard changes, reload subject list.
+                |--------------------------------------------------------------------------
                 */
 
                 await loadSubjects(
-                    this.value,
-                    false
+                    this.value
                 );
 
             }
+
         );
 
 
@@ -1888,12 +2321,15 @@ document.addEventListener(
         */
 
         examType.addEventListener(
+
             'change',
+
             function () {
 
                 buildExamName();
 
             }
+
         );
 
 
@@ -1904,8 +2340,11 @@ document.addEventListener(
         */
 
         form.addEventListener(
+
             'submit',
+
             function (event) {
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1919,9 +2358,11 @@ document.addEventListener(
 
                     event.preventDefault();
 
+
                     alert(
                         'Please select Academic Year.'
                     );
+
 
                     academicYearDropdown.focus();
 
@@ -1941,9 +2382,11 @@ document.addEventListener(
 
                     event.preventDefault();
 
+
                     alert(
                         'Please select Standard.'
                     );
+
 
                     standardDropdown.focus();
 
@@ -1963,9 +2406,11 @@ document.addEventListener(
 
                     event.preventDefault();
 
+
                     alert(
                         'Please select Exam Type.'
                     );
+
 
                     examType.focus();
 
@@ -1991,6 +2436,7 @@ document.addEventListener(
 
                     event.preventDefault();
 
+
                     alert(
                         'No active subjects are mapped to the selected Standard.'
                     );
@@ -2013,6 +2459,7 @@ document.addEventListener(
                 ) {
 
                     event.preventDefault();
+
 
                     alert(
                         'Unable to generate Exam Name.'
@@ -2040,10 +2487,12 @@ document.addEventListener(
                 updateButton.disabled =
                     true;
 
+
                 updateButton.innerText =
                     'Updating...';
 
             }
+
         );
 
 
@@ -2061,7 +2510,9 @@ document.addEventListener(
 
         bindMaxMarks();
 
-    });
+    }
+
+);
 
 </script>
 

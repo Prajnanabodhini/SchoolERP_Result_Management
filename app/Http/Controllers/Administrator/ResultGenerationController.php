@@ -17,22 +17,25 @@ class ResultGenerationController extends Controller
     |--------------------------------------------------------------------------
     | RESULT GENERATION INDEX
     |--------------------------------------------------------------------------
-    |
-    | Standard is automatically determined from the selected Exam.
-    |
     */
 
     public function index()
     {
-        $exams = ExamMaster::orderBy('display_order')
-            ->orderBy('exam_name')
-            ->get();
+        $exams =
+            ExamMaster::query()
+                ->orderBy('display_order')
+                ->orderBy('exam_name')
+                ->get();
 
-        $divisions = Division::orderBy('display_order')
-            ->get();
+        $divisions =
+            Division::query()
+                ->orderBy('display_order')
+                ->get();
 
-        $academicYears = AcademicYear::orderByDesc('id')
-            ->get();
+        $academicYears =
+            AcademicYear::query()
+                ->orderByDesc('id')
+                ->get();
 
         return view(
             'administrator.result-generation.index',
@@ -53,16 +56,17 @@ class ResultGenerationController extends Controller
     | teacher_subject_allocations.subject_id may contain:
     |
     | 1. subjects.id
-    | 2. standard_wise_subjects.id from old allocation data
+    | 2. standard_wise_subjects.id
     |
-    | This method converts it to subjects.id.
-    |
+    | Always return the actual subjects.id.
+    |--------------------------------------------------------------------------
     */
 
     private function resolveCanonicalSubjectId(
         $storedSubjectId,
         $standardId
     ) {
+
         if (
             !$storedSubjectId ||
             !$standardId
@@ -70,16 +74,24 @@ class ResultGenerationController extends Controller
             return null;
         }
 
-        $storedSubjectId = (int) $storedSubjectId;
-        $standardId = (int) $standardId;
+        $storedSubjectId =
+            (int) $storedSubjectId;
 
+        $standardId =
+            (int) $standardId;
+
+        if (
+            $storedSubjectId <= 0 ||
+            $standardId <= 0
+        ) {
+            return null;
+        }
 
         /*
         |--------------------------------------------------------------------------
         | CASE 1
+        | Stored value is subjects.id
         |--------------------------------------------------------------------------
-        | Stored value is already subjects.id
-        |
         */
 
         $directSubjectExists =
@@ -94,67 +106,215 @@ class ResultGenerationController extends Controller
                 )
                 ->exists();
 
-
-        if ($directSubjectExists) {
+        if (
+            $directSubjectExists
+        ) {
 
             $validMapping =
-                DB::table('standard_wise_subjects')
-                    ->where(
-                        'standard_id',
-                        $standardId
-                    )
-                    ->where(
-                        'subject_id',
-                        $storedSubjectId
-                    )
-                    ->where(
-                        'is_active',
-                        1
-                    )
-                    ->exists();
-
-
-            if ($validMapping) {
-                return $storedSubjectId;
-            }
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CASE 2
-        |--------------------------------------------------------------------------
-        | Stored value is standard_wise_subjects.id
-        |
-        */
-
-        $mapping =
-            DB::table('standard_wise_subjects')
-                ->where(
-                    'id',
-                    $storedSubjectId
+                DB::table(
+                    'standard_wise_subjects'
                 )
                 ->where(
                     'standard_id',
                     $standardId
                 )
                 ->where(
+                    'subject_id',
+                    $storedSubjectId
+                )
+                ->where(
                     'is_active',
                     1
                 )
-                ->first();
+                ->exists();
 
+            if (
+                $validMapping
+            ) {
+
+                return $storedSubjectId;
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CASE 2
+        | Stored value is standard_wise_subjects.id
+        |--------------------------------------------------------------------------
+        */
+
+        $mapping =
+            DB::table(
+                'standard_wise_subjects'
+            )
+            ->where(
+                'id',
+                $storedSubjectId
+            )
+            ->where(
+                'standard_id',
+                $standardId
+            )
+            ->where(
+                'is_active',
+                1
+            )
+            ->first();
 
         if (
             $mapping &&
             !empty($mapping->subject_id)
         ) {
 
-            return (int) $mapping->subject_id;
+            return (int)
+                $mapping->subject_id;
         }
 
-
         return null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET PASSING PERCENTAGE
+    |--------------------------------------------------------------------------
+    |
+    | 35%:
+    |
+    | Nursery
+    | JrKg
+    | SrKg
+    | 9th
+    | 10th
+    | 11th
+    | 12th
+    |
+    | 40%:
+    |
+    | All other standards.
+    |--------------------------------------------------------------------------
+    */
+
+    private function getPassingPercentage(
+        $standardId
+    ): float {
+
+        $standardId =
+            (int) $standardId;
+
+        /*
+        |--------------------------------------------------------------------------
+        | 9TH / 10TH / 11TH / 12TH
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            in_array(
+                $standardId,
+                [
+                    9,
+                    10,
+                    11,
+                    12,
+                ],
+                true
+            )
+        ) {
+
+            return 35.0;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | NURSERY / JRKG / SRKG BY NAME
+        |--------------------------------------------------------------------------
+        */
+
+        $standardName =
+            DB::table(
+                'standards'
+            )
+            ->where(
+                'id',
+                $standardId
+            )
+            ->value(
+                'standard_name'
+            );
+
+        $normalizedName =
+            preg_replace(
+                '/[^A-Z0-9]+/',
+                '',
+                strtoupper(
+                    trim(
+                        (string) $standardName
+                    )
+                )
+            );
+
+        if (
+            in_array(
+                $normalizedName,
+                [
+                    'NURSERY',
+                    'NUR',
+                    'JRKG',
+                    'JUNIORKG',
+                    'JUNIORKINDERGARTEN',
+                    'SRKG',
+                    'SENIORKG',
+                    'SENIORKINDERGARTEN',
+                ],
+                true
+            )
+        ) {
+
+            return 35.0;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DEFAULT
+        |--------------------------------------------------------------------------
+        */
+
+        return 40.0;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CALCULATE FALLBACK PASSING MARKS
+    |--------------------------------------------------------------------------
+    */
+
+    private function calculatePassingMarks(
+        $maxMarks,
+        $standardId
+    ): float {
+
+        $maxMarks =
+            (float) $maxMarks;
+
+        if (
+            $maxMarks <= 0
+        ) {
+
+            return 0;
+        }
+
+        $percentage =
+            $this->getPassingPercentage(
+                $standardId
+            );
+
+        return (float) ceil(
+            $maxMarks *
+            (
+                $percentage / 100
+            )
+        );
     }
 
 
@@ -164,17 +324,24 @@ class ResultGenerationController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function generate(Request $request)
-    {
+    public function generate(
+        Request $request
+    ) {
+
         /*
         |--------------------------------------------------------------------------
         | REQUEST VALUES
         |--------------------------------------------------------------------------
         */
 
-        $academicYearId = (int) $request->academic_year_id;
-        $examMasterId   = (int) $request->exam_master_id;
-        $divisionId     = (int) $request->division_id;
+        $academicYearId =
+            (int) $request->academic_year_id;
+
+        $examMasterId =
+            (int) $request->exam_master_id;
+
+        $divisionId =
+            (int) $request->division_id;
 
 
         /*
@@ -183,7 +350,9 @@ class ResultGenerationController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (!$academicYearId) {
+        if (
+            !$academicYearId
+        ) {
 
             return back()
                 ->withInput()
@@ -193,8 +362,10 @@ class ResultGenerationController extends Controller
                 );
         }
 
-
-        if (!$examMasterId || !$divisionId) {
+        if (
+            !$examMasterId ||
+            !$divisionId
+        ) {
 
             return back()
                 ->withInput()
@@ -212,16 +383,16 @@ class ResultGenerationController extends Controller
         */
 
         $exam =
-            ExamMaster::where(
-                'id',
-                $examMasterId
-            )
-            ->where(
-                'is_active',
-                1
-            )
-            ->first();
-
+            ExamMaster::query()
+                ->where(
+                    'id',
+                    $examMasterId
+                )
+                ->where(
+                    'is_active',
+                    1
+                )
+                ->first();
 
         if (!$exam) {
 
@@ -230,6 +401,30 @@ class ResultGenerationController extends Controller
                 ->with(
                     'error',
                     'Selected Exam was not found.'
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFY EXAM ACADEMIC YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty(
+                $exam->academic_year_id
+            )
+            &&
+            (int) $exam->academic_year_id
+                !== $academicYearId
+        ) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Selected Exam does not belong to the selected Academic Year.'
                 );
         }
 
@@ -246,8 +441,9 @@ class ResultGenerationController extends Controller
                 ?? 0
             );
 
-
-        if ($standardId <= 0) {
+        if (
+            $standardId <= 0
+        ) {
 
             return back()
                 ->withInput()
@@ -278,16 +474,54 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | STEP 1
                     |--------------------------------------------------------------------------
-                    | GET FINALLY SUBMITTED / LOCKED MARKS
-                    |
-                    | IMPORTANT:
-                    |
-                    | We DO NOT throw an error if no locked marks exist.
-                    |
+                    | GET LOCKED MARKS
+                    |--------------------------------------------------------------------------
                     */
 
                     $lockedMarks =
-                        DB::table('student_marks')
+                        DB::table(
+                            'student_marks'
+                        )
+                        ->where(
+                            'academic_year_id',
+                            $academicYearId
+                        )
+                        ->where(
+                            'exam_master_id',
+                            $examMasterId
+                        )
+                        ->where(
+                            'standard_id',
+                            $standardId
+                        )
+                        ->where(
+                            'division_id',
+                            $divisionId
+                        )
+                        ->where(
+                            'is_locked',
+                            1
+                        )
+                        ->orderBy('id')
+                        ->get();
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | STEP 2
+                    |--------------------------------------------------------------------------
+                    | IF NO LOCKED MARKS, USE EXISTING MARKS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $lockedMarks->isEmpty()
+                    ) {
+
+                        $lockedMarks =
+                            DB::table(
+                                'student_marks'
+                            )
                             ->where(
                                 'academic_year_id',
                                 $academicYearId
@@ -304,46 +538,8 @@ class ResultGenerationController extends Controller
                                 'division_id',
                                 $divisionId
                             )
-                            ->where(
-                                'is_locked',
-                                1
-                            )
                             ->orderBy('id')
                             ->get();
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STEP 2
-                    |--------------------------------------------------------------------------
-                    | IF NO LOCKED MARKS, USE EXISTING MARKS
-                    |
-                    | This allows result generation before final submission.
-                    |
-                    */
-
-                    if ($lockedMarks->isEmpty()) {
-
-                        $lockedMarks =
-                            DB::table('student_marks')
-                                ->where(
-                                    'academic_year_id',
-                                    $academicYearId
-                                )
-                                ->where(
-                                    'exam_master_id',
-                                    $examMasterId
-                                )
-                                ->where(
-                                    'standard_id',
-                                    $standardId
-                                )
-                                ->where(
-                                    'division_id',
-                                    $divisionId
-                                )
-                                ->orderBy('id')
-                                ->get();
                     }
 
 
@@ -353,82 +549,97 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | LOAD EXAM SUBJECT CONFIGURATION
                     |--------------------------------------------------------------------------
-                    |
-                    | Exam Master Subjects are the authoritative subject list
-                    | for result generation.
-                    |
                     */
 
                     $examSubjectConfigs =
-                        DB::table('exam_master_subjects')
-                            ->where(
-                                'exam_master_id',
-                                $examMasterId
-                            )
-                            ->where(
-                                'standard_id',
-                                $standardId
-                            )
-                            ->orderBy('display_order')
-                            ->orderBy('id')
-                            ->get();
+                        DB::table(
+                            'exam_master_subjects'
+                        )
+                        ->where(
+                            'exam_master_id',
+                            $examMasterId
+                        )
+                        ->where(
+                            'standard_id',
+                            $standardId
+                        )
+                        ->orderBy(
+                            'display_order'
+                        )
+                        ->orderBy(
+                            'id'
+                        )
+                        ->get();
 
 
                     /*
                     |--------------------------------------------------------------------------
                     | STEP 4
                     |--------------------------------------------------------------------------
-                    | NORMALIZE EXAM SUBJECT IDs
+                    | NORMALIZE EXAM SUBJECT IDS
                     |--------------------------------------------------------------------------
                     */
 
                     $normalizedExamSubjects =
                         collect();
 
-
                     foreach (
-                        $examSubjectConfigs as $config
+                        $examSubjectConfigs
+                        as $config
                     ) {
 
                         $canonicalSubjectId =
                             $this->resolveCanonicalSubjectId(
-                                $config->subject_id ?? null,
+                                $config->subject_id
+                                    ?? null,
                                 $standardId
                             );
 
 
                         /*
-                        |--------------------------------------------------------------
-                        | If exam_master_subjects.subject_id is already a valid
-                        | subjects.id, retain it.
-                        |--------------------------------------------------------------
+                        |--------------------------------------------------------------------------
+                        | DIRECT SUBJECT FALLBACK
+                        |--------------------------------------------------------------------------
                         */
 
-                        if (!$canonicalSubjectId) {
+                        if (
+                            !$canonicalSubjectId
+                        ) {
 
                             $directExists =
-                                !empty($config->subject_id)
+                                !empty(
+                                    $config->subject_id
+                                )
                                 &&
-                                DB::table('subjects')
-                                    ->where(
-                                        'id',
-                                        (int) $config->subject_id
-                                    )
-                                    ->where(
-                                        'is_active',
-                                        1
-                                    )
-                                    ->exists();
+                                DB::table(
+                                    'subjects'
+                                )
+                                ->where(
+                                    'id',
+                                    (int)
+                                    $config->subject_id
+                                )
+                                ->where(
+                                    'is_active',
+                                    1
+                                )
+                                ->exists();
 
 
-                            if ($directExists) {
+                            if (
+                                $directExists
+                            ) {
+
                                 $canonicalSubjectId =
-                                    (int) $config->subject_id;
+                                    (int)
+                                    $config->subject_id;
                             }
                         }
 
 
-                        if ($canonicalSubjectId) {
+                        if (
+                            $canonicalSubjectId
+                        ) {
 
                             $config->canonical_subject_id =
                                 $canonicalSubjectId;
@@ -444,7 +655,7 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | STEP 5
                     |--------------------------------------------------------------------------
-                    | GET TSA IDS FROM EXISTING MARKS
+                    | GET TSA IDS
                     |--------------------------------------------------------------------------
                     */
 
@@ -455,7 +666,8 @@ class ResultGenerationController extends Controller
                             )
                             ->filter()
                             ->map(
-                                fn ($id) => (int) $id
+                                fn ($id) =>
+                                    (int) $id
                             )
                             ->unique()
                             ->values();
@@ -472,8 +684,9 @@ class ResultGenerationController extends Controller
                     $tsaMap =
                         collect();
 
-
-                    if ($tsaIds->isNotEmpty()) {
+                    if (
+                        $tsaIds->isNotEmpty()
+                    ) {
 
                         $tsaMap =
                             DB::table(
@@ -484,7 +697,9 @@ class ResultGenerationController extends Controller
                                 $tsaIds->toArray()
                             )
                             ->get()
-                            ->keyBy('id');
+                            ->keyBy(
+                                'id'
+                            );
                     }
 
 
@@ -492,7 +707,7 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | STEP 7
                     |--------------------------------------------------------------------------
-                    | NORMALIZE SUBJECT IDs ON MARKS
+                    | NORMALIZE MARK SUBJECT IDS
                     |--------------------------------------------------------------------------
                     */
 
@@ -500,13 +715,14 @@ class ResultGenerationController extends Controller
                         $lockedMarks as $mark
                     ) {
 
-                        $canonicalSubjectId = null;
+                        $canonicalSubjectId =
+                            null;
 
 
                         /*
-                        |--------------------------------------------------------------
-                        | TSA is authoritative when available.
-                        |--------------------------------------------------------------
+                        |--------------------------------------------------------------------------
+                        | TSA SUBJECT FIRST
+                        |--------------------------------------------------------------------------
                         */
 
                         if (
@@ -521,12 +737,14 @@ class ResultGenerationController extends Controller
                                     $mark->teacher_subject_allocation_id
                                 );
 
-
-                            if ($tsa) {
+                            if (
+                                $tsa
+                            ) {
 
                                 $canonicalSubjectId =
                                     $this->resolveCanonicalSubjectId(
-                                        $tsa->subject_id ?? null,
+                                        $tsa->subject_id
+                                            ?? null,
                                         $standardId
                                     );
                             }
@@ -534,44 +752,56 @@ class ResultGenerationController extends Controller
 
 
                         /*
-                        |--------------------------------------------------------------
-                        | Fallback to student_marks.subject_id
-                        |--------------------------------------------------------------
+                        |--------------------------------------------------------------------------
+                        | STUDENT MARK SUBJECT FALLBACK
+                        |--------------------------------------------------------------------------
                         */
 
-                        if (!$canonicalSubjectId) {
+                        if (
+                            !$canonicalSubjectId
+                        ) {
 
                             $canonicalSubjectId =
                                 $this->resolveCanonicalSubjectId(
-                                    $mark->subject_id ?? null,
+                                    $mark->subject_id
+                                        ?? null,
                                     $standardId
                                 );
 
 
                             /*
-                            |----------------------------------------------------------
-                            | Direct subjects.id fallback
-                            |----------------------------------------------------------
+                            |--------------------------------------------------------------------------
+                            | DIRECT SUBJECT FALLBACK
+                            |--------------------------------------------------------------------------
                             */
 
-                            if (!$canonicalSubjectId) {
+                            if (
+                                !$canonicalSubjectId
+                            ) {
 
                                 $directExists =
-                                    !empty($mark->subject_id)
+                                    !empty(
+                                        $mark->subject_id
+                                    )
                                     &&
-                                    DB::table('subjects')
-                                        ->where(
-                                            'id',
-                                            (int) $mark->subject_id
-                                        )
-                                        ->where(
-                                            'is_active',
-                                            1
-                                        )
-                                        ->exists();
+                                    DB::table(
+                                        'subjects'
+                                    )
+                                    ->where(
+                                        'id',
+                                        (int)
+                                        $mark->subject_id
+                                    )
+                                    ->where(
+                                        'is_active',
+                                        1
+                                    )
+                                    ->exists();
 
 
-                                if ($directExists) {
+                                if (
+                                    $directExists
+                                ) {
 
                                     $canonicalSubjectId =
                                         (int)
@@ -581,12 +811,39 @@ class ResultGenerationController extends Controller
                         }
 
 
-                        if ($canonicalSubjectId) {
+                        /*
+                        |--------------------------------------------------------------------------
+                        | SAVE CANONICAL ID IN MEMORY
+                        |--------------------------------------------------------------------------
+                        */
+
+                        if (
+                            $canonicalSubjectId
+                        ) {
 
                             $mark->canonical_subject_id =
                                 (int)
                                 $canonicalSubjectId;
                         }
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | NORMALIZE OPTIONAL VALUE
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $mark->is_optional =
+                            (
+                                isset(
+                                    $mark->is_optional
+                                )
+                                &&
+                                (int)
+                                $mark->is_optional === 1
+                            )
+                                ? 1
+                                : 0;
                     }
 
 
@@ -594,7 +851,7 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | STEP 8
                     |--------------------------------------------------------------------------
-                    | REMOVE MARKS WITH UNRESOLVED SUBJECTS
+                    | REMOVE UNRESOLVED SUBJECTS
                     |--------------------------------------------------------------------------
                     */
 
@@ -613,16 +870,15 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | STEP 9
                     |--------------------------------------------------------------------------
-                    | UNIQUE MARKS
+                    | UNIQUE STUDENT + SUBJECT MARKS
                     |--------------------------------------------------------------------------
                     |
-                    | Keep latest record for each student + subject.
-                    |
+                    | Latest record wins.
+                    |--------------------------------------------------------------------------
                     */
 
                     $uniqueMarks =
                         collect();
-
 
                     foreach (
                         $lockedMarks as $mark
@@ -631,8 +887,7 @@ class ResultGenerationController extends Controller
                         $key =
                             (int)
                             $mark->student_id
-                            .
-                            '_'
+                            . '_'
                             .
                             (int)
                             $mark->canonical_subject_id;
@@ -643,7 +898,6 @@ class ResultGenerationController extends Controller
                             $mark
                         );
                     }
-
 
                     $uniqueMarks =
                         $uniqueMarks->values();
@@ -659,10 +913,13 @@ class ResultGenerationController extends Controller
 
                     $studentIds =
                         $uniqueMarks
-                            ->pluck('student_id')
+                            ->pluck(
+                                'student_id'
+                            )
                             ->filter()
                             ->map(
-                                fn ($id) => (int) $id
+                                fn ($id) =>
+                                    (int) $id
                             )
                             ->unique()
                             ->values();
@@ -672,27 +929,19 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | STEP 11
                     |--------------------------------------------------------------------------
-                    | IF NO MARKS EXIST, GET STUDENTS DIRECTLY
+                    | FALLBACK TO LOCAL STUDENTS TABLE
                     |--------------------------------------------------------------------------
-                    |
-                    | This is the important part.
-                    |
-                    | Result generation will not stop just because there are
-                    | no marks.
-                    |
                     */
 
-                    if ($studentIds->isEmpty()) {
+                    if (
+                        $studentIds->isEmpty()
+                    ) {
 
                         $studentQuery =
-                            DB::table('students');
+                            DB::table(
+                                'students'
+                            );
 
-
-                        /*
-                        |--------------------------------------------------------------
-                        | Academic year filter
-                        |--------------------------------------------------------------
-                        */
 
                         if (
                             Schema::hasColumn(
@@ -708,12 +957,6 @@ class ResultGenerationController extends Controller
                         }
 
 
-                        /*
-                        |--------------------------------------------------------------
-                        | Standard filter
-                        |--------------------------------------------------------------
-                        */
-
                         if (
                             Schema::hasColumn(
                                 'students',
@@ -727,12 +970,6 @@ class ResultGenerationController extends Controller
                             );
                         }
 
-
-                        /*
-                        |--------------------------------------------------------------
-                        | Division filter
-                        |--------------------------------------------------------------
-                        */
 
                         if (
                             Schema::hasColumn(
@@ -748,17 +985,12 @@ class ResultGenerationController extends Controller
                         }
 
 
-                        /*
-                        |--------------------------------------------------------------
-                        | Get IDs
-                        |--------------------------------------------------------------
-                        */
-
                         $studentIds =
                             $studentQuery
                                 ->pluck('id')
                                 ->map(
-                                    fn ($id) => (int) $id
+                                    fn ($id) =>
+                                        (int) $id
                                 )
                                 ->unique()
                                 ->values();
@@ -774,24 +1006,28 @@ class ResultGenerationController extends Controller
                     */
 
                     $existingResultIds =
-                        DB::table('student_results')
-                            ->where(
-                                'academic_year_id',
-                                $academicYearId
-                            )
-                            ->where(
-                                'exam_master_id',
-                                $examMasterId
-                            )
-                            ->where(
-                                'standard_id',
-                                $standardId
-                            )
-                            ->where(
-                                'division_id',
-                                $divisionId
-                            )
-                            ->pluck('id');
+                        DB::table(
+                            'student_results'
+                        )
+                        ->where(
+                            'academic_year_id',
+                            $academicYearId
+                        )
+                        ->where(
+                            'exam_master_id',
+                            $examMasterId
+                        )
+                        ->where(
+                            'standard_id',
+                            $standardId
+                        )
+                        ->where(
+                            'division_id',
+                            $divisionId
+                        )
+                        ->pluck(
+                            'id'
+                        );
 
 
                     if (
@@ -823,7 +1059,7 @@ class ResultGenerationController extends Controller
                     |--------------------------------------------------------------------------
                     | STEP 13
                     |--------------------------------------------------------------------------
-                    | GENERATE STUDENT RESULTS
+                    | GENERATE EACH STUDENT
                     |--------------------------------------------------------------------------
                     */
 
@@ -832,9 +1068,9 @@ class ResultGenerationController extends Controller
                     ) {
 
                         /*
-                        |--------------------------------------------------------------
-                        | Student's marks
-                        |--------------------------------------------------------------
+                        |--------------------------------------------------------------------------
+                        | STUDENT MARKS
+                        |--------------------------------------------------------------------------
                         */
 
                         $marks =
@@ -852,7 +1088,7 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | TOTALS
+                        | TOTAL VARIABLES
                         |--------------------------------------------------------------------------
                         */
 
@@ -868,44 +1104,102 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | RESULT SUBJECT LIST
+                        | STEP 13A
                         |--------------------------------------------------------------------------
-                        |
-                        | Start with Exam Master subjects.
-                        |
+                        | LOAD STANDARD SUBJECT OPTIONAL FLAGS
+                        |--------------------------------------------------------------------------
                         */
 
-                        $resultSubjects =
-                            $normalizedExamSubjects
-                                ->keyBy(
-                                    'canonical_subject_id'
-                                );
+                        $standardSubjectRows =
+                            DB::table(
+                                'standard_wise_subjects'
+                            )
+                            ->where(
+                                'standard_id',
+                                $standardId
+                            )
+                            ->where(
+                                'is_active',
+                                1
+                            )
+                            ->select([
+                                'subject_id',
+                                'is_optional',
+                            ])
+                            ->get()
+                            ->keyBy(
+                                fn ($row) =>
+                                    (int)
+                                    $row->subject_id
+                            );
 
 
                         /*
-                        |--------------------------------------------------------------
-                        | Add any subject existing in marks but not in exam config.
-                        |--------------------------------------------------------------
+                        |--------------------------------------------------------------------------
+                        | STEP 13B
+                        |--------------------------------------------------------------------------
+                        | BUILD REQUIRED SUBJECT LIST
+                        |--------------------------------------------------------------------------
+                        |
+                        | Required subjects are always included.
+                        |
+                        | Optional subjects are NOT included here.
+                        |--------------------------------------------------------------------------
                         */
 
+                        $resultSubjects =
+                            collect();
+
+
                         foreach (
-                            $marks as $mark
+                            $normalizedExamSubjects
+                            as $config
                         ) {
 
                             $subjectId =
                                 (int)
-                                $mark->canonical_subject_id;
+                                $config->canonical_subject_id;
 
 
                             if (
-                                !$resultSubjects->has(
+                                $subjectId <= 0
+                            ) {
+
+                                continue;
+                            }
+
+
+                            $standardSubject =
+                                $standardSubjectRows->get(
                                     $subjectId
-                                )
+                                );
+
+
+                            $isPoolOptional =
+                                $standardSubject
+                                &&
+                                (
+                                    (int)
+                                    (
+                                        $standardSubject->is_optional
+                                        ?? 0
+                                    )
+                                ) === 1;
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | REQUIRED SUBJECT
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                !$isPoolOptional
                             ) {
 
                                 $resultSubjects->put(
                                     $subjectId,
-                                    null
+                                    $config
                                 );
                             }
                         }
@@ -913,22 +1207,149 @@ class ResultGenerationController extends Controller
 
                         /*
                         |--------------------------------------------------------------------------
-                        | CALCULATE EACH SUBJECT
+                        | STEP 13C
+                        |--------------------------------------------------------------------------
+                        | FIND STUDENT'S SELECTED OPTIONAL SUBJECT
+                        |--------------------------------------------------------------------------
+                        |
+                        | A student may have Biology OR Geography OR Mathematics,
+                        | etc. Only the subject marked with is_optional=1 is selected.
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $selectedOptionalMarks =
+                            $marks
+                                ->filter(
+                                    function ($mark) {
+
+                                        return
+                                            (
+                                                (int)
+                                                (
+                                                    $mark->is_optional
+                                                    ?? 0
+                                                )
+                                            ) === 1;
+                                    }
+                                );
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Normally there should be only one selected optional
+                        | subject. Use the latest one if old duplicate data exists.
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $selectedOptionalMark =
+                            $selectedOptionalMarks
+                                ->sortByDesc(
+                                    'id'
+                                )
+                                ->first();
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | STEP 13D
+                        |--------------------------------------------------------------------------
+                        | VALIDATE SELECTED OPTIONAL SUBJECT
+                        |--------------------------------------------------------------------------
+                        */
+
+                        if (
+                            $selectedOptionalMark
+                        ) {
+
+                            $optionalSubjectId =
+                                (int)
+                                $selectedOptionalMark
+                                    ->canonical_subject_id;
+
+
+                            $optionalPoolSubject =
+                                $standardSubjectRows->get(
+                                    $optionalSubjectId
+                                );
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Add only when it is actually configured as an
+                            | optional subject for this Standard.
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                $optionalSubjectId > 0
+                                &&
+                                $optionalPoolSubject
+                                &&
+                                (
+                                    (int)
+                                    (
+                                        $optionalPoolSubject
+                                            ->is_optional
+                                        ?? 0
+                                    )
+                                ) === 1
+                            ) {
+
+                                $optionalConfig =
+                                    $normalizedExamSubjects
+                                        ->first(
+                                            function (
+                                                $config
+                                            ) use (
+                                                $optionalSubjectId
+                                            ) {
+
+                                                return
+                                                    (int)
+                                                    $config
+                                                        ->canonical_subject_id
+                                                    ===
+                                                    $optionalSubjectId;
+                                            }
+                                        );
+
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Add selected optional subject
+                                |--------------------------------------------------------------------------
+                                */
+
+                                $resultSubjects->put(
+                                    $optionalSubjectId,
+                                    $optionalConfig
+                                );
+                            }
+                        }
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | STEP 13E
+                        |--------------------------------------------------------------------------
+                        | CALCULATE EACH RESULT SUBJECT
                         |--------------------------------------------------------------------------
                         */
 
                         foreach (
-                            $resultSubjects as $subjectId => $config
+                            $resultSubjects
+                            as $subjectId => $config
                         ) {
 
                             $subjectId =
-                                (int) $subjectId;
+                                (int)
+                                $subjectId;
 
 
                             /*
-                            |--------------------------------------------------------------
-                            | Find student's mark for this subject.
-                            |--------------------------------------------------------------
+                            |--------------------------------------------------------------------------
+                            | STUDENT MARK
+                            |--------------------------------------------------------------------------
                             */
 
                             $mark =
@@ -942,29 +1363,121 @@ class ResultGenerationController extends Controller
 
 
                             /*
-                            |--------------------------------------------------------------
+                            |--------------------------------------------------------------------------
+                            | IS OPTIONAL
+                            |--------------------------------------------------------------------------
+                            |
+                            | A subject is OPT only when the student's mark
+                            | explicitly says is_optional=1 AND the Standard
+                            | says that subject is optional.
+                            |--------------------------------------------------------------------------
+                            */
+
+                            $standardSubject =
+                                $standardSubjectRows->get(
+                                    $subjectId
+                                );
+
+
+                            $isOptional =
+                                $mark
+                                &&
+                                $standardSubject
+                                &&
+                                (
+                                    (int)
+                                    (
+                                        $mark->is_optional
+                                        ?? 0
+                                    )
+                                ) === 1
+                                &&
+                                (
+                                    (int)
+                                    (
+                                        $standardSubject
+                                            ->is_optional
+                                        ?? 0
+                                    )
+                                ) === 1;
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | OPTIONAL SUBJECT
+                            |--------------------------------------------------------------------------
+                            |
+                            | It is displayed as OPT but has ZERO contribution
+                            | to result calculation.
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                $isOptional
+                            ) {
+
+                                $resultSubjects->put(
+                                    $subjectId,
+                                    [
+
+                                        'subject_id' =>
+                                            $subjectId,
+
+                                        'max_marks' =>
+                                            0,
+
+                                        'obtained_marks' =>
+                                            0,
+
+                                        'passing_marks' =>
+                                            0,
+
+                                        'subject_result' =>
+                                            'OPT',
+
+                                        'grade' =>
+                                            'OPT',
+
+                                        'is_optional' =>
+                                            1,
+
+                                    ]
+                                );
+
+
+                                continue;
+                            }
+
+
+                            /*
+                            |--------------------------------------------------------------------------
                             | MAX MARKS
-                            |--------------------------------------------------------------
+                            |--------------------------------------------------------------------------
                             */
 
-                            if ($mark) {
+                            if (
+                                $mark
+                            ) {
 
                                 $maxMarks =
                                     (float)
                                     (
-                                        $mark->theory_max_marks
+                                        $mark
+                                            ->theory_max_marks
                                         ?? 0
                                     )
                                     +
                                     (float)
                                     (
-                                        $mark->oral_max_marks
+                                        $mark
+                                            ->oral_max_marks
                                         ?? 0
                                     )
                                     +
                                     (float)
                                     (
-                                        $mark->practical_max_marks
+                                        $mark
+                                            ->practical_max_marks
                                         ?? 0
                                     );
 
@@ -976,74 +1489,22 @@ class ResultGenerationController extends Controller
 
 
                             /*
-                            |--------------------------------------------------------------
-                            | FALLBACK MAX FROM EXAM CONFIG
-                            |--------------------------------------------------------------
+                            |--------------------------------------------------------------------------
+                            | FALLBACK MAX MARKS
+                            |--------------------------------------------------------------------------
                             */
 
                             if (
-                                $maxMarks <= 0 &&
+                                $maxMarks <= 0
+                                &&
                                 $config
                             ) {
 
                                 $maxMarks =
                                     (float)
                                     (
-                                        $config->max_marks
-                                        ?? 0
-                                    );
-                            }
-
-
-                            /*
-                            |--------------------------------------------------------------
-                            | PASSING MARKS
-                            |--------------------------------------------------------------
-                            */
-
-                            if ($mark) {
-
-                                $passingMarks =
-                                    (float)
-                                    (
-                                        $mark->theory_passing_marks
-                                        ?? 0
-                                    )
-                                    +
-                                    (float)
-                                    (
-                                        $mark->oral_passing_marks
-                                        ?? 0
-                                    )
-                                    +
-                                    (float)
-                                    (
-                                        $mark->practical_passing_marks
-                                        ?? 0
-                                    );
-
-                            } else {
-
-                                $passingMarks =
-                                    0;
-                            }
-
-
-                            /*
-                            |--------------------------------------------------------------
-                            | FALLBACK PASSING MARKS
-                            |--------------------------------------------------------------
-                            */
-
-                            if (
-                                $passingMarks <= 0 &&
-                                $config
-                            ) {
-
-                                $passingMarks =
-                                    (float)
-                                    (
-                                        $config->passing_marks
+                                        $config
+                                            ->max_marks
                                         ?? 0
                                     );
                             }
@@ -1051,7 +1512,90 @@ class ResultGenerationController extends Controller
 
                             /*
                             |--------------------------------------------------------------------------
-                            | OBTAINED MARKS
+                            | PASSING MARKS
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                $mark
+                            ) {
+
+                                $passingMarks =
+                                    (float)
+                                    (
+                                        $mark
+                                            ->theory_passing_marks
+                                        ?? 0
+                                    )
+                                    +
+                                    (float)
+                                    (
+                                        $mark
+                                            ->oral_passing_marks
+                                        ?? 0
+                                    )
+                                    +
+                                    (float)
+                                    (
+                                        $mark
+                                            ->practical_passing_marks
+                                        ?? 0
+                                    );
+
+                            } else {
+
+                                $passingMarks =
+                                    0;
+                            }
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | FALLBACK PASSING MARKS
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                $passingMarks <= 0
+                            ) {
+
+                                if (
+                                    $config
+                                ) {
+
+                                    $configuredMax =
+                                        (float)
+                                        (
+                                            $config
+                                                ->max_marks
+                                            ?? 0
+                                        );
+
+
+                                    $passingMarks =
+                                        $this->calculatePassingMarks(
+                                            $configuredMax > 0
+                                                ? $configuredMax
+                                                : $maxMarks,
+                                            $standardId
+                                        );
+
+                                } elseif (
+                                    $maxMarks > 0
+                                ) {
+
+                                    $passingMarks =
+                                        $this->calculatePassingMarks(
+                                            $maxMarks,
+                                            $standardId
+                                        );
+                                }
+                            }
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | ABSENT
                             |--------------------------------------------------------------------------
                             */
 
@@ -1059,52 +1603,62 @@ class ResultGenerationController extends Controller
                                 false;
 
 
-                            if ($mark) {
+                            if (
+                                $mark
+                            ) {
 
                                 $isAbsent =
                                     (
                                         (int)
                                         (
-                                            $mark->is_absent
+                                            $mark
+                                                ->is_absent
                                             ?? 0
                                         )
                                     ) === 1;
                             }
 
 
-                            if ($isAbsent) {
+                            /*
+                            |--------------------------------------------------------------------------
+                            | OBTAINED
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                $isAbsent
+                            ) {
 
                                 $obtained =
                                     0;
 
-                            } elseif ($mark) {
+                            } elseif (
+                                $mark
+                            ) {
 
                                 $obtained =
                                     (float)
                                     (
-                                        $mark->theory_obtained_marks
+                                        $mark
+                                            ->theory_obtained_marks
                                         ?? 0
                                     )
                                     +
                                     (float)
                                     (
-                                        $mark->oral_obtained_marks
+                                        $mark
+                                            ->oral_obtained_marks
                                         ?? 0
                                     )
                                     +
                                     (float)
                                     (
-                                        $mark->practical_obtained_marks
+                                        $mark
+                                            ->practical_obtained_marks
                                         ?? 0
                                     );
 
                             } else {
-
-                                /*
-                                |----------------------------------------------------------
-                                | No marks entered = 0
-                                |----------------------------------------------------------
-                                */
 
                                 $obtained =
                                     0;
@@ -1113,19 +1667,13 @@ class ResultGenerationController extends Controller
 
                             /*
                             |--------------------------------------------------------------------------
-                            | TOTAL MAX
+                            | TOTALS
                             |--------------------------------------------------------------------------
                             */
 
                             $totalMax +=
                                 $maxMarks;
 
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | TOTAL OBTAINED
-                            |--------------------------------------------------------------------------
-                            */
 
                             $totalObtained +=
                                 $obtained;
@@ -1137,23 +1685,21 @@ class ResultGenerationController extends Controller
                             |--------------------------------------------------------------------------
                             */
 
-                            if ($isAbsent) {
+                            if (
+                                $isAbsent
+                            ) {
 
                                 $subjectResult =
                                     'ABSENT';
 
+
                                 $subjectGrade =
                                     'AB';
+
 
                                 $failedSubjects++;
 
                             } else {
-
-                                /*
-                                |----------------------------------------------------------
-                                | No mark is treated as not passed.
-                                |----------------------------------------------------------
-                                */
 
                                 if (
                                     $obtained >=
@@ -1170,6 +1716,7 @@ class ResultGenerationController extends Controller
                                     $subjectResult =
                                         'FAIL';
 
+
                                     $failedSubjects++;
                                 }
 
@@ -1185,39 +1732,49 @@ class ResultGenerationController extends Controller
 
                             /*
                             |--------------------------------------------------------------------------
-                            | STORE TEMPORARY RESULT DATA
+                            | SAVE NORMAL SUBJECT RESULT
                             |--------------------------------------------------------------------------
                             */
 
-                            $resultSubjects
-                                ->put(
-                                    $subjectId,
-                                    [
-                                        'subject_id' =>
-                                            $subjectId,
+                            $resultSubjects->put(
+                                $subjectId,
+                                [
 
-                                        'max_marks' =>
-                                            $maxMarks,
+                                    'subject_id' =>
+                                        $subjectId,
 
-                                        'obtained_marks' =>
-                                            $obtained,
+                                    'max_marks' =>
+                                        $maxMarks,
 
-                                        'passing_marks' =>
-                                            $passingMarks,
+                                    'obtained_marks' =>
+                                        $obtained,
 
-                                        'subject_result' =>
-                                            $subjectResult,
+                                    'passing_marks' =>
+                                        $passingMarks,
 
-                                        'grade' =>
-                                            $subjectGrade,
-                                    ]
-                                );
+                                    'subject_result' =>
+                                        $subjectResult,
+
+                                    'grade' =>
+                                        $subjectGrade,
+
+                                    'is_optional' =>
+                                        0,
+
+                                ]
+                            );
                         }
 
 
                         /*
                         |--------------------------------------------------------------------------
+                        | STEP 13F
+                        |--------------------------------------------------------------------------
                         | PERCENTAGE
+                        |--------------------------------------------------------------------------
+                        |
+                        | Optional subjects were never added to totalMax
+                        | or totalObtained.
                         |--------------------------------------------------------------------------
                         */
 
@@ -1321,28 +1878,21 @@ class ResultGenerationController extends Controller
                         */
 
                         foreach (
-                            $resultSubjects as $subjectData
+                            $resultSubjects
+                            as $subjectData
                         ) {
-
-                            /*
-                            |--------------------------------------------------------------
-                            | Ignore old null entries.
-                            |--------------------------------------------------------------
-                            */
 
                             if (
                                 !is_array(
                                     $subjectData
                                 )
                             ) {
+
                                 continue;
                             }
 
 
-                            DB::table(
-                                'student_result_details'
-                            )
-                            ->insert([
+                            $resultDetailData = [
 
                                 'student_result_id' =>
                                     $resultId,
@@ -1382,7 +1932,41 @@ class ResultGenerationController extends Controller
 
                                 'updated_at' =>
                                     now(),
-                            ]);
+                            ];
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | SAVE OPTIONAL FLAG
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (
+                                Schema::hasColumn(
+                                    'student_result_details',
+                                    'is_optional'
+                                )
+                            ) {
+
+                                $resultDetailData[
+                                    'is_optional'
+                                ] =
+                                    (int)
+                                    (
+                                        $subjectData[
+                                            'is_optional'
+                                        ]
+                                        ?? 0
+                                    );
+                            }
+
+
+                            DB::table(
+                                'student_result_details'
+                            )
+                            ->insert(
+                                $resultDetailData
+                            );
                         }
                     }
 
@@ -1431,18 +2015,22 @@ class ResultGenerationController extends Controller
                     $rank =
                         0;
 
+
                     $position =
                         0;
 
+
                     $previousPercentage =
                         null;
+
 
                     $previousObtained =
                         null;
 
 
                     foreach (
-                        $passStudents as $studentResult
+                        $passStudents as
+                        $studentResult
                     ) {
 
                         $position++;
@@ -1450,10 +2038,12 @@ class ResultGenerationController extends Controller
 
                         if (
                             $previousPercentage !==
-                                $studentResult->percentage
+                                $studentResult
+                                    ->percentage
                             ||
                             $previousObtained !==
-                                $studentResult->total_obtained_marks
+                                $studentResult
+                                    ->total_obtained_marks
                         ) {
 
                             $rank =
@@ -1477,8 +2067,10 @@ class ResultGenerationController extends Controller
                         $previousPercentage =
                             $studentResult->percentage;
 
+
                         $previousObtained =
-                            $studentResult->total_obtained_marks;
+                            $studentResult
+                                ->total_obtained_marks;
                     }
 
 
@@ -1527,23 +2119,26 @@ class ResultGenerationController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            return back()->with(
-                'success',
-                'Results Generated Successfully.'
+            return back()
+                ->with(
+                    'success',
+                    'Results Generated Successfully.'
+                );
+
+        } catch (
+            \Throwable $e
+        ) {
+
+            report(
+                $e
             );
-
-        } catch (\Throwable $e) {
-
-            report($e);
-
 
             return back()
                 ->withInput()
                 ->with(
                     'error',
                     'Result generation failed: '
-                    .
-                    $e->getMessage()
+                    . $e->getMessage()
                 );
         }
     }
@@ -1561,22 +2156,42 @@ class ResultGenerationController extends Controller
         $subjectResult = 'PASS'
     ) {
 
-        if ($subjectResult === 'ABSENT') {
+        if (
+            $subjectResult === 'OPT'
+        ) {
+
+            return 'OPT';
+        }
+
+
+        if (
+            $subjectResult === 'ABSENT'
+        ) {
+
             return 'AB';
         }
 
 
-        if ($subjectResult === 'LEFT') {
+        if (
+            $subjectResult === 'LEFT'
+        ) {
+
             return 'LEFT';
         }
 
 
-        if ($subjectResult === 'FAIL') {
+        if (
+            $subjectResult === 'FAIL'
+        ) {
+
             return 'F';
         }
 
 
-        if ($maxMarks <= 0) {
+        if (
+            $maxMarks <= 0
+        ) {
+
             return '';
         }
 
@@ -1589,29 +2204,53 @@ class ResultGenerationController extends Controller
             ) * 100;
 
 
-        if ($percentage >= 91) {
+        if (
+            $percentage >= 91
+        ) {
+
             return 'A1';
         }
 
-        if ($percentage >= 81) {
+
+        if (
+            $percentage >= 81
+        ) {
+
             return 'A2';
         }
 
-        if ($percentage >= 71) {
+
+        if (
+            $percentage >= 71
+        ) {
+
             return 'B1';
         }
 
-        if ($percentage >= 61) {
+
+        if (
+            $percentage >= 61
+        ) {
+
             return 'B2';
         }
 
-        if ($percentage >= 51) {
+
+        if (
+            $percentage >= 51
+        ) {
+
             return 'C1';
         }
 
-        if ($percentage >= 41) {
+
+        if (
+            $percentage >= 41
+        ) {
+
             return 'C2';
         }
+
 
         return 'D';
     }
@@ -1627,33 +2266,61 @@ class ResultGenerationController extends Controller
         $percentage
     ) {
 
-        if ($percentage >= 91) {
+        if (
+            $percentage >= 91
+        ) {
+
             return 'A1';
         }
 
-        if ($percentage >= 81) {
+
+        if (
+            $percentage >= 81
+        ) {
+
             return 'A2';
         }
 
-        if ($percentage >= 71) {
+
+        if (
+            $percentage >= 71
+        ) {
+
             return 'B1';
         }
 
-        if ($percentage >= 61) {
+
+        if (
+            $percentage >= 61
+        ) {
+
             return 'B2';
         }
 
-        if ($percentage >= 51) {
+
+        if (
+            $percentage >= 51
+        ) {
+
             return 'C1';
         }
 
-        if ($percentage >= 41) {
+
+        if (
+            $percentage >= 41
+        ) {
+
             return 'C2';
         }
 
-        if ($percentage >= 33) {
+
+        if (
+            $percentage >= 33
+        ) {
+
             return 'D';
         }
+
 
         return 'FAIL';
     }

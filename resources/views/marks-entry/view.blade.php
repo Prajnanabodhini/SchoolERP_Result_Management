@@ -147,6 +147,19 @@
         color: #991b1b;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | OPTIONAL / OPT
+    |--------------------------------------------------------------------------
+    */
+
+    .readonly-mark.optional {
+        background: #fef3c7;
+        border-color: #fcd34d;
+        color: #92400e;
+        font-weight: 700;
+    }
+
     .status-pass {
         display: inline-block;
         background: #dcfce7;
@@ -174,6 +187,23 @@
         background: #fee2e2;
         color: #991b1b;
         border: 1px solid #fca5a5;
+        padding: 4px 9px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 11px;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | OPTIONAL STATUS
+    |--------------------------------------------------------------------------
+    */
+
+    .status-optional {
+        display: inline-block;
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fcd34d;
         padding: 4px 9px;
         border-radius: 4px;
         font-weight: 700;
@@ -571,6 +601,23 @@
 
                             /*
                             |--------------------------------------------------------------------------
+                            | OPTIONAL
+                            |--------------------------------------------------------------------------
+                            |
+                            | IMPORTANT:
+                            |
+                            | is_optional = 1 means OPT.
+                            |
+                            */
+
+                            $isOptional =
+                                isset($row->is_optional)
+                                &&
+                                (int)$row->is_optional === 1;
+
+
+                            /*
+                            |--------------------------------------------------------------------------
                             | ABSENT
                             |--------------------------------------------------------------------------
                             */
@@ -591,6 +638,21 @@
                                             (string)$row->status
                                         )
                                     ) === 'AB';
+                            }
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | OPTIONAL HAS PRIORITY
+                            |--------------------------------------------------------------------------
+                            |
+                            | OPT is not ABSENT.
+                            |
+                            */
+
+                            if ($isOptional) {
+
+                                $isAbsent = false;
                             }
 
 
@@ -617,14 +679,6 @@
                             |--------------------------------------------------------------------------
                             | STATUS
                             |--------------------------------------------------------------------------
-                            |
-                            | Keep Status column.
-                            |
-                            | Prefer saved status if available.
-                            | If absent, display ABSENT.
-                            | Otherwise display PRESENT.
-                            |
-                            |--------------------------------------------------------------------------
                             */
 
                             $statusText =
@@ -637,15 +691,23 @@
                                     )
                                 );
 
-                            if ($isAbsent) {
 
-                                $statusText = 'ABSENT';
+                            if ($isOptional) {
+
+                                $statusText =
+                                    'OPT';
+
+                            } elseif ($isAbsent) {
+
+                                $statusText =
+                                    'ABSENT';
 
                             } elseif (
                                 $statusText === ''
                             ) {
 
-                                $statusText = 'PRESENT';
+                                $statusText =
+                                    'PRESENT';
                             }
 
                         @endphp
@@ -705,7 +767,13 @@
 
                                 <td class="center">
 
-                                    @if($isAbsent)
+                                    @if($isOptional)
+
+                                        <span class="readonly-mark optional">
+                                            OPT
+                                        </span>
+
+                                    @elseif($isAbsent)
 
                                         <span class="readonly-mark absent">
                                             AB
@@ -773,7 +841,13 @@
 
                                 <td class="center">
 
-                                    @if($isAbsent)
+                                    @if($isOptional)
+
+                                        <span class="readonly-mark optional">
+                                            OPT
+                                        </span>
+
+                                    @elseif($isAbsent)
 
                                         <span class="readonly-mark absent">
                                             AB
@@ -841,7 +915,13 @@
 
                                 <td class="center">
 
-                                    @if($isAbsent)
+                                    @if($isOptional)
+
+                                        <span class="readonly-mark optional">
+                                            OPT
+                                        </span>
+
+                                    @elseif($isAbsent)
 
                                         <span class="readonly-mark absent">
                                             AB
@@ -887,7 +967,13 @@
 
                             <td class="center">
 
-                                @if($statusText === 'PASS')
+                                @if($statusText === 'OPT')
+
+                                    <span class="status-optional">
+                                        OPT
+                                    </span>
+
+                                @elseif($statusText === 'PASS')
 
                                     <span class="status-pass">
                                         PASS

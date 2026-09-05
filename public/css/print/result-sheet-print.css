@@ -1,0 +1,549 @@
+@page {
+    size: A4 landscape;
+    margin: 20mm 4mm 7mm 15mm;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #111827;
+    background: #fff;
+    overflow-x: hidden;
+}
+
+/* =========================================================
+   PRINT CONTROLS
+========================================================= */
+
+.print-controls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.print-button,
+.excel-button,
+.close-button {
+    border: 1px solid #374151;
+    color: #fff;
+    border-radius: 4px;
+    padding: 7px 15px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.print-button {
+    background: #1d4ed8;
+}
+
+.excel-button {
+    background: #15803d;
+}
+
+.close-button {
+    background: #6b7280;
+}
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+.print-page {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.print-fit {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/*
+ * Keep the complete page content at normal size.
+ * Only individual report tables are fitted by JS.
+ */
+.print-fit-content {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* =========================================================
+   SCHOOL HEADER
+========================================================= */
+
+.school-header,
+.exam-info {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.school-header {
+    margin-bottom: 4px;
+}
+
+.school-header td,
+.exam-info td {
+    border: none !important;
+    vertical-align: middle;
+}
+
+.school-header td {
+    padding: 1px 3px;
+}
+
+.school-logo-cell {
+    width: 60px;
+    text-align: center !important;
+}
+
+.school-logo {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+
+.school-title-cell {
+    text-align: center !important;
+}
+
+.school-name {
+    font-size: 19px;
+    line-height: 22px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.school-location,
+.school-year {
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.exam-info {
+    margin-bottom: 5px;
+}
+
+.exam-info td {
+    font-size: 10px;
+    padding: 2px 4px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.exam-info strong {
+    font-weight: 700;
+}
+
+/* =========================================================
+   TABLE WRAPPERS
+========================================================= */
+
+.result-sheet-wrapper,
+.analysis-table-wrapper,
+.subject-wise-analysis-wrapper {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* =========================================================
+   COMMON REPORT TABLE
+   SAME FONT / SAME BORDER / AUTO COLUMNS
+========================================================= */
+
+.report-table {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border: 1px solid #333;
+    border-collapse: collapse;
+    border-spacing: 0;
+    table-layout: auto !important;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 7px;
+}
+
+.report-table th,
+.report-table td {
+    border: 1px solid #333 !important;
+    border-style: solid !important;
+    border-width: 1px !important;
+    text-align: center;
+    vertical-align: middle;
+    color: #111827 !important;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 7px !important;
+    line-height: 1.05;
+    padding: 2px;
+    white-space: nowrap !important;
+}
+
+/* =========================================================
+   MAIN RESULT TABLE
+========================================================= */
+
+.result-sheet-table {
+    width: 100%;
+    table-layout: auto !important;
+}
+
+.result-sheet-table th {
+    background: #dbeafe;
+    font-weight: 700 !important;
+}
+
+.result-sheet-table td {
+    font-weight: 500;
+}
+
+.result-sheet-table td:first-child {
+    white-space: nowrap !important;
+    font-weight: 700;
+}
+
+.student-name-cell {
+    text-align: left !important;
+    white-space: nowrap !important;
+    font-weight: 700 !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    color: #111827 !important;
+}
+
+.subject-name {
+    display: block;
+    font-size: 7px;
+    line-height: 8px;
+    font-weight: 700 !important;
+    white-space: nowrap;
+}
+
+.subject-max {
+    display: block;
+    font-size: 6px;
+    line-height: 6.5px;
+    font-weight: 700 !important;
+    white-space: nowrap;
+}
+
+.optional-label {
+    display: block;
+    font-size: 5.5px;
+    line-height: 6px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+.optional-mark {
+    color: #92400e !important;
+    font-weight: 700 !important;
+}
+
+.absent-mark,
+.fail-result {
+    color: #991b1b !important;
+    font-weight: 700 !important;
+}
+
+.pass-result {
+    color: #166534 !important;
+    font-weight: 700 !important;
+}
+
+.pending-result {
+    color: #92400e !important;
+    font-weight: 700 !important;
+}
+
+/* =========================================================
+   ANALYSIS
+========================================================= */
+
+.analysis-block {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 7px;
+}
+
+.analysis-title {
+    font-size: 10px;
+    line-height: 12px;
+    font-weight: 700 !important;
+    color: #1d4ed8;
+    margin: 5px 0 3px;
+    white-space: nowrap;
+}
+
+.analysis-table,
+.subject-wise-analysis-table {
+    width: 100%;
+    max-width: 100%;
+    table-layout: auto !important;
+}
+
+.analysis-table th,
+.analysis-table td,
+.subject-wise-analysis-table th,
+.subject-wise-analysis-table td {
+    font-size: 7px !important;
+    padding: 2px;
+    white-space: nowrap !important;
+}
+
+.analysis-table th,
+.subject-wise-analysis-table th {
+    background: #dbeafe;
+    font-weight: 700 !important;
+}
+
+.analysis-table td:first-child,
+.subject-analysis-name {
+    text-align: left !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+}
+
+.analysis-total-row,
+.analysis-total-row td {
+    font-weight: 700 !important;
+    background: #e5e7eb !important;
+}
+
+/* =========================================================
+   SIGNATURES
+========================================================= */
+
+.signature-area {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 15px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.signature-box {
+    width: 220px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    page-break-inside: avoid;
+}
+
+.signature-line {
+    display: block;
+    border-bottom: 1px solid #111827;
+    width: 100%;
+    height: 20px;
+    margin-bottom: 4px;
+}
+
+.signature-name {
+    display: block;
+    margin-top: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 12px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.signature-designation {
+    display: block;
+    margin-top: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* =========================================================
+   PRINT RULES
+========================================================= */
+
+@media print {
+
+    html,
+    body {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .print-page,
+    .print-fit {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /*
+     * Do NOT scale .print-fit-content.
+     * This keeps the subject analysis and signatures in place.
+     */
+    .print-fit-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        transform: none !important;
+    }
+
+    /*
+     * All three tables keep their original full border box.
+     * JavaScript scales only an individual table when required.
+     */
+    .report-table,
+    .result-sheet-table,
+    .analysis-table,
+    .subject-wise-analysis-table {
+        max-width: 100% !important;
+        table-layout: auto !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+    }
+
+    .report-table th,
+    .report-table td {
+        white-space: nowrap !important;
+    }
+
+    .result-sheet-wrapper,
+    .analysis-table-wrapper,
+    .subject-wise-analysis-wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tfoot {
+        display: table-footer-group;
+    }
+
+    tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .analysis-block,
+    .signature-area {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    a[href]::after {
+        content: none !important;
+        display: none !important;
+    }
+
+    a {
+        text-decoration: none !important;
+        color: inherit !important;
+    }
+}
+
+/* =========================================================
+   SCREEN
+========================================================= */
+
+@media screen {
+
+    .print-page {
+        padding: 10px;
+    }
+}
+
+@media print {
+
+    .result-sheet-wrapper,
+    .analysis-table-wrapper,
+    .subject-wise-analysis-wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+
+    .report-table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+        border-collapse: collapse !important;
+    }
+
+    .report-table th,
+    .report-table td {
+        white-space: nowrap !important;
+        font-size: 7px !important;
+        padding: 2px !important;
+    }
+
+    .result-sheet-table th,
+    .result-sheet-table td,
+    .analysis-table th,
+    .analysis-table td,
+    .subject-wise-analysis-table th,
+    .subject-wise-analysis-table td {
+        white-space: nowrap !important;
+    }
+
+    .print-controls {
+        display: none !important;
+    }
+
+    
+}
+
+

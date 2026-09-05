@@ -16,16 +16,6 @@ class AdminMarksAssignmentService
     |--------------------------------------------------------------------------
     | PREPARE EXAMS
     |--------------------------------------------------------------------------
-    |
-    | Adds:
-    |
-    | resolved_standard_id
-    | resolved_standard_name
-    | display_exam_name
-    |
-    | Also supports older Exam Master records where the standard was not
-    | properly attached and has to be identified from the exam name.
-    |--------------------------------------------------------------------------
     */
 
     public function prepareExams(
@@ -69,16 +59,10 @@ class AdminMarksAssignmentService
                         $exam->exam_name
                     );
 
+
                 /*
                 |--------------------------------------------------------------------------
-                | Longest standard name first.
-                |
-                | This prevents:
-                |
-                | FIRST
-                | FIRST SCIENCE
-                |
-                | from matching incorrectly.
+                | LONGEST STANDARD NAME FIRST
                 |--------------------------------------------------------------------------
                 */
 
@@ -94,6 +78,7 @@ class AdminMarksAssignmentService
                         }
                     );
 
+
                 foreach (
                     $sortedStandards as $candidate
                 ) {
@@ -103,11 +88,14 @@ class AdminMarksAssignmentService
                             $candidate->standard_name
                         );
 
+
                     if (
                         $normalizedStandardName === ''
                     ) {
+
                         continue;
                     }
+
 
                     if (
                         str_ends_with(
@@ -141,6 +129,7 @@ class AdminMarksAssignmentService
                     ? (int) $standard->id
                     : null;
 
+
             $exam->resolved_standard_name =
                 $standard
                     ? $standard->standard_name
@@ -159,12 +148,13 @@ class AdminMarksAssignmentService
                     $exam->exam_name
                 );
 
+
             $standardName =
                 trim(
-                    (string)
-                    (
+                    (string) (
                         $exam->resolved_standard_name
-                        ?? ''
+                        ??
+                        ''
                     )
                 );
 
@@ -193,6 +183,7 @@ class AdminMarksAssignmentService
                     $examName;
             }
         }
+
 
         return $exams;
     }
@@ -223,26 +214,260 @@ class AdminMarksAssignmentService
 
     /*
     |--------------------------------------------------------------------------
+    | EFFECTIVE STATUS
+    |--------------------------------------------------------------------------
+    |
+    | SAME LOGIC AS EXAM PROGRESS DASHBOARD
+    |--------------------------------------------------------------------------
+    |
+    | If matching student_marks exist for:
+    |
+    | academic_year
+    | section
+    | standard
+    | division
+    | exam
+    | subject
+    |
+    | then effective status is COMPLETED.
+    |
+    | Otherwise use teacher_marks_status.status.
+    |
+    | IMPORTANT:
+    | teacher_marks_status DOES NOT contain section_id.
+    | Section comes from teacher_class_allocations.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    private function getEffectiveStatus(
+        $status,
+        $tsa,
+        $actualSubjectId
+    ): string {
+
+        $storedStatus =
+            strtoupper(
+                trim(
+                    (string) (
+                        $status->status
+                        ??
+                        ''
+                    )
+                )
+            );
+
+
+        if (
+            !$tsa
+            ||
+            !$tsa->allocation
+        ) {
+
+            return $storedStatus !== ''
+                ? $storedStatus
+                : 'PENDING';
+        }
+
+
+        $allocation =
+            $tsa->allocation;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CLASS / EXAM VALUES
+        |--------------------------------------------------------------------------
+        */
+
+        $academicYearId =
+            (int) (
+                $status->academic_year_id
+                ??
+                $allocation->academic_year_id
+                ??
+                0
+            );
+
+
+        $sectionId =
+            (int) (
+                $allocation->section_id
+                ??
+                0
+            );
+
+
+        $standardId =
+            (int) (
+                $status->standard_id
+                ??
+                $allocation->standard_id
+                ??
+                0
+            );
+
+
+        $divisionId =
+            (int) (
+                $status->division_id
+                ??
+                $allocation->division_id
+                ??
+                0
+            );
+
+
+        $examId =
+            (int) (
+                $status->exam_master_id
+                ??
+                $tsa->exam_master_id
+                ??
+                0
+            );
+
+
+        $actualSubjectId =
+            (int) $actualSubjectId;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDATE CONTEXT
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $academicYearId <= 0
+            ||
+            $sectionId <= 0
+            ||
+            $standardId <= 0
+            ||
+            $divisionId <= 0
+            ||
+            $examId <= 0
+            ||
+            $actualSubjectId <= 0
+        ) {
+
+            return $storedStatus !== ''
+                ? $storedStatus
+                : 'PENDING';
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT IDS
+        |--------------------------------------------------------------------------
+        |
+        | Current:
+        |     subjects.id
+        |
+        | Legacy:
+        |     standard_wise_subjects.id
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        $possibleSubjectIds =
+            collect([
+                $actualSubjectId,
+            ])
+            ->merge(
+                DB::table(
+                    'standard_wise_subjects'
+                )
+                ->where(
+                    'standard_id',
+                    $standardId
+                )
+                ->where(
+                    'subject_id',
+                    $actualSubjectId
+                )
+                ->where(
+                    'is_active',
+                    1
+                )
+                ->pluck(
+                    'id'
+                )
+            )
+            ->map(
+                fn ($id) => (int) $id
+            )
+            ->filter(
+                fn ($id) => $id > 0
+            )
+            ->unique()
+            ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | EFFECTIVE COMPLETION
+        |--------------------------------------------------------------------------
+        |
+        | Same matching rule used by ExamProgressController.
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        $marksExist =
+            DB::table(
+                'student_marks'
+            )
+            ->where(
+                'academic_year_id',
+                $academicYearId
+            )
+            ->where(
+                'section_id',
+                $sectionId
+            )
+            ->where(
+                'standard_id',
+                $standardId
+            )
+            ->where(
+                'division_id',
+                $divisionId
+            )
+            ->where(
+                'exam_master_id',
+                $examId
+            )
+            ->whereIn(
+                'subject_id',
+                $possibleSubjectIds
+            )
+            ->exists();
+
+
+        if ($marksExist) {
+
+            return 'COMPLETED';
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STORED STATUS FALLBACK
+        |--------------------------------------------------------------------------
+        */
+
+        return $storedStatus !== ''
+            ? $storedStatus
+            : 'PENDING';
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | GET ASSIGNMENTS
-    |--------------------------------------------------------------------------
-    |
-    | PERFORMANCE IMPORTANT
-    |--------------------------------------------------------------------------
-    |
-    | The old controller did a broad historical StudentMark scan.
-    |
-    | That is removed from the initial Admin Marks page.
-    |
-    | Current assignment list comes from:
-    |
-    | teacher_marks_status
-    |        ↓
-    | teacher_subject_allocations
-    |        ↓
-    | teacher_class_allocations
-    |
-    | student_marks are NOT queried here.
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -253,7 +478,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | DO NOT LOAD EVERYTHING WHEN EXAM IS NOT SELECTED
+        | NO EXAM = NO ASSIGNMENTS
         |--------------------------------------------------------------------------
         */
 
@@ -273,7 +498,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD CURRENT MARK STATUS
+        | LOAD TEACHER MARK STATUS
         |--------------------------------------------------------------------------
         */
 
@@ -300,7 +525,11 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | SELECT ONLY REQUIRED COLUMNS
+        | IMPORTANT
+        |--------------------------------------------------------------------------
+        |
+        | NO section_id HERE.
+        |
         |--------------------------------------------------------------------------
         */
 
@@ -333,9 +562,6 @@ class AdminMarksAssignmentService
         /*
         |--------------------------------------------------------------------------
         | BATCH LOAD TSA
-        |--------------------------------------------------------------------------
-        |
-        | Prevents N+1 queries.
         |--------------------------------------------------------------------------
         */
 
@@ -386,7 +612,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | BATCH LOAD STANDARD-WISE SUBJECT MAPPINGS
+        | STANDARD IDS
         |--------------------------------------------------------------------------
         */
 
@@ -402,6 +628,12 @@ class AdminMarksAssignmentService
                 )
                 ->values();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | SUBJECT MAPPINGS
+        |--------------------------------------------------------------------------
+        */
 
         $subjectMappings =
             collect();
@@ -448,18 +680,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | BUILD LOOKUP MAPS
-        |--------------------------------------------------------------------------
-        |
-        | We use separate maps for:
-        |
-        | CURRENT:
-        |     subjects.id
-        |
-        | LEGACY:
-        |     standard_wise_subjects.id
-        |
-        | This is important because two IDs may have the same numeric value.
+        | LOOKUP MAPS
         |--------------------------------------------------------------------------
         */
 
@@ -517,13 +738,13 @@ class AdminMarksAssignmentService
                 ||
                 !$tsa->allocation
             ) {
+
                 continue;
             }
 
 
             $standardId =
-                (int)
-                (
+                (int) (
                     $status->standard_id
                     ??
                     $tsa->allocation->standard_id
@@ -568,11 +789,6 @@ class AdminMarksAssignmentService
             |--------------------------------------------------------------------------
             | FALLBACK SUBJECT MASTER
             |--------------------------------------------------------------------------
-            |
-            | Normally mapping should exist.
-            |
-            | We intentionally do a single fallback query only when required.
-            |--------------------------------------------------------------------------
             */
 
             if (!$mapping) {
@@ -588,6 +804,7 @@ class AdminMarksAssignmentService
                 if (
                     !$actualSubjectId
                 ) {
+
                     continue;
                 }
 
@@ -614,12 +831,14 @@ class AdminMarksAssignmentService
 
 
                 if (!$subject) {
+
                     continue;
                 }
 
 
                 $subjectObject =
                     (object) [
+
                         'id' =>
                             (int) $subject->id,
 
@@ -639,6 +858,7 @@ class AdminMarksAssignmentService
 
                 $subjectObject =
                     (object) [
+
                         'id' =>
                             (int)
                             $mapping->actual_subject_id,
@@ -660,7 +880,7 @@ class AdminMarksAssignmentService
 
             /*
             |--------------------------------------------------------------------------
-            | BUILD ASSIGNMENT OBJECT
+            | BUILD ASSIGNMENT
             |--------------------------------------------------------------------------
             */
 
@@ -684,9 +904,7 @@ class AdminMarksAssignmentService
 
             /*
             |--------------------------------------------------------------------------
-            | IMPORTANT:
-            |
-            | Always expose actual Subject Master ID to Blade.
+            | ACTUAL SUBJECT MASTER ID
             |--------------------------------------------------------------------------
             */
 
@@ -713,12 +931,6 @@ class AdminMarksAssignmentService
             );
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | EXAM RELATIONSHIP
-            |--------------------------------------------------------------------------
-            */
-
             $assignment->setRelation(
                 'exam',
                 $this->getExam(
@@ -742,6 +954,12 @@ class AdminMarksAssignmentService
                 (int)
                 $tsa->allocation
                     ->academic_year_id;
+
+
+            $assignment->resolved_section_id =
+                (int)
+                $tsa->allocation
+                    ->section_id;
 
 
             $assignment->resolved_class_allocation_id =
@@ -775,20 +993,15 @@ class AdminMarksAssignmentService
 
             /*
             |--------------------------------------------------------------------------
-            | STATUS
+            | EFFECTIVE STATUS
             |--------------------------------------------------------------------------
             */
 
             $assignment->resolved_status =
-                strtoupper(
-                    trim(
-                        (string)
-                        (
-                            $status->status
-                            ??
-                            'PENDING'
-                        )
-                    )
+                $this->getEffectiveStatus(
+                    $status,
+                    $tsa,
+                    $subjectObject->id
                 );
 
 
@@ -806,7 +1019,7 @@ class AdminMarksAssignmentService
 
             /*
             |--------------------------------------------------------------------------
-            | UNIQUE SELECTION KEY
+            | UNIQUE KEY
             |--------------------------------------------------------------------------
             */
 
@@ -854,9 +1067,6 @@ class AdminMarksAssignmentService
     |--------------------------------------------------------------------------
     | GET EXAM
     |--------------------------------------------------------------------------
-    |
-    | Small helper.
-    |--------------------------------------------------------------------------
     */
 
     private function getExam(
@@ -898,7 +1108,6 @@ class AdminMarksAssignmentService
     |--------------------------------------------------------------------------
     | FALLBACK SUBJECT RESOLUTION
     |--------------------------------------------------------------------------
-    |--------------------------------------------------------------------------
     */
 
     private function resolveActualSubjectIdFallback(
@@ -926,7 +1135,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | CURRENT SUBJECT FORMAT FIRST
+        | CURRENT FORMAT
         |--------------------------------------------------------------------------
         */
 
@@ -963,7 +1172,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | LEGACY SWS FORMAT
+        | LEGACY FORMAT
         |--------------------------------------------------------------------------
         */
 
@@ -1006,16 +1215,6 @@ class AdminMarksAssignmentService
     |--------------------------------------------------------------------------
     | GET SUBJECTS
     |--------------------------------------------------------------------------
-    |
-    | This method is used by AJAX after Administrator selects:
-    |
-    | Teacher Class Allocation
-    | +
-    | Exam
-    |
-    | Unlike getAssignments(), this method may inspect historical marks,
-    | because it is already a targeted request.
-    |--------------------------------------------------------------------------
     */
 
     public function getSubjects(
@@ -1044,7 +1243,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD CLASS ALLOCATION
+        | CLASS ALLOCATION
         |--------------------------------------------------------------------------
         */
 
@@ -1124,7 +1323,7 @@ class AdminMarksAssignmentService
 
         /*
         |--------------------------------------------------------------------------
-        | BATCH LOAD TSA FOR CURRENT SUBJECTS
+        | TSA MAP
         |--------------------------------------------------------------------------
         */
 
@@ -1202,6 +1401,7 @@ class AdminMarksAssignmentService
 
 
             if (!$subject) {
+
                 continue;
             }
 
@@ -1218,15 +1418,6 @@ class AdminMarksAssignmentService
         /*
         |--------------------------------------------------------------------------
         | HISTORICAL SUBJECTS
-        |--------------------------------------------------------------------------
-        |
-        | This query is now restricted by:
-        |
-        | exam
-        | standard
-        | division
-        |
-        | It does NOT scan all StudentMarks.
         |--------------------------------------------------------------------------
         */
 
@@ -1272,6 +1463,7 @@ class AdminMarksAssignmentService
 
 
             if (!$subject) {
+
                 continue;
             }
 
@@ -1325,6 +1517,7 @@ class AdminMarksAssignmentService
     ) {
 
         if (!$subject) {
+
             return;
         }
 
@@ -1350,6 +1543,7 @@ class AdminMarksAssignmentService
 
 
         if ($exists) {
+
             return;
         }
 
