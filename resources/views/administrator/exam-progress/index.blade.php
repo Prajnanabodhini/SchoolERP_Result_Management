@@ -425,10 +425,6 @@
 
 <div class="exam-progress-page p-3">
 
-    {{-- =========================================================
-         PAGE TITLE
-    ========================================================== --}}
-
     <div class="mb-3">
 
         <h2 style="
@@ -443,10 +439,6 @@
     </div>
 
 
-    {{-- =========================================================
-         FILTER SECTION
-    ========================================================== --}}
-
     <div class="bg-white border rounded shadow p-3">
 
         <form
@@ -457,17 +449,9 @@
 
             <div class="filter-row">
 
-                {{-- =================================================
-                     EXAM
-                ================================================== --}}
-
-                <label
-                    for="exam_master_id"
-                    class="filter-label"
-                >
+                <label for="exam_master_id" class="filter-label">
                     Exam
                 </label>
-
 
                 <div class="select-wrapper">
 
@@ -477,49 +461,29 @@
                         class="filter-select exam-select"
                     >
 
-                        <option value="">
-                            All Exams
-                        </option>
-
+                        <option value="">All Exams</option>
 
                         @foreach($exams as $exam)
 
                             <option
                                 value="{{ $exam->id }}"
-                                {{ (string)$examId ===
-                                   (string)$exam->id
-                                    ? 'selected'
-                                    : '' }}
+                                {{ (string)$examId === (string)$exam->id ? 'selected' : '' }}
                             >
-
-                                {{
-                                    $exam->display_exam_name
-                                    ?? $exam->exam_name
-                                }}
-
+                                {{ $exam->display_exam_name ?? $exam->exam_name }}
                             </option>
 
                         @endforeach
 
                     </select>
 
-
                     <span class="select-arrow"></span>
 
                 </div>
 
 
-                {{-- =================================================
-                     STANDARD
-                ================================================== --}}
-
-                <label
-                    for="standard_id"
-                    class="filter-label"
-                >
+                <label for="standard_id" class="filter-label">
                     Standard
                 </label>
-
 
                 <div class="select-wrapper">
 
@@ -529,46 +493,29 @@
                         class="filter-select standard-select"
                     >
 
-                        <option value="">
-                            All Standards
-                        </option>
-
+                        <option value="">All Standards</option>
 
                         @foreach($standards as $standard)
 
                             <option
                                 value="{{ $standard->id }}"
-                                {{ (string)$standardId ===
-                                   (string)$standard->id
-                                    ? 'selected'
-                                    : '' }}
+                                {{ (string)$standardId === (string)$standard->id ? 'selected' : '' }}
                             >
-
                                 {{ $standard->standard_name }}
-
                             </option>
 
                         @endforeach
 
                     </select>
 
-
                     <span class="select-arrow"></span>
 
                 </div>
 
 
-                {{-- =================================================
-                     DIVISION
-                ================================================== --}}
-
-                <label
-                    for="division_id"
-                    class="filter-label"
-                >
+                <label for="division_id" class="filter-label">
                     Division
                 </label>
-
 
                 <div class="select-wrapper">
 
@@ -578,68 +525,43 @@
                         class="filter-select division-select"
                     >
 
-                        <option value="">
-                            All Divisions
-                        </option>
-
+                        <option value="">All Divisions</option>
 
                         @foreach($divisions as $division)
 
                             <option
                                 value="{{ $division->id }}"
-                                {{ (string)$divisionId ===
-                                   (string)$division->id
-                                    ? 'selected'
-                                    : '' }}
+                                {{ (string)$divisionId === (string)$division->id ? 'selected' : '' }}
                             >
-
                                 {{ $division->division_name }}
-
                             </option>
 
                         @endforeach
 
                     </select>
 
-
                     <span class="select-arrow"></span>
 
                 </div>
 
 
-                {{-- =================================================
-                     SEARCH
-                ================================================== --}}
-
                 <button
                     type="submit"
                     class="erp-btn erp-btn-save"
-                    style="
-                        height:34px;
-                        padding:0 15px;
-                        font-size:14px !important;
-                    "
+                    style="height:34px;padding:0 15px;font-size:14px !important;"
                 >
                     Search
                 </button>
 
 
-                {{-- =================================================
-                     RESET
-                ================================================== --}}
-
                 @if(
                     ($examId !== null && $examId !== '')
-                    ||
-                    ($standardId !== null && $standardId !== '')
-                    ||
-                    ($divisionId !== null && $divisionId !== '')
+                    || ($standardId !== null && $standardId !== '')
+                    || ($divisionId !== null && $divisionId !== '')
                 )
 
                     <a
-                        href="{{ route(
-                            'exam-progress.index'
-                        ) }}"
+                        href="{{ route('exam-progress.index') }}"
                         style="
                             height:34px;
                             display:inline-flex;
@@ -663,29 +585,17 @@
         </form>
 
 
-        {{-- =========================================================
-             SUMMARY
-        ========================================================== --}}
-
         <div class="summary-row">
 
-            <span
-                class="summary-badge completed-badge"
-            >
+            <span class="summary-badge completed-badge">
                 COMPLETED : {{ $completed }}
             </span>
 
-
-            <span
-                class="summary-badge pending-badge"
-            >
+            <span class="summary-badge pending-badge">
                 PENDING : {{ $pending }}
             </span>
 
-
-            <span
-                class="summary-badge total-badge"
-            >
+            <span class="summary-badge total-badge">
                 TOTAL : {{ $total }}
             </span>
 
@@ -693,10 +603,6 @@
 
     </div>
 
-
-    {{-- =========================================================
-         RESULT TABLE
-    ========================================================== --}}
 
     <div class="bg-white border rounded shadow p-3 mt-4">
 
@@ -708,33 +614,21 @@
 
                     <tr>
 
-                        <th class="left">
-                            Exam
-                        </th>
+                        <th class="center">ID</th>
 
-                        <th class="left">
-                            Subject
-                        </th>
+                        <th class="left">Exam</th>
 
-                        <th class="left">
-                            Standard
-                        </th>
+                        <th class="left">Subject</th>
 
-                        <th class="center">
-                            Division
-                        </th>
+                        <th class="left">Standard</th>
 
-                        <th class="left">
-                            Teacher
-                        </th>
+                        <th class="center">Division</th>
 
-                        <th class="center">
-                            Status
-                        </th>
+                        <th class="left">Teacher</th>
 
-                        <th class="center">
-                            Action
-                        </th>
+                        <th class="center">Status</th>
+
+                        <th class="center">Action</th>
 
                     </tr>
 
@@ -747,12 +641,6 @@
 
                     @php
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | STATUS
-                        |--------------------------------------------------------------------------
-                        */
-
                         $currentStatus =
                             strtoupper(
                                 trim(
@@ -763,12 +651,6 @@
                                 )
                             );
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | SUBJECT
-                        |--------------------------------------------------------------------------
-                        */
 
                         $subjectName =
                             trim(
@@ -796,12 +678,6 @@
 
                         }
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | IDS
-                        |--------------------------------------------------------------------------
-                        */
 
                         $tsaId =
                             (int)(
@@ -844,28 +720,19 @@
 
                     <tr>
 
-                        {{-- =================================================
-                             EXAM
-                        ================================================== --}}
-
-                        <td class="left">
-
-                            {{
-                                $status->exam_name
-                                ?: '-'
-                            }}
-
+                        <td class="center" style="font-weight:700;">
+                            {{ $tsaId > 0 ? $tsaId : '-' }}
                         </td>
 
 
-                        {{-- =================================================
-                             SUBJECT
-                        ================================================== --}}
+                        <td class="left">
+                            {{ $status->exam_name ?: '-' }}
+                        </td>
+
 
                         <td class="left subject-name">
 
                             {{ $subjectName }}
-
 
                             @if(
                                 $subjectCode !== ''
@@ -882,95 +749,35 @@
                         </td>
 
 
-                        {{-- =================================================
-                             STANDARD
-                        ================================================== --}}
-
                         <td class="left">
-
-                            {{
-                                $status->standard_name
-                                ?: '-'
-                            }}
-
+                            {{ $status->standard_name ?: '-' }}
                         </td>
 
 
-                        {{-- =================================================
-                             DIVISION
-                        ================================================== --}}
+                        <td class="center">
+                            {{ $status->division_name ?: '-' }}
+                        </td>
+
+
+                        <td class="left">
+                            {{ $status->teacher_name ?: '-' }}
+                        </td>
+
 
                         <td class="center">
 
-                            {{
-                                $status->division_name
-                                ?: '-'
-                            }}
+                            @if($currentStatus === 'COMPLETED')
 
-                        </td>
+                                <span class="status-badge status-completed">COMPLETED</span>
 
+                            @elseif($currentStatus === 'PENDING')
 
-                        {{-- =================================================
-                             TEACHER
-                        ================================================== --}}
-
-                        <td class="left">
-
-                            {{
-                                $status->teacher_name
-                                ?: '-'
-                            }}
-
-                        </td>
-
-
-                        {{-- =================================================
-                             STATUS
-                        ================================================== --}}
-
-                        <td class="center">
-
-                            @if(
-                                $currentStatus === 'COMPLETED'
-                            )
-
-                                <span
-                                    class="
-                                        status-badge
-                                        status-completed
-                                    "
-                                >
-                                    COMPLETED
-                                </span>
-
-                            @elseif(
-                                $currentStatus === 'PENDING'
-                            )
-
-                                <span
-                                    class="
-                                        status-badge
-                                        status-pending
-                                    "
-                                >
-                                    PENDING
-                                </span>
+                                <span class="status-badge status-pending">PENDING</span>
 
                             @else
 
-                                <span
-                                    class="
-                                        status-badge
-                                        status-other
-                                    "
-                                >
-
-                                    {{
-                                        $currentStatus !== ''
-                                            ? $currentStatus
-                                            : '-'
-                                    }}
-
+                                <span class="status-badge status-other">
+                                    {{ $currentStatus !== '' ? $currentStatus : '-' }}
                                 </span>
 
                             @endif
@@ -978,28 +785,15 @@
                         </td>
 
 
-                        {{-- =================================================
-                             ACTION
-                        ================================================== --}}
-
                         <td class="center">
-
-                            {{-- =================================================
-                                 COMPLETED
-                            ================================================== --}}
 
                             @if(
                                 $currentStatus === 'COMPLETED'
-                                &&
-                                $tsaId > 0
-                                &&
-                                $statusExamId > 0
-                                &&
-                                $statusStandardId > 0
-                                &&
-                                $statusDivisionId > 0
-                                &&
-                                $resolvedSubjectId > 0
+                                && $tsaId > 0
+                                && $statusExamId > 0
+                                && $statusStandardId > 0
+                                && $statusDivisionId > 0
+                                && $resolvedSubjectId > 0
                             )
 
                                 <a
@@ -1007,20 +801,11 @@
                                         url('/marks-entry/view')
                                         . '?'
                                         . http_build_query([
-                                            'exam_master_id' =>
-                                                $statusExamId,
-
-                                            'standard_id' =>
-                                                $statusStandardId,
-
-                                            'division_id' =>
-                                                $statusDivisionId,
-
-                                            'subject_id' =>
-                                                $resolvedSubjectId,
-
-                                            'teacher_subject_allocation_id' =>
-                                                $tsaId,
+                                            'exam_master_id' => $statusExamId,
+                                            'standard_id' => $statusStandardId,
+                                            'division_id' => $statusDivisionId,
+                                            'subject_id' => $resolvedSubjectId,
+                                            'teacher_subject_allocation_id' => $tsaId,
                                         ])
                                     }}"
                                     class="erp-btn erp-btn-save action-button"
@@ -1029,16 +814,10 @@
                                 </a>
 
 
-                            {{-- =================================================
-                                 PENDING
-                            ================================================== --}}
-
                             @elseif(
                                 $currentStatus === 'PENDING'
-                                &&
-                                $tsaId > 0
-                                &&
-                                $statusExamId > 0
+                                && $tsaId > 0
+                                && $statusExamId > 0
                             )
 
                                 <a
@@ -1046,11 +825,8 @@
                                         url('/marks-entry')
                                         . '?'
                                         . http_build_query([
-                                            'exam_master_id' =>
-                                                $statusExamId,
-
-                                            'teacher_subject_allocation_id' =>
-                                                $tsaId,
+                                            'exam_master_id' => $statusExamId,
+                                            'teacher_subject_allocation_id' => $tsaId,
                                         ])
                                     }}"
                                     class="erp-btn erp-btn-save action-button"
@@ -1061,11 +837,7 @@
 
                             @else
 
-                                <span style="
-                                    color:#9CA3AF;
-                                ">
-                                    -
-                                </span>
+                                <span style="color:#9CA3AF;">-</span>
 
                             @endif
 
@@ -1078,10 +850,7 @@
 
                     <tr>
 
-                        <td
-                            colspan="7"
-                            class="no-record"
-                        >
+                        <td colspan="8" class="no-record">
                             No pending or completed records found.
                         </td>
 
@@ -1096,23 +865,11 @@
         </div>
 
 
-        {{-- =========================================================
-             PAGINATION
-        ========================================================== --}}
-
         @if($statuses->hasPages())
 
-            <div style="
-                margin-top:15px;
-                display:flex;
-                justify-content:center;
-            ">
+            <div style="margin-top:15px;display:flex;justify-content:center;">
 
-                {{
-                    $statuses
-                        ->onEachSide(5)
-                        ->links()
-                }}
+                {{ $statuses->onEachSide(5)->links() }}
 
             </div>
 
@@ -1123,48 +880,21 @@
 </div>
 
 
-{{-- =========================================================
-     AUTO SEARCH WHEN STANDARD CHANGES
-========================================================= --}}
-
 <script>
 
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
+document.addEventListener('DOMContentLoaded', function () {
 
-        const form =
-            document.getElementById(
-                'examProgressFilterForm'
-            );
+    const form = document.getElementById('examProgressFilterForm');
+    const standardSelect = document.getElementById('standard_id');
 
-
-        const standardSelect =
-            document.getElementById(
-                'standard_id'
-            );
-
-
-        if (
-            form &&
-            standardSelect
-        ) {
-
-            standardSelect.addEventListener(
-                'change',
-                function () {
-
-                    form.submit();
-
-                }
-            );
-
-        }
-
+    if (form && standardSelect) {
+        standardSelect.addEventListener('change', function () {
+            form.submit();
+        });
     }
-);
+
+});
 
 </script>
-
 
 </x-app-layout>

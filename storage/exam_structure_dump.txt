@@ -1,0 +1,396 @@
+
+====================================================================================================
+SHEET: Nursery
+ROWS: 22 | COLUMNS: AC
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | H=Unit Test 2 | M=Term 1 | U=Term 2
+ROW 3: C=Theory | E=Oral | F=Total Marks | H=Theory | J=Oral | K=Total Marks | M=Theory | O=Oral | Q=Practical | S=Total Marks | U=Theory | W=Oral | Y=Practical | AA=Total Marks
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Total Marks | G=Passing Marks | H=Total Marks | I=Passing Marks | J=Total Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks | W=Total Marks | X=Passing Marks | Y=Total Marks | Z=Passing Marks | AA=Total Marks | AB=Passing Marks
+ROW 5: A=Academics | B=English | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=25 | T=10 | U=20 | V=8 | W=5 | X=- | Y=- | Z=- | AA=25 | AB=10
+ROW 6: A=Academics | B=Maths | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=25 | T=10 | U=20 | V=8 | W=5 | X=- | Y=- | Z=- | AA=25 | AB=10
+ROW 7: A=Academics | B=GK | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=25 | T=10 | U=20 | V=8 | W=5 | X=- | Y=- | Z=- | AA=25 | AB=10
+ROW 8: A=Academics | B=CONVERSATION | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=25 | T=10 | U=20 | V=8 | W=5 | X=- | Y=- | Z=- | AA=25 | AB=10
+ROW 9: A=Academics | B=POEM | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=25 | T=10 | U=20 | V=8 | W=5 | X=- | Y=- | Z=- | AA=25 | AB=10
+ROW 10: A=Academics | B=STORY | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=25 | T=10 | U=20 | V=8 | W=5 | X=- | Y=- | Z=- | AA=25 | AB=10
+ROW 11: A=Skill | B=CRAFT | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 12: A=Skill | B=COLOURING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 13: A=Skill | B=CLAY | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 14: A=Skill | B=LIFESKILL | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 15: A=Skill | B=SONG | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 16: A=Skill | B=MARATHI STORY | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 17: A=Skill | B=INDOOR GAME | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 18: A=Skill | B=OUTDOOR GAME | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 19: A=Skill | B=TOY LIB | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 20: A=Skill | B=SHLOKA | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+ROW 21: A=Skill | B=T.SENSE | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=- | X=- | Y=10 | Z=4 | AA=- | AB=-
+
+====================================================================================================
+SHEET: Jrkg
+ROWS: 23 | COLUMNS: Y
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | H=Unit Test 2 | M=Term 1 | S=Term 2 (Final)
+ROW 3: C=Theory | E=Oral | F=Total Marks | H=Theory | J=Oral | K=Total Marks | M=Theory | O=Oral | Q=Practical | S=Theory | U=Oral | W=Practical
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Total Marks | G=Passing Marks | H=Total Marks | I=Passing Marks | J=Total Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks | W=Total Marks | X=Passing Marks
+ROW 5: A=Academics | B=English | C=20 | D=8 | E=5 | F=25 | G=10 | H=20 | I=8 | J=5 | K=25 | L=10 | M=20 | N=8 | O=5 | P=- | Q=- | R=- | S=20 | T=8 | U=5 | V=- | W=- | X=-
+ROW 6: A=Academics | B=Marathi | C=0 | D=0 | E=10 | F=10 | G=4 | H=0 | I=0 | J=10 | K=10 | L=4 | M=0 | N=0 | O=10 | P=4 | Q=- | R=- | S=0 | T=0 | U=10 | V=4 | W=- | X=-
+ROW 7: A=Academics | B=Maths | C=20 | D=8 | E=5 | F=25 | G=10 | H=20 | I=8 | J=5 | K=25 | L=10 | M=20 | N=8 | O=5 | P=- | Q=- | R=- | S=20 | T=8 | U=5 | V=- | W=- | X=-
+ROW 8: A=Academics | B=GK | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 9: A=Academics | B=CONVERSATION | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 10: A=Academics | B=POEM | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 11: A=Academics | B=STORY | C=- | D=- | E=25 | F=25 | G=10 | H=- | I=- | J=25 | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 12: A=Skill | B=CRAFT | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 13: A=Skill | B=COLOURING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 14: A=Skill | B=CLAY | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 15: A=Skill | B=LIFESKILL | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 16: A=Skill | B=SONG | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 17: A=Skill | B=MARATHI STORY | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 18: A=Skill | B=INDOOR GAME | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 19: A=Skill | B=OUTDOOR GAME | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 20: A=Skill | B=TOY LIB | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 21: A=Skill | B=SHLOKA | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 22: A=Skill | B=T.SENSE | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+
+====================================================================================================
+SHEET: Srkg
+ROWS: 22 | COLUMNS: Y
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | H=Unit Test 2 | M=Term 1 | S=Term 2 (Final)
+ROW 3: C=Theory | E=Oral | F=Total Marks | H=Theory | J=Oral | K=Total Marks | M=Theory | O=Oral | Q=Practical | S=Theory | U=Oral | W=Practical
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Total Marks | G=Passing Marks | H=Total Marks | I=Passing Marks | J=Total Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks | W=Total Marks | X=Passing Marks
+ROW 5: A=Academics | B=English | C=20 | D=8 | E=5 | F=25 | G=10 | H=20 | I=8 | J=5 | K=25 | L=10 | M=20 | N=8 | O=5 | P=2 | Q=- | R=- | S=20 | T=8 | U=5 | V=2 | W=- | X=-
+ROW 6: A=Academics | B=Marathi | C=20 | D=8 | E=5 | F=25 | G=10 | H=20 | I=8 | J=5 | K=25 | L=10 | M=20 | N=8 | O=5 | P=2 | Q=- | R=- | S=20 | T=8 | U=5 | V=2 | W=- | X=-
+ROW 7: A=Academics | B=Maths | C=20 | D=8 | E=5 | F=25 | G=10 | H=20 | I=8 | J=5 | K=25 | L=10 | M=20 | N=8 | O=5 | P=2 | Q=- | R=- | S=20 | T=8 | U=5 | V=2 | W=- | X=-
+ROW 8: A=Academics | B=GK | C=- | D=- | E=- | F=25 | G=10 | H=- | I=- | J=- | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 9: A=Academics | B=CONVERSATION | C=- | D=- | E=- | F=25 | G=10 | H=- | I=- | J=- | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 10: A=Academics | B=POEM | C=- | D=- | E=- | F=25 | G=10 | H=- | I=- | J=- | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 11: A=Academics | B=STORY | C=- | D=- | E=- | F=25 | G=10 | H=- | I=- | J=- | K=25 | L=10 | M=- | N=- | O=25 | P=10 | Q=- | R=- | S=- | T=- | U=25 | V=10 | W=- | X=-
+ROW 12: A=Skill | B=CRAFT | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 13: A=Skill | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 14: A=Skill | B=CLAY | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 15: A=Skill | B=LIFESKILL | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 16: A=Skill | B=SONG | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 17: A=Skill | B=MARATHI STORY | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 18: A=Skill | B=INDOOR GAME | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 19: A=Skill | B=OUTDOOR GAME | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 20: A=Skill | B=TOY LIB | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 21: A=Skill | B=SHLOKA | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+ROW 22: A=Skill | B=T.SENSE | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=10 | R=4 | S=- | T=- | U=- | V=- | W=10 | X=4
+
+====================================================================================================
+SHEET: 1st
+ROWS: 20 | COLUMNS: W
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2
+ROW 3: G=Summative =30 Marks | M=Formative= 70 Marks | O=Formative =30 Marks | U=Summative= 70 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=Marathi | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 7: A=Academics | B=English | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 8: A=Academics | B=Maths | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 9: A=Academics | B=EVS-I | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 10: A=PT | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 11: A=Art | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 12: A=WE | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 13: A=SKILL -I | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 14: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 15: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 16: A=Skill-II | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: B=ABACUS
+
+====================================================================================================
+SHEET: 2nd
+ROWS: 20 | COLUMNS: W
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2
+ROW 3: G=Summative =30 Marks | M=Formative= 70 Marks | O=Summative =30 Marks | U=Formative= 70 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=Marathi | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 7: A=Academics | B=English | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 8: A=Academics | B=Maths | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 9: A=Academics | B=EVS-I | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=30 | L=12 | M=70 | N=28 | O=20 | P=8 | Q=10 | R=4 | S=30 | T=12 | U=70 | V=28
+ROW 10: A=PT | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 11: A=Art | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 12: A=WE | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 13: A=SKILL -I | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 14: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 15: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 16: A=Skill-II | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: B=ABACUS
+
+====================================================================================================
+SHEET: 3rd
+ROWS: 21 | COLUMNS: V
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2 (Final)
+ROW 3: G=Summative=40 Marks | M=Formative= 60 Marks | O=Summative=40 Marks | U=Formative= 60 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=Marathi | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 7: A=Academics | B=English | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 8: A=Academics | B=Maths | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 9: A=Academics | B=EVS-I | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 10: A=Academics | B=EVS-II | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 11: A=PT | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 12: A=Art | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 13: A=WE | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 14: A=SKILL -I | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 15: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 16: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: A=Skill-II | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 19: B=ABACUS
+
+====================================================================================================
+SHEET: 4th
+ROWS: 19 | COLUMNS: W
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2 (Final)
+ROW 3: G=Summative =40 Marks | M=Formative= 60 Marks | O=Summative =40 Marks | U=Formative= 60 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=Marathi | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 7: A=Academics | B=English | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 8: A=Academics | B=Maths | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 9: A=Academics | B=EVS-I | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 10: A=Academics | B=EVS-II | C=20 | D=8 | E=20 | F=8 | G=30 | H=12 | I=10 | J=4 | K=40 | L=16 | M=60 | N=24 | O=30 | P=12 | Q=10 | R=4 | S=40 | T=16 | U=60 | V=24
+ROW 11: A=PT | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 12: A=Art | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 13: A=WE | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 14: A=SKILL -I | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 15: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 16: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: A=Skill-II | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 19: B=ABACUS | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+
+====================================================================================================
+SHEET: 5th
+ROWS: 20 | COLUMNS: W
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2
+ROW 3: G=Summative =50 Marks | M=Formative= 50 Marks | O=Summative =50 Marks | U=Formative= 50 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=ENGLISH | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 7: A=Academics | B=HINDI | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 8: A=Academics | B=MARATHI | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 9: A=Academics | B=Maths | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 10: A=Academics | B=EVS-I | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=5 | J=2 | K=50 | L=20 | M=50 | N=20 | O=20 | P=8 | Q=5 | R=2 | S=50 | T=20 | U=50 | V=20
+ROW 11: A=Academics | B=EVS-II | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=5 | J=2 | O=20 | P=8 | Q=5 | R=2
+ROW 12: A=PT | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 13: A=Art | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 14: A=WE | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 15: A=SKILL -I Art | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 16: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: A=Skill-II WE | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 19: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 20: B=ABACUS | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+
+====================================================================================================
+SHEET: 6th
+ROWS: 44 | COLUMNS: W
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2
+ROW 3: G=summative =50 Marks | M=Formative= 50 Marks | O=summative =50 Marks | U=Formative= 50 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=ENGLISH | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 7: A=Academics | B=HINDI | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 8: A=Academics | B=MARATHI | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 9: A=Academics | B=Maths | C=40 | D=16 | E=40 | F=16 | G=40 | H=16 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=40 | P=16 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 10: A=Academics | B=Science | C=40 | D=16 | E=40 | F=16 | G=20 | H=8 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=20 | P=8 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 11: A=Academics | B=HISTORY | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | K=50 | L=20 | M=50 | N=20 | O=20 | P=8 | Q=10 | R=4 | S=50 | T=20 | U=50 | V=20
+ROW 12: A=Academics | B=GEOGRAPHY | C=20 | D=8 | E=20 | F=8 | G=20 | H=8 | I=10 | J=4 | O=20 | P=8 | Q=10 | R=4
+ROW 13: A=PT | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 14: A=Art | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 15: A=WE | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 16: A=SKILL -I Art | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 19: A=Skill-II WE | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 20: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 21: B=ABACUS | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+
+====================================================================================================
+SHEET: 7th
+ROWS: 23 | COLUMNS: V
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2
+ROW 3: G=Formative =60 Marks | M=Summative= 40 Marks | O=Formative =60 Marks | U=Summative= 40 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=ENGLISH | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=40 | V=16
+ROW 7: A=Academics | B=HINDI | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=40 | V=16
+ROW 8: A=Academics | B=MARATHI | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=40 | V=16
+ROW 9: A=Academics | B=Maths | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=40 | V=16
+ROW 10: A=Academics | B=Science | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=40 | V=16
+ROW 11: A=Academics | B=HISTORY | C=20 | D=8 | E=20 | F=8 | G=25 | H=10 | I=5 | J=2 | K=60 | L=24 | M=40 | N=16 | O=25 | P=10 | Q=5 | R=2 | S=60 | T=24 | U=40 | V=16
+ROW 12: A=Academics | B=GEOGRAPHY | C=20 | D=8 | E=20 | F=8 | G=25 | H=10 | I=5 | J=2 | O=25 | P=10 | Q=5 | R=2
+ROW 13: A=PT | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 14: A=Art | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 15: A=WE | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=100 | V=40
+ROW 16: A=SKILL -I | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 19: A=Skill-II | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 20: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 21: B=ABACUS | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 22: C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 23: C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+
+====================================================================================================
+SHEET: 8TH 
+ROWS: 23 | COLUMNS: V
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2
+ROW 3: G=Summative =60 Marks | M=Formative= 40 Marks | O=Summative =60 Marks | U=Formative= 0 Marks
+ROW 4: C=Theory | E=Theory | G=Theory | I=oral | K=Theory + oral | M=Practical | O=Theory | Q=oral | S=Theory + oral | U=Practical
+ROW 5: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=Total Marks | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 6: A=Academics | B=ENGLISH | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=- | V=-
+ROW 7: A=Academics | B=Sanskrit | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=- | V=-
+ROW 8: A=Academics | B=MARATHI | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=- | V=-
+ROW 9: A=Academics | B=Maths | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=- | V=-
+ROW 10: A=Academics | B=Science | C=40 | D=16 | E=40 | F=16 | G=50 | H=20 | I=10 | J=4 | K=60 | L=24 | M=40 | N=16 | O=50 | P=20 | Q=10 | R=4 | S=60 | T=24 | U=- | V=-
+ROW 11: A=Academics | B=HISTORY | C=20 | D=8 | E=20 | F=8 | G=25 | H=10 | I=5 | J=2 | K=60 | L=24 | M=40 | N=16 | O=25 | P=10 | Q=5 | R=2 | S=60 | T=24 | U=- | V=-
+ROW 12: A=Academics | B=GEOGRAPHY | C=20 | D=8 | E=20 | F=8 | G=25 | H=10 | I=5 | J=2 | O=25 | P=10 | Q=5 | R=2
+ROW 13: A=PT | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 14: A=Art | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 15: A=WE | B=- | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=100 | N=40 | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 16: A=SKILL -I | B=DRAWING | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 17: B=T/S/A/D | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 18: B=Sanskrit Bharati | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 19: A=Skill-II | B=COMPUTER | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 20: B=ROBOTICS, | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 21: B=ABACUS | C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 22: C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+ROW 23: C=- | D=- | E=- | F=- | G=- | H=- | I=- | J=- | K=- | L=- | M=- | N=- | O=- | P=- | Q=- | R=- | S=- | T=- | U=- | V=-
+
+====================================================================================================
+SHEET: 9th
+ROWS: 22 | COLUMNS: W
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | O=Term 2 (Final)
+ROW 3: C=Theory | E=Theory | G=Theory | I=Oral | M=Total Marks | O=Theory | Q=Oral | U=Total Marks
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=practival | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks | S=practival | T=Passing Marks | U=Total Marks | V=Passing Marks
+ROW 5: A=Academics | B=ENGLISH | C=40 | D=14 | E=40 | F=14 | G=80 | H=28 | I=20 | J=7 | K=- | L=- | M=100 | N=35 | O=80 | P=28 | Q=20 | R=7 | S=- | T=- | U=100 | V=35
+ROW 6: A=Academics | B=SANSKRIT | C=40 | D=14 | E=40 | F=14 | G=80 | H=28 | I=20 | J=7 | K=- | L=- | M=100 | N=35 | O=80 | P=28 | Q=20 | R=7 | S=- | T=- | U=100 | V=35
+ROW 7: A=Academics | B=MARATHI | C=40 | D=14 | E=40 | F=14 | G=80 | H=28 | I=20 | J=7 | K=- | L=- | M=100 | N=35 | O=80 | P=28 | Q=20 | R=7 | S=- | T=- | U=100 | V=35
+ROW 8: A=Academics | B=Maths-I | C=40 | D=14 | E=40 | F=14 | G=40 | H=14 | I=- | J=- | K=10 | L=4 | M=100 | N=35 | O=40 | P=14 | Q=- | R=- | S=10 | T=4 | U=100 | V=35
+ROW 9: A=Academics | B=MATHS-II | C=40 | D=14 | E=40 | F=14 | G=40 | H=14 | I=- | J=- | K=10 | L=4 | O=40 | P=14 | Q=- | R=- | S=10 | T=4
+ROW 10: A=Academics | B=Science-I | C=40 | D=14 | E=40 | F=14 | G=40 | H=14 | I=- | J=- | K=10 | L=4 | M=100 | N=35 | O=40 | P=14 | Q=- | R=- | S=10 | T=4 | U=100 | V=35
+ROW 11: A=Academics | B=Science-II | C=40 | D=14 | E=40 | F=14 | G=40 | H=14 | I=- | J=- | K=10 | L=4 | O=40 | P=14 | Q=- | R=- | S=10 | T=4
+ROW 12: A=Academics | B=HISTORY | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | K=- | L=- | M=100 | N=35 | O=40 | P=14 | Q=10 | R=4 | S=- | T=- | U=100 | V=35
+ROW 13: A=Academics | B=GEOGRAPHY | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | K=- | L=- | O=40 | P=14 | Q=10 | R=4 | S=- | T=-
+ROW 14: A=SKILL -I | B=DRAWING
+ROW 15: B=T/S/A/D
+ROW 16: B=Sanskrit Bharati
+ROW 18: A=Skill-II | B=COMPUTER | C=- | D=- | E=- | F=-
+ROW 19: B=ROBOTICS, | C=- | D=- | E=- | F=-
+ROW 20: B=ABACUS | C=- | D=- | E=- | F=-
+ROW 21: C=- | D=- | E=- | F=-
+ROW 22: C=- | D=- | E=- | F=-
+
+====================================================================================================
+SHEET: 10th
+ROWS: 20 | COLUMNS: S
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | M=Term 2 (Final)
+ROW 3: C=Theory | E=Theory | G=Theory | I=Oral | K=Total Marks | M=Theory | O=Oral | Q=Total Marks
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Total Marks | H=Passing Marks | I=Total Marks | J=Passing Marks | K=Total Marks | L=Passing Marks | M=Total Marks | N=Passing Marks | O=Total Marks | P=Passing Marks | Q=Total Marks | R=Passing Marks
+ROW 5: A=Academics | B=Marathi | C=40 | D=14 | E=40 | F=14 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 6: A=Academics | B=English | C=40 | D=14 | E=40 | F=14 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 7: A=Academics | B=Sanskrit | C=40 | D=14 | E=40 | F=14 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 8: A=Academics | B=Maths I | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | K=100 | L=35 | M=40 | N=14 | O=10 | P=4 | Q=100 | R=35
+ROW 9: A=Academics | B=Maths II | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | M=40 | N=14 | O=10 | P=4
+ROW 10: A=Academics | B=Science I | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | K=100 | L=35 | M=40 | N=14 | O=10 | P=4 | Q=100 | R=35
+ROW 11: A=Academics | B=Science II | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | M=40 | N=14 | O=10 | P=4
+ROW 12: A=Academics | B=History | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | K=100 | L=35 | M=40 | N=14 | O=10 | P=4 | Q=100 | R=35
+ROW 13: A=Academics | B=Geography | C=20 | D=7 | E=20 | F=7 | G=40 | H=14 | I=10 | J=4 | M=40 | N=14 | O=10 | P=4
+ROW 14: C=- | D=- | E=- | F=-
+ROW 15: A=Skill-I | B=ROBOTICS, | C=- | D=- | E=- | F=-
+ROW 16: B=COMPUTER | C=- | D=- | E=- | F=-
+ROW 17: B=ABACUS | C=- | D=- | E=- | F=-
+ROW 18: A=SKILL -II | B=DRAWING | C=- | D=- | E=- | F=-
+ROW 19: B=T/S/A/D | C=- | D=- | E=- | F=-
+ROW 20: A=Graded | C=B
+
+====================================================================================================
+SHEET: 11Sci
+ROWS: 12 | COLUMNS: S
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | M=Term 2 (Final)
+ROW 3: C=Theory | E=Theory | G=Theory | I=Oral | K=Total | M=Theory | O=Oral | Q=Total
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Theory Max Marks | H=Theory Min Pass | I=Practical/Oral Max | J=Practical/Oral Min | K=Grand Total Max | L=Grand Total Min (35%) | M=Theory Max Marks | N=Theory Min Pass | O=Practical/Oral Max | P=Practical/Oral Min | Q=Grand Total Max | R=Grand Total Min (35%)
+ROW 5: A=Academics | B=English | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 6: A=Academics | B=Second Language (Marathi/Hindi/IT/etc.) | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 7: A=Academics | B=Physics | C=25 | D=8 | E=25 | F=8 | G=70 | H=25 | I=30 | J=11 | K=100 | L=35 | M=70 | N=25 | O=30 | P=11 | Q=100 | R=35
+ROW 8: A=Academics | B=Chemistry | C=25 | D=8 | E=25 | F=8 | G=70 | H=25 | I=30 | J=11 | K=100 | L=35 | M=70 | N=25 | O=30 | P=11 | Q=100 | R=35
+ROW 9: A=Academics | B=Mathematics & Statistics | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 10: A=Academics | B=Biology | C=25 | D=8 | E=25 | F=8 | G=70 | H=25 | I=30 | J=11 | K=100 | L=35 | M=70 | N=25 | O=30 | P=11 | Q=100 | R=35
+ROW 11: A=Academics | B=Geography / Economics / Other Elective | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 12: A=Academics | B=Information Technology | C=25 | D=8 | E=25 | F=8 | G=50 | H=18 | I=50 | J=17 | K=100 | L=35 | M=50 | N=18 | O=50 | P=17 | Q=100 | R=35
+
+====================================================================================================
+SHEET: 12Sci
+ROWS: 12 | COLUMNS: R
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | M=Term 2 (Final)
+ROW 3: C=Theory | E=Theory | G=Theory | I=Oral | K=Total | M=Theory | O=Oral | Q=Total
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Theory Max Marks | H=Theory Min Pass | I=Practical/Oral Max | J=Practical/Oral Min | K=Grand Total Max | L=Grand Total Min (35%) | M=Theory Max Marks | N=Theory Min Pass | O=Practical/Oral Max | P=Practical/Oral Min | Q=Grand Total Max | R=Grand Total Min (35%)
+ROW 5: A=Academics | B=English | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 6: A=Academics | B=Second Language (Marathi/Hindi/IT/etc.) | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 7: A=Academics | B=Physics | C=25 | D=8 | E=25 | F=8 | G=70 | H=25 | I=30 | J=11 | K=100 | L=35 | M=70 | N=25 | O=30 | P=11 | Q=100 | R=35
+ROW 8: A=Academics | B=Chemistry | C=25 | D=8 | E=25 | F=8 | G=70 | H=25 | I=30 | J=11 | K=100 | L=35 | M=70 | N=25 | O=30 | P=11 | Q=100 | R=35
+ROW 9: A=Academics | B=Mathematics & Statistics | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 10: A=Academics | B=Biology | C=25 | D=8 | E=25 | F=8 | G=70 | H=25 | I=30 | J=11 | K=100 | L=35 | M=70 | N=25 | O=30 | P=11 | Q=100 | R=35
+ROW 11: A=Academics | B=Geography / Economics / Other Elective | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 12: A=Academics | B=Information Technology | C=25 | D=8 | E=25 | F=8 | G=50 | H=18 | I=50 | J=17 | K=100 | L=35 | M=50 | N=18 | O=50 | P=17 | Q=100 | R=35
+
+====================================================================================================
+SHEET: 11Com
+ROWS: 10 | COLUMNS: S
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | M=Term 2 (Final)
+ROW 3: C=Theory | E=Theory | G=Theory | I=Oral | K=Total Marks | M=Theory | O=Oral | Q=Total Marks
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Theory Max | H=Theory Min (Pass) | I=Oral / Practical Max | J=Oral / Practical Min (Pass) | K=Total Max Marks | L=Aggregate Pass Marks (35%) | M=Theory Max | N=Theory Min (Pass) | O=Oral / Practical Max | P=Oral / Practical Min (Pass) | Q=Total Max Marks | R=Aggregate Pass Marks (35%)
+ROW 5: A=Academics | B=Compulsory Language: English | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 6: A=Academics | B=Second Language (Marathi/Hindi/etc.) OR IT | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 7: A=Academics | B=Compulsory: Economics | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 8: A=Academics | B=Compulsory: Book Keeping & Accountancy | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 9: A=Academics | B=Compulsory: Organization of Commerce & Management (OCM) | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 10: A=Academics | B=Elective (Select 1): Secretarial Practice (SP) OR Mathematics & Statistics | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+
+====================================================================================================
+SHEET: 12Com
+ROWS: 10 | COLUMNS: R
+====================================================================================================
+ROW 1: A=Subjects | C=Exam Type
+ROW 2: C=Unit Test 1 | E=Unit Test 2 | G=Term 1 | M=Term 2 (Final)
+ROW 3: C=Theory | E=Theory | G=Theory | I=Oral | K=Total Marks | M=Theory | O=Oral | Q=Total Marks
+ROW 4: A=Subject Type | B=Subject Name | C=Total Marks | D=Passing Marks | E=Total Marks | F=Passing Marks | G=Theory Max | H=Theory Min (Pass) | I=Oral / Practical Max | J=Oral / Practical Min (Pass) | K=Total Max Marks | L=Aggregate Pass Marks (35%) | M=Theory Max | N=Theory Min (Pass) | O=Oral / Practical Max | P=Oral / Practical Min (Pass) | Q=Total Max Marks | R=Aggregate Pass Marks (35%)
+ROW 5: A=Academics | B=Compulsory Language: English | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 6: A=Academics | B=Second Language (Marathi/Hindi/etc.) OR IT | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 7: A=Academics | B=Compulsory: Economics | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 8: A=Academics | B=Compulsory: Book Keeping & Accountancy | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 9: A=Academics | B=Compulsory: Organization of Commerce & Management (OCM) | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35
+ROW 10: A=Academics | B=Elective (Select 1): Secretarial Practice (SP) OR Mathematics & Statistics | C=25 | D=8 | E=25 | F=8 | G=80 | H=28 | I=20 | J=7 | K=100 | L=35 | M=80 | N=28 | O=20 | P=7 | Q=100 | R=35

@@ -118,6 +118,12 @@ return [
         [
             'name'  => 'Marks Entry',
             'route' => 'marks-entry.index'
+        ],
+
+        // --- NEW MENU ITEM ADDED HERE ---
+        [
+            'name'  => 'Skill Subject Marks Entry',
+            'route' => 'student-skill-marks.index'
         ]
     ],
 
@@ -128,10 +134,10 @@ return [
             'route' => 'result-generation.admin-marks.index'
         ],
 
-        [
-            'name'  => 'Result Generation',
-            'route' => 'administrator.result-generation.index'
-        ],
+        // [
+        //     'name'  => 'Result Generation',
+        //     'route' => 'administrator.result-generation.index'
+        // ],
 
         [
             'name'  => 'Result Sheet',

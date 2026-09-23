@@ -1,7 +1,32 @@
 <x-app-layout>
 
-<style>
+@php
+    $H = \App\Helpers\MarksEntryBladeHelper::class;
 
+    /* -------- component flags (theory / oral / practical) -------- */
+    $flags = $H::resolveComponentFlags(
+        $showTheory    ?? null,
+        $showOral      ?? null,
+        $showPractical ?? null,
+        $records       ?? null
+    );
+    $showTheory    = $flags['theory'];
+    $showOral      = $flags['oral'];
+    $showPractical = $flags['practical'];
+
+    /* -------- tab URLs -------- */
+    $filterParams = array_filter([
+        'exam_master_id'                => request('exam_master_id'),
+        'teacher_subject_allocation_id' => request('teacher_subject_allocation_id'),
+    ], fn ($v) => $v !== null && $v !== '');
+
+    $marksEntryUrl = route('marks-entry.index') . $H::querySuffix($filterParams);
+    $viewMarksUrl  = request()->fullUrl();
+
+    $emptyCols = $H::columnCount($showTheory, $showOral, $showPractical);
+@endphp
+
+<style>
     .marks-view-page,
     .marks-view-page * {
         box-sizing: border-box;
@@ -13,1036 +38,281 @@
         border: 1px solid #e5e7eb;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0,0,0,.06);
-        padding: 20px;
+        padding: 12px;
     }
 
     .marks-view-title {
-        margin: 0 0 15px;
-        font-size: 20px;
+        margin: 0 0 10px;
+        font-size: 18px;
         font-weight: 700;
         color: #2563eb;
-    }
-
-    .tabs-container {
-        display: flex;
-        border-bottom: 2px solid #2563EB;
-        margin-bottom: 18px;
-        gap: 4px;
-    }
-
-    .active-tab {
-        background: #2563EB;
-        color: #ffffff !important;
-        padding: 10px 20px;
-        text-decoration: none;
-        border-radius: 6px 6px 0 0;
-        font-weight: 700;
-    }
-
-    .inactive-tab {
-        background: #E5E7EB;
-        color: #111827 !important;
-        padding: 10px 20px;
-        text-decoration: none;
-        border-radius: 6px 6px 0 0;
-        font-weight: 700;
     }
 
     .selected-info {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
-        padding: 10px 12px;
-        border-radius: 5px;
+        gap: 6px;
+        margin-top: 10px;
+        padding: 8px 10px;
+        border-radius: 4px;
         background: #eff6ff;
         border: 1px solid #bfdbfe;
         color: #1e3a8a;
-        font-size: 12px;
+        font-size: 11px;
     }
-
-    .selected-info-item {
-        font-weight: 700;
-    }
-
-    .selected-info-separator {
-        color: #93c5fd;
-    }
-
-    .view-only-box {
-        margin-top: 12px;
-        padding: 9px 12px;
-        border-radius: 5px;
-        background: #f3f4f6;
-        border: 1px solid #d1d5db;
-        color: #374151;
-        font-size: 12px;
-        font-weight: 600;
-    }
+    .selected-info-item      { font-weight: 700; }
+    .selected-info-separator { color: #93c5fd; }
 
     .marks-table-wrapper {
-        margin-top: 18px;
+        margin-top: 12px;
         overflow-x: auto;
         border: 1px solid #d1d5db;
-        border-radius: 5px;
+        border-radius: 4px;
     }
 
     .marks-table {
         width: 100%;
         border-collapse: collapse;
         background: #ffffff;
-        font-size: 12px;
+        font-size: 11px;
     }
-
     .marks-table th {
         background: #dbeafe;
         color: #1e3a8a;
         border: 1px solid #cbd5e1;
-        padding: 8px 6px;
+        padding: 5px 4px;
         text-align: center;
-        white-space: nowrap;
+        line-height: 1.15;
         font-weight: 700;
+        font-size: 10px;
     }
-
     .marks-table td {
         border: 1px solid #d1d5db;
-        padding: 7px 6px;
+        padding: 3px 4px;
         white-space: nowrap;
         vertical-align: middle;
+        font-size: 11px;
+        line-height: 1.2;
     }
+    .marks-table tbody tr:hover { background: #f8fafc; }
 
-    .marks-table tbody tr:hover {
-        background: #f8fafc;
-    }
+    .center            { text-align: center; }
 
-    .center {
-        text-align: center;
-    }
-
+    /* ---------- STUDENT NAME — matches edit blade (600, not 700) ---------- */
     .student-name-cell {
-        min-width: 280px;
+        min-width: 150px;
+        max-width: 220px;
         white-space: normal !important;
         font-weight: 600;
-    }
-
-    .readonly-mark {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 58px;
-        height: 28px;
-        padding: 3px 8px;
-        background: #f3f4f6;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
         color: #111827;
-        font-size: 12px;
-        font-weight: 600;
+        line-height: 1.25;
     }
 
-    .readonly-mark.absent {
-        background: #fee2e2;
-        border-color: #fca5a5;
-        color: #991b1b;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | OPTIONAL / OPT
-    |--------------------------------------------------------------------------
-    */
-
-    .readonly-mark.optional {
-        background: #fef3c7;
-        border-color: #fcd34d;
-        color: #92400e;
-        font-weight: 700;
-    }
-
-    .status-pass {
-        display: inline-block;
-        background: #dcfce7;
-        color: #166534;
-        border: 1px solid #86efac;
-        padding: 4px 9px;
-        border-radius: 4px;
-        font-weight: 700;
-        font-size: 11px;
-    }
-
-    .status-fail {
-        display: inline-block;
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fca5a5;
-        padding: 4px 9px;
-        border-radius: 4px;
-        font-weight: 700;
-        font-size: 11px;
-    }
-
-    .status-absent {
-        display: inline-block;
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fca5a5;
-        padding: 4px 9px;
-        border-radius: 4px;
-        font-weight: 700;
-        font-size: 11px;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | OPTIONAL STATUS
-    |--------------------------------------------------------------------------
-    */
-
-    .status-optional {
-        display: inline-block;
-        background: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fcd34d;
-        padding: 4px 9px;
-        border-radius: 4px;
-        font-weight: 700;
-        font-size: 11px;
-    }
-
-    .status-other {
-        display: inline-block;
-        background: #f3f4f6;
-        color: #374151;
-        border: 1px solid #d1d5db;
-        padding: 4px 9px;
-        border-radius: 4px;
-        font-weight: 700;
-        font-size: 11px;
-    }
-
-    .student-count {
-        display: inline-flex;
-        align-items: center;
-        background: #dbeafe;
-        color: #1e40af;
-        padding: 6px 10px;
-        border-radius: 4px;
-        font-size: 12px;
+    /* Prevent <strong> inside the cell from pushing weight to 700 */
+    .student-name-cell strong {
         font-weight: 600;
     }
 
     .error-box {
-        margin-top: 12px;
-        padding: 10px 12px;
-        border-radius: 5px;
+        margin-top: 10px;
+        padding: 8px 10px;
+        border-radius: 4px;
         background: #fef2f2;
         border: 1px solid #fca5a5;
         color: #991b1b;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
     }
-
     .warning-box {
-        margin-top: 12px;
-        padding: 10px 12px;
-        border-radius: 5px;
+        margin-top: 10px;
+        padding: 8px 10px;
+        border-radius: 4px;
         background: #fffbeb;
         border: 1px solid #fcd34d;
         color: #92400e;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
     }
 
+    {!! $H::tabStyles() !!}
+    {!! $H::viewStyles() !!}
 </style>
 
-
 <div class="erp-page marks-view-page">
-
     <div class="marks-view-card">
 
-        {{-- =========================================================
-             TITLE
-        ========================================================== --}}
+        <h2 class="marks-view-title">Examination Marks</h2>
 
-        <h2 class="marks-view-title">
-            Examination Marks
-        </h2>
+        {{-- ================= TABS (shared helper) ================= --}}
+        {!! $H::renderTabs('view', $marksEntryUrl, $viewMarksUrl) !!}
 
-
-        {{-- =========================================================
-             TABS
-        ========================================================== --}}
-
-        <div class="tabs-container">
-
-            <a
-                href="{{ route('marks-entry.index', array_filter([
-                    'exam_master_id' =>
-                        request('exam_master_id'),
-
-                    'teacher_subject_allocation_id' =>
-                        request('teacher_subject_allocation_id'),
-                ], fn($value) => $value !== null && $value !== '')) }}"
-                class="inactive-tab"
-            >
-                Marks Entry
-            </a>
-
-
-            <a
-                href="{{ request()->fullUrl() }}"
-                class="active-tab"
-            >
-                View Marks
-            </a>
-
-        </div>
-
-
-        {{-- =========================================================
-             ERROR
-        ========================================================== --}}
-
+        {{-- ================= ERRORS ================= --}}
         @if(!empty($error))
-
-            <div class="error-box">
-                {{ $error }}
-            </div>
-
+            <div class="error-box">{{ $error }}</div>
         @endif
-
 
         @if(session('error'))
-
-            <div class="error-box">
-                {{ session('error') }}
-            </div>
-
+            <div class="error-box">{{ session('error') }}</div>
         @endif
 
-
-        {{-- =========================================================
-             SELECTED INFORMATION
-        ========================================================== --}}
-
+        {{-- ================= SELECTED INFO ================= --}}
         @if($selectedTsa && $exam)
-
             @php
-
-                $teacherName =
-                    optional(
-                        optional(
-                            $selectedTsa->allocation
-                        )->teacher
-                    )->name
-                    ?? 'Teacher';
-
-                $selectedSubjectName =
-                    optional(
-                        $selectedSubject
-                    )->subject_name
-                    ?? 'Subject';
-
-                $standardName =
-                    optional(
-                        optional(
-                            $selectedTsa->allocation
-                        )->standard
-                    )->standard_name
-                    ?? '';
-
-                $divisionName =
-                    optional(
-                        optional(
-                            $selectedTsa->allocation
-                        )->division
-                    )->division_name
-                    ?? '';
-
+                $teacherName = optional(optional($selectedTsa->allocation)->teacher)->name ?? 'Teacher';
+                $subjectName = optional($selectedSubject)->subject_name ?? 'Subject';
+                $stdName     = optional(optional($selectedTsa->allocation)->standard)->standard_name ?? '';
+                $divName     = optional(optional($selectedTsa->allocation)->division)->division_name ?? '';
             @endphp
 
-
             <div class="selected-info">
-
+                <span><span class="selected-info-item">Teacher:</span> {{ $teacherName }}</span>
+                <span class="selected-info-separator">|</span>
+                <span><span class="selected-info-item">Subject:</span> {{ $subjectName }}</span>
+                <span class="selected-info-separator">|</span>
                 <span>
-                    <span class="selected-info-item">
-                        Teacher:
-                    </span>
-                    {{ $teacherName }}
+                    <span class="selected-info-item">Class:</span>
+                    {{ $stdName }}@if($divName !== '') - {{ $divName }}@endif
                 </span>
-
-
-                <span class="selected-info-separator">
-                    |
-                </span>
-
-
-                <span>
-                    <span class="selected-info-item">
-                        Subject:
-                    </span>
-                    {{ $selectedSubjectName }}
-                </span>
-
-
-                <span class="selected-info-separator">
-                    |
-                </span>
-
-
-                <span>
-                    <span class="selected-info-item">
-                        Class:
-                    </span>
-
-                    {{ $standardName }}
-
-                    @if($divisionName !== '')
-                        - {{ $divisionName }}
-                    @endif
-
-                </span>
-
-
-                <span class="selected-info-separator">
-                    |
-                </span>
-
-
-                <span>
-                    <span class="selected-info-item">
-                        Exam:
-                    </span>
-
-                    {{
-                        $exam->display_exam_name
-                        ?? $exam->exam_name
-                    }}
-
-                </span>
-
-
-                <span class="selected-info-separator">
-                    |
-                </span>
-
-
-                <span>
-                    <span class="selected-info-item">
-                        Students:
-                    </span>
-
-                    {{ $records->count() }}
-
-                </span>
-
+                <span class="selected-info-separator">|</span>
+                <span><span class="selected-info-item">Exam:</span> {{ $exam->display_exam_name ?? $exam->exam_name }}</span>
+                <span class="selected-info-separator">|</span>
+                <span><span class="selected-info-item">Students:</span> {{ $records->count() }}</span>
             </div>
-
 
             <div class="view-only-box">
-
                 View Only — Marks cannot be modified from this page.
-
             </div>
-
         @endif
 
-
-        {{-- =========================================================
-             MARKS TABLE
-        ========================================================== --}}
-
+        {{-- ================= MARKS TABLE ================= --}}
         @if($records->count() > 0)
-
             <div class="marks-table-wrapper">
-
                 <table class="marks-table">
-
                     <thead>
-
                         <tr>
-
-                            <th>
-                                GR No
-                            </th>
-
-                            <th>
-                                Roll No
-                            </th>
-
-                            <th>
-                                Student Name
-                            </th>
-
+                            <th>GR No</th>
+                            <th>Roll No</th>
+                            <th>Student Name</th>
 
                             @if($showTheory)
-
-                                <th>
-                                    Theory Max
-                                </th>
-
-                                <th>
-                                    Theory Pass
-                                </th>
-
-                                <th>
-                                    Theory Obtained
-                                </th>
-
+                                <th>Theory Max</th>
+                                <th>Theory Pass</th>
+                                <th>Theory Obtained</th>
                             @endif
-
 
                             @if($showOral)
-
-                                <th>
-                                    Oral Max
-                                </th>
-
-                                <th>
-                                    Oral Pass
-                                </th>
-
-                                <th>
-                                    Oral Obtained
-                                </th>
-
+                                <th>Oral Max</th>
+                                <th>Oral Pass</th>
+                                <th>Oral Obtained</th>
                             @endif
-
 
                             @if($showPractical)
-
-                                <th>
-                                    Practical Max
-                                </th>
-
-                                <th>
-                                    Practical Pass
-                                </th>
-
-                                <th>
-                                    Practical Obtained
-                                </th>
-
+                                <th>Practical Max</th>
+                                <th>Practical Pass</th>
+                                <th>Practical Obtained</th>
                             @endif
 
-
-                            {{-- STATUS IS REQUIRED --}}
-
-                            <th>
-                                Status
-                            </th>
-
+                            <th>Status</th>
                         </tr>
-
                     </thead>
 
-
                     <tbody>
-
                     @foreach($records as $row)
-
                         @php
+                            $fullName = $H::getFullStudentName($row);
+                            $grNo     = $H::getGrNo($row);
+                            $rollNo   = $H::getRollNo($row);
 
-                            /*
-                            |--------------------------------------------------------------------------
-                            | COMPLETE STUDENT NAME
-                            |--------------------------------------------------------------------------
-                            */
+                            $isOptional = isset($row->is_optional) && (int) $row->is_optional === 1;
+                            $isAbsent   = !$isOptional && $H::isAbsent($row);
 
-                            $studentName =
-                                trim(
-                                    (string)(
-                                        $row->studname
-                                        ?? ''
-                                    )
-                                );
+                            $theoryVal    = $row->theory_obtained_marks    ?? null;
+                            $oralVal      = $row->oral_obtained_marks      ?? null;
+                            $practicalVal = $row->practical_obtained_marks ?? null;
 
-                            $fatherName =
-                                trim(
-                                    (string)(
-                                        $row->fathername
-                                        ?? ''
-                                    )
-                                );
+                            $statusText = $isOptional ? 'OPT'
+                                        : ($isAbsent ? 'ABSENT'
+                                        : strtoupper(trim((string) ($row->status ?? 'PRESENT'))));
 
-                            $fullStudentName =
-                                trim(
-                                    $studentName
-                                    . ' '
-                                    . $fatherName
-                                );
+                            if ($statusText === '') { $statusText = 'PRESENT'; }
 
-                            if (
-                                $fullStudentName === ''
-                            ) {
-
-                                $fullStudentName = '-';
-                            }
-
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | GR / ROLL
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $grNo =
-                                $row->regno
-                                ?? $row->registration_no
-                                ?? $row->gr_no
-                                ?? '-';
-
-                            $rollNo =
-                                $row->rollno
-                                ?? $row->roll_no
-                                ?? '-';
-
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | OPTIONAL
-                            |--------------------------------------------------------------------------
-                            |
-                            | IMPORTANT:
-                            |
-                            | is_optional = 1 means OPT.
-                            |
-                            */
-
-                            $isOptional =
-                                isset($row->is_optional)
-                                &&
-                                (int)$row->is_optional === 1;
-
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | ABSENT
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $isAbsent =
-                                isset($row->is_absent)
-                                &&
-                                (int)$row->is_absent === 1;
-
-                            if (
-                                !$isAbsent &&
-                                isset($row->status)
-                            ) {
-
-                                $isAbsent =
-                                    strtoupper(
-                                        trim(
-                                            (string)$row->status
-                                        )
-                                    ) === 'AB';
-                            }
-
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | OPTIONAL HAS PRIORITY
-                            |--------------------------------------------------------------------------
-                            |
-                            | OPT is not ABSENT.
-                            |
-                            */
-
-                            if ($isOptional) {
-
-                                $isAbsent = false;
-                            }
-
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | MARKS
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $theoryObtained =
-                                $row->theory_obtained_marks
-                                ?? null;
-
-                            $oralObtained =
-                                $row->oral_obtained_marks
-                                ?? null;
-
-                            $practicalObtained =
-                                $row->practical_obtained_marks
-                                ?? null;
-
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | STATUS
-                            |--------------------------------------------------------------------------
-                            */
-
-                            $statusText =
-                                strtoupper(
-                                    trim(
-                                        (string)(
-                                            $row->status
-                                            ?? ''
-                                        )
-                                    )
-                                );
-
-
-                            if ($isOptional) {
-
-                                $statusText =
-                                    'OPT';
-
-                            } elseif ($isAbsent) {
-
-                                $statusText =
-                                    'ABSENT';
-
-                            } elseif (
-                                $statusText === ''
-                            ) {
-
-                                $statusText =
-                                    'PRESENT';
-                            }
-
+                            $statusClass = $H::statusClass($statusText);
                         @endphp
 
-
                         <tr>
+                            <td class="center">{{ $grNo }}</td>
+                            <td class="center">{{ $rollNo }}</td>
 
-                            {{-- GR NO --}}
-
-                            <td class="center">
-                                {{ $grNo }}
+                            {{-- STUDENT NAME — bold 600, matches edit blade --}}
+                            <td class="student-name-cell" title="{{ $fullName }}">
+                                <strong>{{ $fullName }}</strong>
                             </td>
-
-
-                            {{-- ROLL NO --}}
-
-                            <td class="center">
-                                {{ $rollNo }}
-                            </td>
-
-
-                            {{-- STUDENT NAME --}}
-
-                            <td
-                                class="student-name-cell"
-                                title="{{ $fullStudentName }}"
-                            >
-                                {{ $fullStudentName }}
-                            </td>
-
-
-                            {{-- THEORY --}}
 
                             @if($showTheory)
-
+                                <td class="center">{{ isset($row->theory_max_marks)     ? (int) $row->theory_max_marks     : '-' }}</td>
+                                <td class="center">{{ isset($row->theory_passing_marks) ? (int) $row->theory_passing_marks : '-' }}</td>
                                 <td class="center">
-
-                                    {{
-                                        isset($row->theory_max_marks)
-                                            ? (int)$row->theory_max_marks
-                                            : '-'
-                                    }}
-
-                                </td>
-
-
-                                <td class="center">
-
-                                    {{
-                                        isset($row->theory_passing_marks)
-                                            ? (int)$row->theory_passing_marks
-                                            : '-'
-                                    }}
-
-                                </td>
-
-
-                                <td class="center">
-
                                     @if($isOptional)
-
-                                        <span class="readonly-mark optional">
-                                            OPT
-                                        </span>
-
+                                        <span class="readonly-mark optional">OPT</span>
                                     @elseif($isAbsent)
-
-                                        <span class="readonly-mark absent">
-                                            AB
-                                        </span>
-
-                                    @elseif(
-                                        $theoryObtained !== null &&
-                                        $theoryObtained !== ''
-                                    )
-
-                                        <span class="readonly-mark">
-
-                                            {{
-                                                floor(
-                                                    (float)$theoryObtained
-                                                ) ===
-                                                (float)$theoryObtained
-                                                    ? (int)$theoryObtained
-                                                    : number_format(
-                                                        (float)$theoryObtained,
-                                                        2
-                                                    )
-                                            }}
-
-                                        </span>
-
+                                        <span class="readonly-mark absent">AB</span>
                                     @else
-
-                                        <span class="readonly-mark">
-                                            -
-                                        </span>
-
+                                        <span class="readonly-mark">{{ $H::displayMark($theoryVal) }}</span>
                                     @endif
-
                                 </td>
-
                             @endif
-
-
-                            {{-- ORAL --}}
 
                             @if($showOral)
-
+                                <td class="center">{{ isset($row->oral_max_marks)     ? (int) $row->oral_max_marks     : '-' }}</td>
+                                <td class="center">{{ isset($row->oral_passing_marks) ? (int) $row->oral_passing_marks : '-' }}</td>
                                 <td class="center">
-
-                                    {{
-                                        isset($row->oral_max_marks)
-                                            ? (int)$row->oral_max_marks
-                                            : '-'
-                                    }}
-
-                                </td>
-
-
-                                <td class="center">
-
-                                    {{
-                                        isset($row->oral_passing_marks)
-                                            ? (int)$row->oral_passing_marks
-                                            : '-'
-                                    }}
-
-                                </td>
-
-
-                                <td class="center">
-
                                     @if($isOptional)
-
-                                        <span class="readonly-mark optional">
-                                            OPT
-                                        </span>
-
+                                        <span class="readonly-mark optional">OPT</span>
                                     @elseif($isAbsent)
-
-                                        <span class="readonly-mark absent">
-                                            AB
-                                        </span>
-
-                                    @elseif(
-                                        $oralObtained !== null &&
-                                        $oralObtained !== ''
-                                    )
-
-                                        <span class="readonly-mark">
-
-                                            {{
-                                                floor(
-                                                    (float)$oralObtained
-                                                ) ===
-                                                (float)$oralObtained
-                                                    ? (int)$oralObtained
-                                                    : number_format(
-                                                        (float)$oralObtained,
-                                                        2
-                                                    )
-                                            }}
-
-                                        </span>
-
+                                        <span class="readonly-mark absent">AB</span>
                                     @else
-
-                                        <span class="readonly-mark">
-                                            -
-                                        </span>
-
+                                        <span class="readonly-mark">{{ $H::displayMark($oralVal) }}</span>
                                     @endif
-
                                 </td>
-
                             @endif
-
-
-                            {{-- PRACTICAL --}}
 
                             @if($showPractical)
-
+                                <td class="center">{{ isset($row->practical_max_marks)     ? (int) $row->practical_max_marks     : '-' }}</td>
+                                <td class="center">{{ isset($row->practical_passing_marks) ? (int) $row->practical_passing_marks : '-' }}</td>
                                 <td class="center">
-
-                                    {{
-                                        isset($row->practical_max_marks)
-                                            ? (int)$row->practical_max_marks
-                                            : '-'
-                                    }}
-
-                                </td>
-
-
-                                <td class="center">
-
-                                    {{
-                                        isset($row->practical_passing_marks)
-                                            ? (int)$row->practical_passing_marks
-                                            : '-'
-                                    }}
-
-                                </td>
-
-
-                                <td class="center">
-
                                     @if($isOptional)
-
-                                        <span class="readonly-mark optional">
-                                            OPT
-                                        </span>
-
+                                        <span class="readonly-mark optional">OPT</span>
                                     @elseif($isAbsent)
-
-                                        <span class="readonly-mark absent">
-                                            AB
-                                        </span>
-
-                                    @elseif(
-                                        $practicalObtained !== null &&
-                                        $practicalObtained !== ''
-                                    )
-
-                                        <span class="readonly-mark">
-
-                                            {{
-                                                floor(
-                                                    (float)$practicalObtained
-                                                ) ===
-                                                (float)$practicalObtained
-                                                    ? (int)$practicalObtained
-                                                    : number_format(
-                                                        (float)$practicalObtained,
-                                                        2
-                                                    )
-                                            }}
-
-                                        </span>
-
+                                        <span class="readonly-mark absent">AB</span>
                                     @else
-
-                                        <span class="readonly-mark">
-                                            -
-                                        </span>
-
+                                        <span class="readonly-mark">{{ $H::displayMark($practicalVal) }}</span>
                                     @endif
-
                                 </td>
-
                             @endif
 
-
-                            {{-- =================================================
-                                 STATUS
-                            ================================================== --}}
-
                             <td class="center">
-
-                                @if($statusText === 'OPT')
-
-                                    <span class="status-optional">
-                                        OPT
-                                    </span>
-
-                                @elseif($statusText === 'PASS')
-
-                                    <span class="status-pass">
-                                        PASS
-                                    </span>
-
-                                @elseif($statusText === 'FAIL')
-
-                                    <span class="status-fail">
-                                        FAIL
-                                    </span>
-
-                                @elseif($statusText === 'ABSENT')
-
-                                    <span class="status-absent">
-                                        ABSENT
-                                    </span>
-
-                                @else
-
-                                    <span class="status-other">
-                                        {{ $statusText }}
-                                    </span>
-
-                                @endif
-
+                                <span class="{{ $statusClass }}">
+                                    {{ $statusText }}
+                                </span>
                             </td>
-
                         </tr>
-
                     @endforeach
-
                     </tbody>
-
                 </table>
-
             </div>
 
-
-            {{-- =========================================================
-                 STUDENT COUNT
-            ========================================================== --}}
-
-            <div style="
-                margin-top:15px;
-                display:flex;
-                justify-content:flex-end;
-            ">
-
-                <span class="student-count">
-                    {{ $records->count() }} Students
-                </span>
-
+            <div style="margin-top:12px;display:flex;justify-content:flex-end;">
+                <span class="student-count">{{ $records->count() }} Students</span>
             </div>
 
-
-        @elseif(
-            request()->filled(
-                'teacher_subject_allocation_id'
-            )
-        )
-
+        @elseif(request()->filled('teacher_subject_allocation_id'))
             <div class="warning-box">
                 No marks have been entered for the selected teaching assignment.
             </div>
-
         @endif
 
     </div>
-
 </div>
 
 </x-app-layout>

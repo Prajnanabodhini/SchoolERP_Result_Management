@@ -456,7 +456,7 @@
                     ">
 
 
-                        {{-- NUMBER --}}
+                        {{-- NUMBER — show actual allocation id so it mirrors the descending sort --}}
 
                         <td style="
                             padding:7px 4px;
@@ -464,8 +464,9 @@
                             text-align:center;
                             vertical-align:middle;
                             font-size:13px;
+                            font-weight:bold;
                         ">
-                            {{ $allocations->firstItem() + $loop->index }}
+                            {{ $allocation->id }}
                         </td>
 
 

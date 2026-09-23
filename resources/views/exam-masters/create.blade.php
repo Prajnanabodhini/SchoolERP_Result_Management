@@ -1,2061 +1,239 @@
 <x-app-layout>
 
 <style>
-
-.exam-form,
-.exam-form * {
-    font-family: Arial, sans-serif !important;
-    font-size: 12px !important;
-}
-
-.exam-form h2 {
-    font-size: 18px !important;
-    font-weight: 600 !important;
-}
-
-.exam-form h3 {
-    font-size: 14px !important;
-    font-weight: 600 !important;
-}
-
-.exam-form input[type="text"],
-.exam-form input[type="number"] {
-    height: 30px !important;
-    padding: 4px 8px !important;
-}
-
-.exam-form select {
-    height: 34px !important;
-}
-
-.exam-form .erp-btn {
-    font-size: 12px !important;
-    padding: 5px 12px !important;
-}
-
-.exam-form .section-box {
-    padding: 12px !important;
-}
-
-.subject-code {
-    color: #6b7280;
-    font-size: 11px !important;
-    margin-top: 2px;
-}
-
-.passing-percentage-note {
-    margin-top: 8px;
-    margin-bottom: 10px;
-    font-size: 11px !important;
-    color: #2563eb;
-    font-weight: 600;
-}
-
-.info-note {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e40af;
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 13px !important;
-    line-height: 1.5;
-}
-
-.school-year-note {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #166534;
-    padding: 8px 10px;
-    border-radius: 6px;
-    margin-top: 8px;
-    font-size: 11px !important;
-    font-weight: 600;
-}
-
+.exam-form, .exam-form * { font-family: Arial, sans-serif !important; font-size: 12px !important; }
+.exam-form h2 { font-size:18px !important; font-weight:600 !important; }
+.exam-form h3 { font-size:14px !important; font-weight:600 !important; }
+.exam-form input[type="text"], .exam-form input[type="number"] { height:30px !important; padding:4px 8px !important; }
+.exam-form select { height:34px !important; }
+.exam-form input[type="checkbox"] { width:16px; height:16px; }
+.exam-form .erp-btn { font-size:12px !important; padding:5px 12px !important; }
+.subject-code { color:#6b7280; font-size:11px !important; margin-top:2px; }
+.passing-percentage-note { margin:8px 0 10px; font-size:11px !important; color:#2563eb; font-weight:600; }
+.info-note { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; padding:10px 12px; border-radius:6px; font-size:12px !important; line-height:1.5; }
+table.subj-tbl { width:100%; border-collapse:collapse; background:#fff; }
+table.subj-tbl th, table.subj-tbl td { border:1px solid #d1d5db; padding:6px 7px; font-size:12px; vertical-align:middle; }
+table.subj-tbl th { background:#dbeafe; font-weight:700; text-align:center; white-space:nowrap; }
+table.subj-tbl td.num { text-align:center; }
+.readonly-cell { background:#f3f4f6; }
 </style>
 
+<div class="exam-form" style="max-width:1200px;margin:auto;padding:15px;">
+<div style="background:#fff;border-radius:12px;padding:20px;border:1px solid #d1d5db;box-shadow:0 4px 10px rgba(0,0,0,.15);">
 
-<div
-    class="exam-form"
-    style="
-        max-width:1000px;
-        margin:auto;
-        padding:15px;
-    "
->
-
-<div
-    style="
-        background:white;
-        border-radius:12px;
-        padding:20px;
-        border:1px solid #d1d5db;
-        box-shadow:0 4px 10px rgba(0,0,0,.15);
-    "
->
-
-    {{-- =====================================================
-         TITLE
-    ====================================================== --}}
-
-    <h2 class="text-center text-green-600 mb-4">
-        Add Exam
-    </h2>
-
-
-    {{-- =====================================================
-         VALIDATION ERRORS
-    ====================================================== --}}
+    <h2 class="text-center text-green-600 mb-4">Add Exam</h2>
 
     @if ($errors->any())
-
         <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
-
-            <ul class="list-disc ml-5">
-
-                @foreach ($errors->all() as $error)
-
-                    <li>
-                        {{ $error }}
-                    </li>
-
-                @endforeach
-
-            </ul>
-
+            <ul class="list-disc ml-5">@foreach ($errors->all() as $error) <li>{{ $error }}</li> @endforeach</ul>
         </div>
-
     @endif
+    @if(session('error'))   <div class="bg-red-100 text-red-700 p-3 rounded mb-4">{{ session('error') }}</div> @endif
+    @if(session('success')) <div class="bg-green-100 text-green-700 p-3 rounded mb-4">{{ session('success') }}</div> @endif
 
-
-    {{-- =====================================================
-         ERROR
-    ====================================================== --}}
-
-    @if(session('error'))
-
-        <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
-            {{ session('error') }}
-        </div>
-
-    @endif
-
-
-    {{-- =====================================================
-         SUCCESS
-    ====================================================== --}}
-
-    @if(session('success'))
-
-        <div class="bg-green-100 text-green-700 p-3 rounded mb-4">
-            {{ session('success') }}
-        </div>
-
-    @endif
-
-
-    {{-- =====================================================
-         FORM
-    ====================================================== --}}
-
-    <form
-        method="POST"
-        action="{{ route('exam-masters.store') }}"
-        id="examForm"
-    >
-
+    <form method="POST" action="{{ route('exam-masters.store') }}" id="examForm">
         @csrf
 
-
-        {{-- =================================================
-             ACADEMIC YEAR + STANDARD
-        ================================================== --}}
-
+        {{-- ROW 1: Academic Year + Standard --}}
         <div class="grid grid-cols-2 gap-4 mb-5">
-
-            {{-- ACADEMIC YEAR --}}
-
             <div>
-
-                <label
-                    for="academic_year_id"
-                    class="block font-semibold mb-2"
-                >
-                    Academic Year
-                </label>
-
-                <select
-                    name="academic_year_id"
-                    id="academic_year_id"
-                    class="w-full border rounded p-2"
-                    required
-                >
-
-                    <option value="">
-                        Select Academic Year
-                    </option>
-
-                    @foreach($academicYears as $academicYear)
-
-                        <option
-                            value="{{ $academicYear->id }}"
-                            {{ (string) old('academic_year_id') === (string) $academicYear->id ? 'selected' : '' }}
-                        >
-                            {{ $academicYear->year_name }}
-                        </option>
-
+                <label class="block font-semibold mb-2">Academic Year</label>
+                <select name="academic_year_id" id="academic_year_id" class="w-full border rounded p-2" required>
+                    <option value="">Select Academic Year</option>
+                    @foreach($academicYears as $y)
+                        <option value="{{ $y->id }}" {{ (string) old('academic_year_id') === (string) $y->id ? 'selected' : '' }}>{{ $y->year_name }}</option>
                     @endforeach
-
                 </select>
-
-                @error('academic_year_id')
-
-                    <div class="text-red-600 mt-1">
-                        {{ $message }}
-                    </div>
-
-                @enderror
-
-
-                <div
-                    id="academicYearNote"
-                    class="school-year-note"
-                    style="display:none;"
-                ></div>
-
             </div>
-
-
-            {{-- STANDARD --}}
-
             <div>
-
-                <label
-                    for="standard_id"
-                    class="block font-semibold mb-2"
-                >
-                    Standard
-                </label>
-
-                <select
-                    name="standard_id"
-                    id="standard_id"
-                    class="w-full border rounded p-2"
-                    required
-                >
-
-                    <option value="">
-                        Select Standard
-                    </option>
-
-                    @foreach($standards as $standard)
-
-                        <option
-                            value="{{ $standard->id }}"
-                            {{ (string) old('standard_id') === (string) $standard->id ? 'selected' : '' }}
-                        >
-                            {{ $standard->standard_name }}
-                        </option>
-
+                <label class="block font-semibold mb-2">Standard</label>
+                <select name="standard_id" id="standard_id" class="w-full border rounded p-2" required>
+                    <option value="">Select Standard</option>
+                    @foreach($standards as $s)
+                        <option value="{{ $s->id }}" {{ (string) old('standard_id') === (string) $s->id ? 'selected' : '' }}>{{ $s->standard_name }}</option>
                     @endforeach
-
                 </select>
-
             </div>
-
         </div>
 
-
-        {{-- =================================================
-             EXAM TYPE
-        ================================================== --}}
-
-        <div class="mb-5">
-
-            <label
-                for="exam_type"
-                class="block font-semibold mb-2"
-            >
-                Exam Type
-            </label>
-
-            <select
-                id="exam_type"
-                name="exam_type"
-                class="w-full border rounded p-2"
-                required
-            >
-
-                <option value="">
-                    Select Exam Type
-                </option>
-
-                <option
-                    value="UNIT TEST 1"
-                    {{ old('exam_type') === 'UNIT TEST 1' ? 'selected' : '' }}
-                >
-                    Unit Test 1
-                </option>
-
-                <option
-                    value="UNIT TEST 2"
-                    {{ old('exam_type') === 'UNIT TEST 2' ? 'selected' : '' }}
-                >
-                    Unit Test 2
-                </option>
-
-                <option
-                    value="UNIT TEST 3"
-                    {{ old('exam_type') === 'UNIT TEST 3' ? 'selected' : '' }}
-                >
-                    Unit Test 3
-                </option>
-
-                <option
-                    value="UNIT TEST 4"
-                    {{ old('exam_type') === 'UNIT TEST 4' ? 'selected' : '' }}
-                >
-                    Unit Test 4
-                </option>
-
-                <option
-                    value="TERM 1"
-                    {{ old('exam_type') === 'TERM 1' ? 'selected' : '' }}
-                >
-                    Term 1
-                </option>
-
-                <option
-                    value="TERM 2"
-                    {{ old('exam_type') === 'TERM 2' ? 'selected' : '' }}
-                >
-                    Term 2
-                </option>
-
-                <option
-                    value="ANNUAL"
-                    {{ old('exam_type') === 'ANNUAL' ? 'selected' : '' }}
-                >
-                    Annual
-                </option>
-
-            </select>
-
+        {{-- ROW 2: Exam Type + Exam Name (side by side) --}}
+        <div class="grid grid-cols-2 gap-4 mb-5">
+            <div>
+                <label class="block font-semibold mb-2">Exam Type</label>
+                <select id="exam_type" name="exam_type" class="w-full border rounded p-2" required>
+                    <option value="">Select Exam Type</option>
+                    @foreach(['UNIT TEST 1','UNIT TEST 2','UNIT TEST 3','UNIT TEST 4','TERM 1','TERM 2','ANNUAL'] as $t)
+                        <option value="{{ $t }}" {{ old('exam_type') === $t ? 'selected' : '' }}>{{ ucwords(strtolower($t)) }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block font-semibold mb-2">Exam Name</label>
+                <input type="hidden" name="exam_name" id="exam_name" value="{{ old('exam_name') }}">
+                <input type="text" id="exam_name_preview" value="{{ old('exam_name') }}" readonly class="w-full border rounded p-2 bg-gray-100">
+            </div>
         </div>
 
-
-        {{-- =================================================
-             EXAM NAME
-        ================================================== --}}
-
-        <input
-            type="hidden"
-            name="exam_name"
-            id="exam_name"
-            value="{{ old('exam_name') }}"
-        >
-
-
-        <div class="mb-5">
-
-            <label
-                for="exam_name_preview"
-                class="block font-semibold mb-2"
-            >
-                Exam Name
-            </label>
-
-            <input
-                type="text"
-                id="exam_name_preview"
-                value="{{ old('exam_name') }}"
-                readonly
-                class="w-full border rounded p-2 bg-gray-100"
-            >
-
-        </div>
-
-
-        {{-- =================================================
-             SUBJECT MARKS CONFIGURATION
-        ================================================== --}}
-
-        <div
-            class="border rounded section-box mb-6 bg-gray-50"
-        >
-
+        <div class="border rounded section-box mb-6 bg-gray-50" style="padding:12px;">
             <div class="flex justify-between items-center mb-3">
-
-                <h3 class="font-bold">
-                    Subject Wise Marks Configuration
-                </h3>
-
-                <span
-                    id="subjectLoading"
-                    class="text-blue-600"
-                    style="display:none;"
-                >
-                    Loading subjects...
-                </span>
-
+                <h3 class="font-bold">Subject Wise Marks (from Excel Structure)</h3>
+                <span id="subjectLoading" class="text-blue-600" style="display:none;">Loading subjects...</span>
             </div>
-
-
-            {{-- PASSING PERCENTAGE --}}
-
-            <div
-                id="passingPercentageNote"
-                class="passing-percentage-note"
-                style="display:none;"
-            ></div>
-
-
-            {{-- SUBJECT TABLE --}}
-
+            <div id="passingPercentageNote" class="passing-percentage-note" style="display:none;"></div>
             <div class="overflow-x-auto">
-
-                <table
-                    class="w-full border bg-white"
-                >
-
+                <table class="subj-tbl">
                     <thead>
-
-                        <tr class="bg-blue-100">
-
-                            <th
-                                class="border p-2"
-                                style="width:45%;"
-                            >
-                                Subject
-                            </th>
-
-                            <th
-                                class="border p-2"
-                                style="width:20%;"
-                            >
-                                Max Marks
-                            </th>
-
-                            <th
-                                class="border p-2"
-                                style="width:20%;"
-                            >
-                                Passing Marks
-                            </th>
-
-                            <th
-                                class="border p-2"
-                                style="width:15%;"
-                            >
-                                Type
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody id="subjectTableBody">
-
                         <tr>
-
-                            <td
-                                colspan="4"
-                                class="border p-3 text-center text-gray-500"
-                            >
-                                Select Academic Year and Standard First
-                            </td>
-
+                            <th style="width:18%;text-align:left;">Subject</th>
+                            <th>Theory<br>Max</th>
+                            <th>Theory<br>Pass</th>
+                            <th>Oral<br>Max</th>
+                            <th>Oral<br>Pass</th>
+                            <th>Practical<br>Max</th>
+                            <th>Practical<br>Pass</th>
+                            <th>Total<br>Max</th>
+                            <th>Total<br>Pass</th>
+                            <th style="width:9%;">Type</th>
                         </tr>
-
+                    </thead>
+                    <tbody id="subjectTableBody">
+                        <tr><td colspan="10" class="border p-3 text-center text-gray-500">Select Academic Year, Standard and Exam Type</td></tr>
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
 
-
-        {{-- =================================================
-             DISPLAY ORDER
-        ================================================== --}}
-
         <div class="mb-5">
-
-            <label
-                for="display_order"
-                class="block font-semibold mb-2"
-            >
-                Display Order
-            </label>
-
-            <input
-                type="number"
-                id="display_order"
-                name="display_order"
-                value="{{ old('display_order', $nextDisplayOrder) }}"
-                readonly
-                class="w-full border rounded p-2 bg-gray-100"
-            >
-
+            <label class="block font-semibold mb-2">Display Order</label>
+            <input type="number" id="display_order" name="display_order" value="{{ old('display_order', $nextDisplayOrder) }}" readonly class="w-full border rounded p-2 bg-gray-100">
         </div>
 
-
-        {{-- =================================================
-             ACTIVE
-        ================================================== --}}
-
         <div class="mb-5">
-
             <label class="flex items-center gap-2">
-
-                <input
-                    type="checkbox"
-                    name="is_active"
-                    value="1"
-                    {{ old('is_active', true) ? 'checked' : '' }}
-                >
-
-                <span>
-                    Active
-                </span>
-
+                <input type="checkbox" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}>
+                <span>Active</span>
             </label>
-
         </div>
-
-
-        {{-- =================================================
-             INFORMATION
-        ================================================== --}}
 
         <div class="info-note mb-5">
-
-            <strong>Note:</strong>
-
-            All active subjects mapped to the selected Standard
-            are automatically included in this Exam.
-
-            <br>
-
-            Subject selection is controlled by the
-            <strong>Standard Wise Subject Master</strong>.
-
-            <br>
-
-            The same Subject Master can be used by multiple
-            Standards.
-
-            <br><br>
-
-            You only need to configure the
-            <strong>Max Marks</strong> for each subject.
-            Passing Marks are calculated automatically.
-
-            <br><br>
-
-            <strong>Passing Percentage Rule:</strong>
-
-            Nursery, JrKg, SrKg, 9th, 10th, 11th and 12th use
-            <strong>35%</strong>.
-
-            All other Standards use
-            <strong>40%</strong>.
-
-            <br><br>
-
-            <strong>Academic Year:</strong>
-
-            The selected Academic Year becomes part of the Exam
-            Master and prevents the same Exam from being duplicated
-            incorrectly across different Academic Years.
-
+            <strong>Note:</strong> The marks structure (Theory / Oral / Practical / Total) is loaded from the Academic Exam Structure. Select Academic Year, Standard and Exam Type, then click <strong>Save</strong>.
         </div>
-
-
-        {{-- =================================================
-             BUTTONS
-        ================================================== --}}
 
         <div class="flex justify-between items-center mt-6">
-
             <div></div>
-
             <div class="flex gap-2">
-
-                <button
-                    type="submit"
-                    class="erp-btn erp-btn-save"
-                    id="saveExamButton"
-                >
-                    Save
-                </button>
-
-                <a
-                    href="{{ route('exam-masters.index') }}"
-                    class="erp-btn erp-btn-cancel"
-                >
-                    Cancel
-                </a>
-
+                <button type="submit" class="erp-btn erp-btn-save" id="saveExamButton">Save</button>
+                <a href="{{ route('exam-masters.index') }}" class="erp-btn erp-btn-cancel">Cancel</a>
             </div>
-
         </div>
-
     </form>
-
 </div>
-
 </div>
-
 
 <script>
-
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
-
-        /*
-        |--------------------------------------------------------------------------
-        | ELEMENTS
-        |--------------------------------------------------------------------------
-        */
-
-        const academicYearDropdown =
-            document.getElementById(
-                'academic_year_id'
-            );
-
-        const standardDropdown =
-            document.getElementById(
-                'standard_id'
-            );
-
-        const examType =
-            document.getElementById(
-                'exam_type'
-            );
-
-        const examName =
-            document.getElementById(
-                'exam_name'
-            );
-
-        const examNamePreview =
-            document.getElementById(
-                'exam_name_preview'
-            );
-
-        const tableBody =
-            document.getElementById(
-                'subjectTableBody'
-            );
-
-        const loading =
-            document.getElementById(
-                'subjectLoading'
-            );
-
-        const percentageNote =
-            document.getElementById(
-                'passingPercentageNote'
-            );
-
-        const academicYearNote =
-            document.getElementById(
-                'academicYearNote'
-            );
-
-        const form =
-            document.getElementById(
-                'examForm'
-            );
-
-        const saveButton =
-            document.getElementById(
-                'saveExamButton'
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | OLD VALUES AFTER VALIDATION FAILURE
-        |--------------------------------------------------------------------------
-        */
-
-        const oldSubjects =
-            @json(old('subjects', []));
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | NORMALIZE STANDARD NAME
-        |--------------------------------------------------------------------------
-        */
-
-        function normalizeStandardName(
-            value
-        ) {
-
-            return String(
-                value || ''
-            )
-            .trim()
-            .toUpperCase()
-            .replace(
-                /[^A-Z0-9]+/g,
-                ''
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PASSING PERCENTAGE
-        |--------------------------------------------------------------------------
-        |
-        | 35%:
-        |
-        | Nursery
-        | JrKg
-        | SrKg
-        | 9th
-        | 10th
-        | 11th
-        | 12th
-        |
-        | 40%:
-        | Everything else
-        |
-        |--------------------------------------------------------------------------
-        */
-
-        function getPassingPercentage()
-        {
-
-            const standardId =
-                parseInt(
-                    standardDropdown.value || 0,
-                    10
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | EXISTING FIXED IDs
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                standardId === 9 ||
-                standardId === 10 ||
-                standardId === 11 ||
-                standardId === 12
-            ) {
-                return 35;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | STANDARD NAME
-            |--------------------------------------------------------------------------
-            */
-
-            const selectedOption =
-                standardDropdown.options[
-                    standardDropdown.selectedIndex
-                ];
-
-
-            const standardName =
-                selectedOption
-                    ? normalizeStandardName(
-                        selectedOption.text
-                    )
-                    : '';
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | NURSERY / JRKG / SRKG
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                standardName === 'NURSERY' ||
-                standardName === 'NUR' ||
-                standardName === 'JRKG' ||
-                standardName === 'JUNIORKG' ||
-                standardName === 'JUNIORKINDERGARTEN' ||
-                standardName === 'SRKG' ||
-                standardName === 'SENIORKG' ||
-                standardName === 'SENIORKINDERGARTEN'
-            ) {
-                return 35;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | 9TH / 10TH
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                standardName === 'NINTH' ||
-                standardName === '9TH' ||
-                standardName === 'IX' ||
-                standardName === 'TENTH' ||
-                standardName === '10TH' ||
-                standardName === 'X'
-            ) {
-                return 35;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | 11TH
-            |--------------------------------------------------------------------------
-            |
-            | Handles:
-            |
-            | ELEVENTH
-            | ELEVENTH SCIENCE
-            | ELEVENTH COMMERCE
-            | ELEVENTH ARTS
-            | ELEVENTH HUMANITIES
-            |
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                standardName.includes(
-                    'ELEVENTH'
-                )
-                ||
-                standardName === 'XI'
-            ) {
-                return 35;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | 12TH
-            |--------------------------------------------------------------------------
-            |
-            | Handles:
-            |
-            | TWELFTH
-            | TWELFTH SCIENCE
-            | TWELFTH COMMERCE
-            | TWELFTH ARTS
-            | TWELFTH HUMANITIES
-            |
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                standardName.includes(
-                    'TWELFTH'
-                )
-                ||
-                standardName === 'XII'
-            ) {
-                return 35;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | DEFAULT
-            |--------------------------------------------------------------------------
-            */
-
-            return 40;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UPDATE ACADEMIC YEAR NOTE
-        |--------------------------------------------------------------------------
-        */
-
-        function updateAcademicYearNote()
-        {
-
-            if (
-                !academicYearDropdown.value
-            ) {
-
-                academicYearNote.style.display =
-                    'none';
-
-                academicYearNote.textContent =
-                    '';
-
-                return;
-            }
-
-
-            const selectedOption =
-                academicYearDropdown.options[
-                    academicYearDropdown.selectedIndex
-                ];
-
-
-            const yearText =
-                selectedOption
-                    ? selectedOption.text.trim()
-                    : '';
-
-
-            academicYearNote.textContent =
-                'Selected Academic Year: ' +
-                yearText;
-
-
-            academicYearNote.style.display =
-                'block';
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UPDATE PERCENTAGE NOTE
-        |--------------------------------------------------------------------------
-        */
-
-        function updatePercentageNote()
-        {
-
-            if (
-                !standardDropdown.value
-            ) {
-
-                percentageNote.style.display =
-                    'none';
-
-                percentageNote.textContent =
-                    '';
-
-                return;
-            }
-
-
-            percentageNote.textContent =
-                'Passing percentage: ' +
-                getPassingPercentage() +
-                '%';
-
-
-            percentageNote.style.display =
-                'block';
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CALCULATE PASSING MARKS
-        |--------------------------------------------------------------------------
-        */
-
-        function calculatePassingMarks(
-            maxMarks
-        )
-        {
-
-            const max =
-                parseFloat(
-                    maxMarks || 0
-                );
-
-
-            if (
-                max <= 0
-            ) {
-                return 0;
-            }
-
-
-            const percentage =
-                getPassingPercentage();
-
-
-            return Math.ceil(
-                max *
-                percentage /
-                100
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUILD EXAM NAME
-        |--------------------------------------------------------------------------
-        */
-
-        function buildExamName()
-        {
-
-            const type =
-                examType.value;
-
-
-            const selectedOption =
-                standardDropdown.options[
-                    standardDropdown.selectedIndex
-                ];
-
-
-            const standardText =
-                selectedOption &&
-                selectedOption.value
-                    ? selectedOption.text.trim()
-                    : '';
-
-
-            if (
-                !type ||
-                !standardDropdown.value
-            ) {
-
-                examName.value =
-                    '';
-
-                examNamePreview.value =
-                    '';
-
-                return;
-            }
-
-
-            const generatedName =
-                type +
-                ' - ' +
-                standardText;
-
-
-            examName.value =
-                generatedName;
-
-
-            examNamePreview.value =
-                generatedName;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET OLD SUBJECT CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
-
-        function getOldSubject(
-            subjectId
-        )
-        {
-
-            if (
-                !oldSubjects ||
-                typeof oldSubjects !== 'object'
-            ) {
-                return null;
-            }
-
-
-            if (
-                oldSubjects[
-                    subjectId
-                ] !== undefined
-            ) {
-
-                return oldSubjects[
-                    subjectId
-                ];
-            }
-
-
-            if (
-                Array.isArray(
-                    oldSubjects
-                )
-            ) {
-
-                for (
-                    let i = 0;
-                    i < oldSubjects.length;
-                    i++
-                ) {
-
-                    if (
-                        String(
-                            oldSubjects[i].subject_id
-                        ) ===
-                        String(
-                            subjectId
-                        )
-                    ) {
-
-                        return oldSubjects[i];
-                    }
-                }
-            }
-
-
-            return null;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUILD MAX MARK OPTIONS
-        |--------------------------------------------------------------------------
-        */
-
-        function buildMaxMarksOptions(
-            selectedValue
-        )
-        {
-
-            const values = [
-                20,
-                25,
-                40,
-                50,
-                80,
-                100
-            ];
-
-
-            const selected =
-                parseFloat(
-                    selectedValue || 40
-                );
-
-
-            let html =
-                '';
-
-
-            values.forEach(
-                function (value) {
-
-                    html += `
-                        <option
-                            value="${value}"
-                            ${selected === value ? 'selected' : ''}
-                        >
-                            ${value}
-                        </option>
-                    `;
-                }
-            );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SUPPORT CUSTOM EXISTING VALUE
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                !values.includes(
-                    selected
-                )
-                &&
-                selected > 0
-            ) {
-
-                html += `
-                    <option
-                        value="${selected}"
-                        selected
-                    >
-                        ${selected}
-                    </option>
-                `;
-            }
-
-
-            return html;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD SUBJECTS
-        |--------------------------------------------------------------------------
-        */
-
-        async function loadSubjects(
-            standardId
-        )
-        {
-
-            if (
-                !academicYearDropdown.value
-            ) {
-
-                tableBody.innerHTML = `
-                    <tr>
-                        <td
-                            colspan="4"
-                            class="border p-3 text-center text-gray-500"
-                        >
-                            Select Academic Year First
-                        </td>
-                    </tr>
-                `;
-
-                return;
-            }
-
-
-            if (
-                !standardId
-            ) {
-
-                tableBody.innerHTML = `
-                    <tr>
-                        <td
-                            colspan="4"
-                            class="border p-3 text-center text-gray-500"
-                        >
-                            Select Standard First
-                        </td>
-                    </tr>
-                `;
-
-                updatePercentageNote();
-
-                return;
-            }
-
-
-            loading.style.display =
-                'inline';
-
-
-            tableBody.innerHTML = `
-                <tr>
-                    <td
-                        colspan="4"
-                        class="border p-3 text-center"
-                    >
-                        Loading subjects...
-                    </td>
-                </tr>
-            `;
-
-
-            try {
-
-                const response =
-                    await fetch(
-                        "{{ url('/exam-masters/load-subjects') }}/"
-                        +
-                        encodeURIComponent(
-                            standardId
-                        ),
-                        {
-                            method: 'GET',
-
-                            headers: {
-                                'Accept':
-                                    'application/json',
-
-                                'X-Requested-With':
-                                    'XMLHttpRequest'
-                            }
-                        }
-                    );
-
-
-                if (
-                    !response.ok
-                ) {
-
-                    throw new Error(
-                        'HTTP ' +
-                        response.status
-                    );
-                }
-
-
-                const subjects =
-                    await response.json();
-
-
-                renderSubjects(
-                    subjects
-                );
-
-            } catch (
-                error
-            ) {
-
-                console.error(
-                    'Subject loading error:',
-                    error
-                );
-
-
-                tableBody.innerHTML = `
-                    <tr>
-                        <td
-                            colspan="4"
-                            class="border p-3 text-center text-red-600"
-                        >
-                            Unable to load subjects.
-                        </td>
-                    </tr>
-                `;
-
-            } finally {
-
-                loading.style.display =
-                    'none';
-            }
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | RENDER SUBJECTS
-        |--------------------------------------------------------------------------
-        */
-
-        function renderSubjects(
-            subjects
-        )
-        {
-
-            if (
-                !Array.isArray(subjects)
-                ||
-                subjects.length === 0
-            ) {
-
-                tableBody.innerHTML = `
-                    <tr>
-                        <td
-                            colspan="4"
-                            class="border p-3 text-center text-red-600"
-                        >
-                            No active subjects are mapped to this Standard.
-                        </td>
-                    </tr>
-                `;
-
-                updatePercentageNote();
-
-                return;
-            }
-
-
-            let html =
-                '';
-
-
-            subjects.forEach(
-                function (
-                    subject,
-                    index
-                ) {
-
-                    const subjectId =
-                        subject.subject_id
-                        ??
-                        subject.id
-                        ??
-                        '';
-
-
-                    const subjectName =
-                        subject.subject_name
-                        ??
-                        '';
-
-
-                    const subjectCode =
-                        subject.subject_code
-                        ??
-                        '';
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | OPTIONAL
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const isOptional =
-                        Number(
-                            subject.is_optional
-                            ??
-                            0
-                        ) === 1;
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | OLD CONFIGURATION
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const oldRow =
-                        getOldSubject(
-                            subjectId
-                        );
-
-
-                    let maxMarks =
-                        40;
-
-
-                    let displayOrder =
-                        subject.sort_order
-                        ??
-                        (
-                            index + 1
-                        );
-
-
-                    if (
-                        oldRow
-                    ) {
-
-                        if (
-                            oldRow.max_marks !== undefined
-                        ) {
-
-                            maxMarks =
-                                oldRow.max_marks;
-                        }
-
-
-                        if (
-                            oldRow.display_order !== undefined
-                        ) {
-
-                            displayOrder =
-                                oldRow.display_order;
-                        }
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | PASSING MARKS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const passingMarks =
-                        calculatePassingMarks(
-                            maxMarks
-                        );
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | TABLE ROW
-                    |--------------------------------------------------------------------------
-                    */
-
-                    html += `
-                        <tr>
-
-                            <td
-                                class="border p-2"
-                            >
-
-                                <div
-                                    style="
-                                        font-weight:600;
-                                    "
-                                >
-                                    ${escapeHtml(
-                                        subjectName
-                                    )}
-                                </div>
-
-                                ${
-                                    subjectCode
-                                        ? `
-                                            <div
-                                                class="subject-code"
-                                            >
-                                                Code:
-                                                ${escapeHtml(
-                                                    subjectCode
-                                                )}
-                                            </div>
-                                        `
-                                        : ''
-                                }
-
-
-                                <input
-                                    type="hidden"
-                                    name="subjects[${subjectId}][subject_id]"
-                                    value="${escapeAttribute(
-                                        subjectId
-                                    )}"
-                                >
-
-
-                                <input
-                                    type="hidden"
-                                    name="subjects[${subjectId}][display_order]"
-                                    value="${escapeAttribute(
-                                        displayOrder
-                                    )}"
-                                >
-
-                            </td>
-
-
-                            <td
-                                class="border p-2"
-                            >
-
-                                <select
-                                    name="subjects[${subjectId}][max_marks]"
-                                    class="max-mark w-full border rounded p-1"
-                                    data-subject-id="${escapeAttribute(
-                                        subjectId
-                                    )}"
-                                >
-
-                                    ${buildMaxMarksOptions(
-                                        maxMarks
-                                    )}
-
-                                </select>
-
-                            </td>
-
-
-                            <td
-                                class="border p-2"
-                            >
-
-                                <input
-                                    type="number"
-                                    readonly
-                                    value="${passingMarks}"
-                                    class="passing-mark w-full border rounded p-1 bg-gray-100"
-                                    data-subject-id="${escapeAttribute(
-                                        subjectId
-                                    )}"
-                                >
-
-
-                                <input
-                                    type="hidden"
-                                    name="subjects[${subjectId}][passing_marks]"
-                                    value="${passingMarks}"
-                                    class="passing-mark-hidden"
-                                    data-subject-id="${escapeAttribute(
-                                        subjectId
-                                    )}"
-                                >
-
-                            </td>
-
-
-                            <td
-                                class="border p-2 text-center"
-                            >
-
-                                ${
-                                    isOptional
-                                        ? `
-                                            <span
-                                                style="
-                                                    color:#92400e;
-                                                    font-weight:600;
-                                                "
-                                            >
-                                                Optional
-                                            </span>
-                                        `
-                                        : `
-                                            <span
-                                                style="
-                                                    color:#166534;
-                                                    font-weight:600;
-                                                "
-                                            >
-                                                Compulsory
-                                            </span>
-                                        `
-                                }
-
-                            </td>
-
-                        </tr>
-                    `;
-                }
-            );
-
-
-            tableBody.innerHTML =
-                html;
-
-
-            bindPassingMarks();
-
-            updatePercentageNote();
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BIND MAX MARK EVENTS
-        |--------------------------------------------------------------------------
-        */
-
-        function bindPassingMarks()
-        {
-
-            document
-                .querySelectorAll(
-                    '.max-mark'
-                )
-                .forEach(
-                    function (
-                        select
-                    ) {
-
-                        select.addEventListener(
-                            'change',
-                            function () {
-
-                                const maxMarks =
-                                    parseFloat(
-                                        this.value
-                                    ) || 0;
-
-
-                                const passingMarks =
-                                    calculatePassingMarks(
-                                        maxMarks
-                                    );
-
-
-                                const row =
-                                    this.closest(
-                                        'tr'
-                                    );
-
-
-                                if (!row) {
-                                    return;
-                                }
-
-
-                                const passingInput =
-                                    row.querySelector(
-                                        '.passing-mark'
-                                    );
-
-
-                                if (
-                                    passingInput
-                                ) {
-
-                                    passingInput.value =
-                                        passingMarks;
-                                }
-
-
-                                const hiddenInput =
-                                    row.querySelector(
-                                        '.passing-mark-hidden'
-                                    );
-
-
-                                if (
-                                    hiddenInput
-                                ) {
-
-                                    hiddenInput.value =
-                                        passingMarks;
-                                }
-
-                            }
-                        );
-
-                    }
-                );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | HTML ESCAPE
-        |--------------------------------------------------------------------------
-        */
-
-        function escapeHtml(
-            value
-        )
-        {
-
-            return String(
-                value
-            )
-            .replace(
-                /&/g,
-                '&amp;'
-            )
-            .replace(
-                /</g,
-                '&lt;'
-            )
-            .replace(
-                />/g,
-                '&gt;'
-            )
-            .replace(
-                /"/g,
-                '&quot;'
-            )
-            .replace(
-                /'/g,
-                '&#039;'
-            );
-        }
-
-
-        function escapeAttribute(
-            value
-        )
-        {
-            return escapeHtml(
-                value
-            );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ACADEMIC YEAR CHANGE
-        |--------------------------------------------------------------------------
-        */
-
-        academicYearDropdown.addEventListener(
-            'change',
-            function () {
-
-                updateAcademicYearNote();
-
-
-                if (
-                    standardDropdown.value
-                ) {
-
-                    loadSubjects(
-                        standardDropdown.value
-                    );
-                }
-
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD CHANGE
-        |--------------------------------------------------------------------------
-        */
-
-        standardDropdown.addEventListener(
-            'change',
-            function () {
-
-                buildExamName();
-
-                updatePercentageNote();
-
-                loadSubjects(
-                    this.value
-                );
-
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM TYPE CHANGE
-        |--------------------------------------------------------------------------
-        */
-
-        examType.addEventListener(
-            'change',
-            function () {
-
-                buildExamName();
-
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | FORM SUBMIT
-        |--------------------------------------------------------------------------
-        */
-
-        form.addEventListener(
-            'submit',
-            function (event) {
-
-                /*
-                |--------------------------------------------------------------------------
-                | ACADEMIC YEAR
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    !academicYearDropdown.value
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Please select Academic Year.'
-                    );
-
-                    academicYearDropdown.focus();
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | STANDARD
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    !standardDropdown.value
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Please select Standard.'
-                    );
-
-                    standardDropdown.focus();
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | EXAM TYPE
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    !examType.value
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Please select Exam Type.'
-                    );
-
-                    examType.focus();
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | SUBJECTS
-                |--------------------------------------------------------------------------
-                */
-
-                const subjectRows =
-                    tableBody.querySelectorAll(
-                        '.max-mark'
-                    );
-
-
-                if (
-                    subjectRows.length === 0
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'No active subjects are mapped to the selected Standard.'
-                    );
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | EXAM NAME
-                |--------------------------------------------------------------------------
-                */
-
-                buildExamName();
-
-
-                if (
-                    !examName.value
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Unable to generate Exam Name.'
-                    );
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | UPDATE PASSING MARKS
-                |--------------------------------------------------------------------------
-                */
-
-                tableBody
-                    .querySelectorAll(
-                        '.max-mark'
-                    )
-                    .forEach(
-                        function (
-                            select
-                        ) {
-
-                            const row =
-                                select.closest(
-                                    'tr'
-                                );
-
-
-                            if (!row) {
-                                return;
-                            }
-
-
-                            const passing =
-                                calculatePassingMarks(
-                                    select.value
-                                );
-
-
-                            const hidden =
-                                row.querySelector(
-                                    '.passing-mark-hidden'
-                                );
-
-
-                            const display =
-                                row.querySelector(
-                                    '.passing-mark'
-                                );
-
-
-                            if (
-                                hidden
-                            ) {
-
-                                hidden.value =
-                                    passing;
-                            }
-
-
-                            if (
-                                display
-                            ) {
-
-                                display.value =
-                                    passing;
-                            }
-
-                        }
-                    );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | PREVENT DOUBLE SUBMISSION
-                |--------------------------------------------------------------------------
-                */
-
-                saveButton.disabled =
-                    true;
-
-                saveButton.innerText =
-                    'Saving...';
-
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | INITIAL LOAD
-        |--------------------------------------------------------------------------
-        */
-
-        updateAcademicYearNote();
-
-        buildExamName();
-
-        updatePercentageNote();
-
-
-        if (
-            academicYearDropdown.value &&
-            standardDropdown.value
-        ) {
-
-            loadSubjects(
-                standardDropdown.value
-            );
-
-        } else {
-
-            tableBody.innerHTML = `
-                <tr>
-
-                    <td
-                        colspan="4"
-                        class="border p-3 text-center text-gray-500"
-                    >
-                        Select Academic Year and Standard First
-                    </td>
-
-                </tr>
-            `;
-        }
-
+document.addEventListener('DOMContentLoaded', function () {
+    const acY   = document.getElementById('academic_year_id');
+    const std   = document.getElementById('standard_id');
+    const et    = document.getElementById('exam_type');
+    const eName = document.getElementById('exam_name');
+    const ePrev = document.getElementById('exam_name_preview');
+    const tbody = document.getElementById('subjectTableBody');
+    const load  = document.getElementById('subjectLoading');
+    const note  = document.getElementById('passingPercentageNote');
+    const form  = document.getElementById('examForm');
+    const saveBtn = document.getElementById('saveExamButton');
+
+    const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    const fmt = v => { const n = Number(v || 0); return n <= 0 ? '—' : String(n); };
+
+    function buildExamName() {
+        const type = et.value;
+        const opt  = std.options[std.selectedIndex];
+        const stdT = opt && opt.value ? opt.text.trim() : '';
+        if (!type || !stdT) { eName.value=''; ePrev.value=''; return; }
+        const g = type + ' - ' + stdT;
+        eName.value = g; ePrev.value = g;
     }
-);
 
+    async function loadSubjects() {
+        const stdId = std.value, examT = et.value;
+        if (!acY.value) { tbody.innerHTML = `<tr><td colspan="10" class="border p-3 text-center text-gray-500">Select Academic Year First</td></tr>`; return; }
+        if (!stdId || !examT) { tbody.innerHTML = `<tr><td colspan="10" class="border p-3 text-center text-gray-500">Select Standard and Exam Type</td></tr>`; return; }
+
+        load.style.display = 'inline';
+        tbody.innerHTML = `<tr><td colspan="10" class="border p-3 text-center">Loading...</td></tr>`;
+
+        try {
+            const url = "{{ url('/exam-masters/load-subjects') }}/" + encodeURIComponent(stdId) + '?exam_type=' + encodeURIComponent(examT);
+            const resp = await fetch(url, { headers: { 'Accept':'application/json','X-Requested-With':'XMLHttpRequest' }});
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            const subjects = Array.isArray(data) ? data : (data.subjects || []);
+            renderSubjects(subjects);
+            if (data.passing_percentage) {
+                note.textContent = 'Standard: ' + (data.standard_name||'') + ' | Sheet: ' + (data.sheet||'-') + ' | Passing %: ' + data.passing_percentage;
+                note.style.display = 'block';
+            }
+        } catch (err) {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="10" class="border p-3 text-center text-red-600">Unable to load subjects.</td></tr>`;
+        } finally {
+            load.style.display = 'none';
+        }
+    }
+
+    function renderSubjects(subjects) {
+        if (!Array.isArray(subjects) || subjects.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" class="border p-3 text-center text-red-600">No active subjects mapped.</td></tr>`;
+            return;
+        }
+        let html = '';
+        subjects.forEach((s, i) => {
+            const id = s.subject_id ?? s.id ?? '';
+            const optional = Number(s.is_optional ?? 0) === 1;
+            const tMax = Number(s.total_max_marks ?? s.max_marks ?? 0);
+            const tPass = Number(s.total_passing_marks ?? s.passing_marks ?? 0);
+            html += `
+                <tr>
+                    <td>
+                        <div style="font-weight:600;">${esc(s.subject_name)}</div>
+                        ${s.subject_code ? `<div class="subject-code">Code: ${esc(s.subject_code)}</div>` : ''}
+                        <input type="hidden" name="subjects[${esc(id)}][subject_id]" value="${esc(id)}">
+                        <input type="hidden" name="subjects[${esc(id)}][display_order]" value="${esc(s.sort_order ?? (i+1))}">
+                        <input type="hidden" name="subjects[${esc(id)}][max_marks]" value="${esc(tMax)}">
+                        <input type="hidden" name="subjects[${esc(id)}][passing_marks]" value="${esc(tPass)}">
+                    </td>
+                    <td class="num readonly-cell">${fmt(s.theory_max_marks)}</td>
+                    <td class="num readonly-cell">${fmt(s.theory_passing_marks)}</td>
+                    <td class="num readonly-cell">${fmt(s.oral_max_marks)}</td>
+                    <td class="num readonly-cell">${fmt(s.oral_passing_marks)}</td>
+                    <td class="num readonly-cell">${fmt(s.practical_max_marks)}</td>
+                    <td class="num readonly-cell">${fmt(s.practical_passing_marks)}</td>
+                    <td class="num"><strong>${fmt(tMax)}</strong></td>
+                    <td class="num"><strong>${fmt(tPass)}</strong></td>
+                    <td class="num">${optional ? '<span style="color:#92400e;font-weight:600;">Optional</span>' : '<span style="color:#166534;font-weight:600;">Compulsory</span>'}</td>
+                </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    acY.addEventListener('change', loadSubjects);
+    std.addEventListener('change', () => { buildExamName(); loadSubjects(); });
+    et.addEventListener('change',  () => { buildExamName(); loadSubjects(); });
+
+    form.addEventListener('submit', function (e) {
+        if (!acY.value) { e.preventDefault(); alert('Please select Academic Year.'); return; }
+        if (!std.value) { e.preventDefault(); alert('Please select Standard.'); return; }
+        if (!et.value)  { e.preventDefault(); alert('Please select Exam Type.'); return; }
+        if (tbody.querySelectorAll('input[name$="[subject_id]"]').length === 0) {
+            e.preventDefault(); alert('No subjects loaded.'); return;
+        }
+        buildExamName();
+        saveBtn.disabled = true; saveBtn.innerText = 'Saving...';
+    });
+
+    buildExamName();
+});
 </script>
 
 </x-app-layout>

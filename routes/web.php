@@ -38,7 +38,7 @@ use App\Http\Controllers\ExamProgressController;
 use App\Http\Controllers\Administrator\ResultGenerationController;
 use App\Http\Controllers\Administrator\ResultRegisterController;
 use App\Http\Controllers\Administrator\ReportCardController;
-use App\Http\Controllers\Administrator\ResultSheetController; // ORIGINAL – WORKING
+use App\Http\Controllers\Administrator\ResultSheetController;
 use App\Http\Controllers\Marks\AdminMarksController;
 use App\Http\Controllers\Administrator\MarkAuditController;
 
@@ -65,7 +65,16 @@ use App\Http\Controllers\ExamSubjectController;
 use App\Http\Controllers\ExamPatternDetailController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\UserDesignationController;
+use App\Http\Controllers\StudentSkillMarkController;
 
+Route::post('/student-skill-subject-allocation/bulk-allocate',
+    [App\Http\Controllers\StudentSkillSubjectController::class, 'bulkAllocate']
+)->name('student-skill-subject-allocation.bulk-allocate');
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/student-skill-marks', [StudentSkillMarkController::class, 'index'])->name('student-skill-marks.index');
+    Route::post('/student-skill-marks/save', [StudentSkillMarkController::class, 'save'])->name('student-skill-marks.save');
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -80,7 +89,6 @@ Route::resource(
     'show',
 ]);
 
-
 /*
 |--------------------------------------------------------------------------
 | DESIGNATIONS
@@ -93,7 +101,6 @@ Route::resource(
 )->except([
     'show',
 ]);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -108,7 +115,6 @@ Route::get(
     'teacher-bulk-allocation.exam-details'
 );
 
-
 /*
 |--------------------------------------------------------------------------
 | LOGIN REDIRECT
@@ -119,7 +125,6 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | TEST PAGE
@@ -129,7 +134,6 @@ Route::get('/', function () {
 Route::get('/test-page', function () {
     return 'TEST PAGE WORKING';
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -155,12 +159,6 @@ Route::middleware(['auth'])->group(function () {
 
         $isAdministrator = false;
 
-        /*
-        |--------------------------------------------------------------------------
-        | SPATIE ROLE
-        |--------------------------------------------------------------------------
-        */
-
         if (method_exists($user, 'hasRole')) {
 
             if (
@@ -170,12 +168,6 @@ Route::middleware(['auth'])->group(function () {
                 $isAdministrator = true;
             }
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | PLAIN ROLE COLUMN
-        |--------------------------------------------------------------------------
-        */
 
         if (!$isAdministrator) {
 
@@ -199,12 +191,6 @@ Route::middleware(['auth'])->group(function () {
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | ADMINISTRATOR DASHBOARD
-        |--------------------------------------------------------------------------
-        */
-
         if ($isAdministrator) {
 
             return app(
@@ -214,18 +200,11 @@ Route::middleware(['auth'])->group(function () {
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | TEACHER / NON ADMIN
-        |--------------------------------------------------------------------------
-        */
-
         return redirect()->route(
             'exam-progress.index'
         );
 
     })->name('dashboard');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -248,7 +227,6 @@ Route::middleware(['auth'])->group(function () {
         [ProfileController::class, 'destroy']
     )->name('profile.destroy');
 
-
     /*
     |--------------------------------------------------------------------------
     | SELECTION
@@ -265,7 +243,6 @@ Route::middleware(['auth'])->group(function () {
         [SelectionController::class, 'select']
     )->name('selection.select');
 
-
     /*
     |--------------------------------------------------------------------------
     | ACADEMIC YEARS
@@ -276,7 +253,6 @@ Route::middleware(['auth'])->group(function () {
         'academic-years',
         AcademicYearController::class
     );
-
 
     /*
     |--------------------------------------------------------------------------
@@ -289,7 +265,6 @@ Route::middleware(['auth'])->group(function () {
         UserController::class
     );
 
-
     /*
     |--------------------------------------------------------------------------
     | ROLES
@@ -301,7 +276,6 @@ Route::middleware(['auth'])->group(function () {
         RoleController::class
     );
 
-
     /*
     |--------------------------------------------------------------------------
     | SUBJECT TYPES
@@ -312,7 +286,6 @@ Route::middleware(['auth'])->group(function () {
         'subject-types',
         SubjectTypeController::class
     );
-
 
     /*
     |--------------------------------------------------------------------------
@@ -330,7 +303,6 @@ Route::middleware(['auth'])->group(function () {
         [RolePermissionController::class, 'store']
     )->name('role-permissions.store');
 
-
     /*
     |--------------------------------------------------------------------------
     | STUDENTS
@@ -347,7 +319,6 @@ Route::middleware(['auth'])->group(function () {
         [StudentController::class, 'getDivisions']
     )->name('students.getDivisions');
 
-
     /*
     |--------------------------------------------------------------------------
     | STANDARDS
@@ -358,7 +329,6 @@ Route::middleware(['auth'])->group(function () {
         'standards',
         StandardController::class
     );
-
 
     /*
     |--------------------------------------------------------------------------
@@ -371,7 +341,6 @@ Route::middleware(['auth'])->group(function () {
         DivisionController::class
     );
 
-
     /*
     |--------------------------------------------------------------------------
     | SECTIONS
@@ -383,7 +352,6 @@ Route::middleware(['auth'])->group(function () {
         SectionController::class
     );
 
-
     /*
     |--------------------------------------------------------------------------
     | SUBJECTS
@@ -394,7 +362,6 @@ Route::middleware(['auth'])->group(function () {
         'subjects',
         SubjectController::class
     );
-
 
     /*
     |--------------------------------------------------------------------------
@@ -412,7 +379,6 @@ Route::middleware(['auth'])->group(function () {
         [StandardSubjectController::class, 'save']
     )->name('standard-subject-allocation.save');
 
-
     /*
     |--------------------------------------------------------------------------
     | STUDENT PROFILE
@@ -423,7 +389,6 @@ Route::middleware(['auth'])->group(function () {
         '/student-profile',
         [StudentProfileController::class, 'index']
     )->name('student-profile.index');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -451,7 +416,6 @@ Route::middleware(['auth'])->group(function () {
         [StudentSkillSubjectController::class, 'save']
     )->name('student-skill-subjects.save');
 
-
     /*
     |--------------------------------------------------------------------------
     | TEACHER CLASS ALLOCATION
@@ -472,7 +436,6 @@ Route::middleware(['auth'])->group(function () {
         '/teacher-class-allocation',
         [TeacherClassAllocationController::class, 'store']
     )->name('teacher-class-allocation.store');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -499,7 +462,6 @@ Route::middleware(['auth'])->group(function () {
         '/teacher-subject-allocation/subjects/{id}',
         [TeacherSubjectAllocationController::class, 'getSubjects']
     )->name('teacher-subject-allocation.subjects');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -537,7 +499,6 @@ Route::middleware(['auth'])->group(function () {
         [TeacherBulkAllocationController::class, 'destroy']
     )->name('teacher-bulk-allocation.destroy');
 
-
     /*
     |--------------------------------------------------------------------------
     | TEACHER BULK ALLOCATION AJAX
@@ -553,7 +514,6 @@ Route::middleware(['auth'])->group(function () {
         '/teacher-bulk-allocation/get-subjects',
         [TeacherBulkAllocationController::class, 'getSubjects']
     )->name('teacher-bulk-allocation.subjects');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -576,7 +536,6 @@ Route::middleware(['auth'])->group(function () {
         [ExamMasterController::class, 'getSubjects']
     )->name('exam-master-subjects');
 
-
     /*
     |--------------------------------------------------------------------------
     | EXAM PATTERN
@@ -587,7 +546,6 @@ Route::middleware(['auth'])->group(function () {
         'exam-patterns',
         ExamPatternController::class
     );
-
 
     /*
     |--------------------------------------------------------------------------
@@ -612,7 +570,6 @@ Route::middleware(['auth'])->group(function () {
         [ExamPatternDetailController::class, 'getSubjects']
     )->name('exam-pattern-details.getSubjects');
 
-
     /*
     |--------------------------------------------------------------------------
     | EXAM SUBJECTS
@@ -629,7 +586,6 @@ Route::middleware(['auth'])->group(function () {
         [ExamSubjectController::class, 'save']
     )->name('exam-subjects.save');
 
-
     /*
     |--------------------------------------------------------------------------
     | EXAM PROGRESS
@@ -640,7 +596,6 @@ Route::middleware(['auth'])->group(function () {
         '/exam-progress',
         [ExamProgressController::class, 'index']
     )->name('exam-progress.index');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -673,7 +628,6 @@ Route::middleware(['auth'])->group(function () {
         [MarkSubmitController::class, 'submitFinal']
     )->name('marks-entry.submit');
 
-
     /*
     |--------------------------------------------------------------------------
     | MARKS VIEW
@@ -690,7 +644,6 @@ Route::middleware(['auth'])->group(function () {
         [MarkViewController::class, 'searchMarks']
     )->name('marks-view.search');
 
-
     /*
     |--------------------------------------------------------------------------
     | MARKS EDIT
@@ -706,7 +659,6 @@ Route::middleware(['auth'])->group(function () {
         '/marks-entry/update',
         [MarkEditController::class, 'updateMarks']
     )->name('marks-entry.update');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -747,7 +699,6 @@ Route::middleware(['auth'])->group(function () {
         )->name('mark-audit.index');
     });
 
-
     /*
     |--------------------------------------------------------------------------
     | ADMINISTRATOR MARKS SUBJECT AJAX
@@ -758,7 +709,6 @@ Route::middleware(['auth'])->group(function () {
         '/marks-correction/subjects',
         [AdminMarksController::class, 'getSubjects']
     )->name('admin-marks.subjects');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -776,16 +726,9 @@ Route::middleware(['auth'])->group(function () {
         [ResultGenerationController::class, 'generate']
     )->name('administrator.result-generation.generate');
 
-
     /*
     |--------------------------------------------------------------------------
     | RESULT SHEET
-    |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    | Using the original working controller:
-    | App\Http\Controllers\Administrator\ResultSheetController
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -808,7 +751,6 @@ Route::middleware(['auth'])->group(function () {
         '/administrator/result-sheet/export-excel',
         [ResultSheetController::class, 'exportExcel']
     )->name('result-sheet.export-excel');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -836,7 +778,6 @@ Route::middleware(['auth'])->group(function () {
         [ResultRegisterController::class, 'search']
     )->name('result-register.search');
 
-
     /*
     |--------------------------------------------------------------------------
     | REPORT CARD
@@ -854,6 +795,12 @@ Route::middleware(['auth'])->group(function () {
         [ReportCardController::class, 'search']
     )->name('report-card.search');
 
+    // AJAX: Exam list filtered by Standard (used by the report-card form)
+    Route::post(
+        '/report-card/exams-by-standard',
+        [ReportCardController::class, 'examsByStandard']
+    )->name('report-card.exams-by-standard');
+
     Route::post(
         '/report-card/show',
         [ReportCardController::class, 'show']
@@ -864,6 +811,26 @@ Route::middleware(['auth'])->group(function () {
         [ReportCardController::class, 'print']
     )->name('report-card.print');
 
+    /*
+    |--------------------------------------------------------------------------
+    | PROGRESS CARD
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        'report-card/progress-card/{studentId}/{examId}/{yearId}',
+        [ReportCardController::class, 'printProgressCard']
+    )->name('report-card.progress-card');
+
+    Route::get(
+        'report-card/progress-card/{studentId}/{examId}/{yearId}/edit',
+        [ReportCardController::class, 'editProgressDetails']
+    )->name('report-card.progress-card.edit');
+
+    Route::post(
+        'report-card/progress-card/{studentId}/{examId}/{yearId}/save',
+        [ReportCardController::class, 'saveProgressDetails']
+    )->name('report-card.progress-card.save');
 
     /*
     |--------------------------------------------------------------------------
@@ -876,6 +843,22 @@ Route::middleware(['auth'])->group(function () {
         [AnalyticsController::class, 'index']
     )->name('analytics.index');
 
+    Route::get(
+    '/analytics',
+    [AnalyticsController::class, 'index']
+)->name('analytics.index');
+
+// NEW ↓ — full analytics for one student
+Route::get(
+    '/analytics/student/{studentId}',
+    [AnalyticsController::class, 'studentDetail']
+)->name('analytics.student');
+
+// NEW ↓ — subject-specific detail page
+Route::get(
+    '/analytics/subject/{subjectId}',
+    [AnalyticsController::class, 'subjectDetail']
+)->name('analytics.subject');
 
     /*
     |--------------------------------------------------------------------------
@@ -894,7 +877,6 @@ Route::middleware(['auth'])->group(function () {
     )->name('erp-sync.students');
 
 });
-
 
 /*
 |--------------------------------------------------------------------------

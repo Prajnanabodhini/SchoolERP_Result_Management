@@ -59,8 +59,6 @@ class EditMarkHelper
      */
     public static function editData(Request $request): array
     {
-
-
         $students =
             collect();
 
@@ -115,46 +113,11 @@ class EditMarkHelper
         $practicalPassingMarks =
             0;
 
-        /*
-        |--------------------------------------------------------------------------
-        | OPTIONAL BUTTON FLAG
-        |--------------------------------------------------------------------------
-        */
-
         $isOptionalEnabled =
             false;
 
-        /*
-        |--------------------------------------------------------------------------
-        | PASSING PERCENTAGE
-        |--------------------------------------------------------------------------
-        */
-
         $passingPercentage =
             40;
-
-        /*
-        |--------------------------------------------------------------------------
-        | MARK STATUS
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | Existing marks are authoritative.
-        |
-        | If marks already exist for:
-        |
-        | Academic Year
-        | Section
-        | Standard
-        | Division
-        | Exam
-        | Subject
-        |
-        | then this Edit page must be locked, even when those marks
-        | belong to an older teacher_subject_allocation_id.
-        |
-        */
 
         $marksLocked =
             false;
@@ -175,12 +138,6 @@ class EditMarkHelper
                 'teacher_subject_allocation_id'
             )
         ) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | EXAM
-            |--------------------------------------------------------------------------
-            */
 
             $exam =
                 ExamMaster::find(
@@ -228,12 +185,6 @@ class EditMarkHelper
             }
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | TEACHER SUBJECT ALLOCATION
-            |--------------------------------------------------------------------------
-            */
-
             $teacherSubjectAllocation =
                 TeacherSubjectAllocation::with([
                     'allocation.standard',
@@ -253,23 +204,11 @@ class EditMarkHelper
                         ->allocation;
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | OPTIONAL FEATURE
-                |--------------------------------------------------------------------------
-                */
-
                 $isOptionalEnabled =
                     self::isOptionalEnabledForAllocation(
                         $allocation
                     );
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | PASSING PERCENTAGE
-                |--------------------------------------------------------------------------
-                */
 
                 if ($allocation) {
 
@@ -280,12 +219,6 @@ class EditMarkHelper
                 }
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | ACTUAL SUBJECT
-                |--------------------------------------------------------------------------
-                */
-
                 $actualSubjectId =
                     (int) (
                         $teacherSubjectAllocation
@@ -293,19 +226,6 @@ class EditMarkHelper
                         ?? 0
                     );
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | LOAD EXISTING MARKS
-                |--------------------------------------------------------------------------
-                |
-                | IMPORTANT:
-                |
-                | Do NOT use teacher_subject_allocation_id here.
-                |
-                | Existing marks may belong to an older TSA.
-                |
-                */
 
                 $existingMarksQuery =
                     StudentMark::query()
@@ -342,12 +262,6 @@ class EditMarkHelper
                         );
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | EXISTING MARKS = COMPLETED / LOCKED
-                |--------------------------------------------------------------------------
-                */
-
                 if (
                     $existingMarks->isNotEmpty()
                 ) {
@@ -358,17 +272,6 @@ class EditMarkHelper
                     $marksStatus =
                         'COMPLETED';
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | KEEP CURRENT TEACHER MARK STATUS IN SYNC
-                    |--------------------------------------------------------------------------
-                    |
-                    | Exam Progress reads teacher_marks_status.
-                    |
-                    | Update the current TSA status if it exists.
-                    |
-                    */
 
                     TeacherMarksStatus::query()
                         ->where(
@@ -397,12 +300,6 @@ class EditMarkHelper
                         ]);
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | KEEP EXISTING MARKS LOCKED
-                    |--------------------------------------------------------------------------
-                    */
-
                     $existingMarksQuery
                         ->where(
                             'is_locked',
@@ -417,12 +314,6 @@ class EditMarkHelper
                                 now(),
                         ]);
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | REFRESH EXISTING MARKS
-                    |--------------------------------------------------------------------------
-                    */
 
                     $existingMarks =
                         StudentMark::query()
@@ -456,15 +347,6 @@ class EditMarkHelper
                             );
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | LOAD STUDENTS FROM OLD ERP
-                |--------------------------------------------------------------------------
-                |
-                | Load from the actual existing marks, not TSA.
-                |
-                */
 
                 $studentIds =
                     $existingMarks
@@ -508,12 +390,6 @@ class EditMarkHelper
                         ->get();
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | MAP MARKS TO STUDENTS
-                    |--------------------------------------------------------------------------
-                    */
-
                     foreach (
                         $students as $student
                     ) {
@@ -544,12 +420,6 @@ class EditMarkHelper
                             ?? '';
 
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ABSENT
-                        |--------------------------------------------------------------------------
-                        */
-
                         $student->is_absent =
                             (int) (
                                 $mark->is_absent
@@ -557,24 +427,12 @@ class EditMarkHelper
                             );
 
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | OPTIONAL
-                        |--------------------------------------------------------------------------
-                        */
-
                         $student->is_optional =
                             (int) (
                                 $mark->is_optional
                                 ?? 0
                             );
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | LOCK
-                        |--------------------------------------------------------------------------
-                        */
 
                         $student->is_locked =
                             (int) (
@@ -586,12 +444,6 @@ class EditMarkHelper
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | RETURN VIEW
-        |--------------------------------------------------------------------------
-        */
 
         return compact(
             'students',
@@ -614,7 +466,6 @@ class EditMarkHelper
             'isOptionalEnabled',
             'passingPercentage'
         );
-    
     }
 
     /**
@@ -622,26 +473,12 @@ class EditMarkHelper
      */
     public static function updateMarks(Request $request)
     {
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | IDS
-        |--------------------------------------------------------------------------
-        */
-
         $markIds =
             $request->input(
                 'mark_ids',
                 []
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Nothing to update
-        |--------------------------------------------------------------------------
-        */
 
         if (
             empty($markIds)
@@ -656,12 +493,6 @@ class EditMarkHelper
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD MARKS
-        |--------------------------------------------------------------------------
-        */
-
         $marks =
             StudentMark::whereIn(
                 'id',
@@ -672,17 +503,6 @@ class EditMarkHelper
                 'id'
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SERVER-SIDE LOCK CHECK
-        |--------------------------------------------------------------------------
-        |
-        | The Edit page may be visually locked, but this backend check is
-        | also required so a manually submitted request cannot change
-        | completed/locked marks.
-        |
-        */
 
         foreach (
             $marks as $mark
@@ -705,12 +525,6 @@ class EditMarkHelper
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | UPDATE
-        |--------------------------------------------------------------------------
-        */
-
         foreach (
             $markIds as $id
         ) {
@@ -725,12 +539,6 @@ class EditMarkHelper
                 continue;
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | OLD VALUES
-            |--------------------------------------------------------------------------
-            */
 
             $oldTheory =
                 $mark->theory_obtained_marks;
@@ -758,12 +566,6 @@ class EditMarkHelper
                 );
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | CURRENT VALUES
-            |--------------------------------------------------------------------------
-            */
-
             $isOptional =
                 (
                     (int) (
@@ -778,25 +580,10 @@ class EditMarkHelper
                     : 0;
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | IMPORTANT
-            |--------------------------------------------------------------------------
-            |
-            | We only allow Optional if the student's standard is 11th/12th.
-            |
-            */
-
             $allocation =
                 $mark->teacherSubjectAllocation
                 ?? null;
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | Load allocation if relationship isn't available.
-            |--------------------------------------------------------------------------
-            */
 
             if (!$allocation) {
 
@@ -822,24 +609,12 @@ class EditMarkHelper
                 );
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | NON 11/12 CANNOT BE OPTIONAL
-            |--------------------------------------------------------------------------
-            */
-
             if (!$isOptionalAllowed) {
 
                 $isOptional =
                     0;
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | OPTIONAL TAKES PRIORITY
-            |--------------------------------------------------------------------------
-            */
 
             if ($isOptional) {
 
@@ -857,12 +632,6 @@ class EditMarkHelper
 
             } else {
 
-                /*
-                |--------------------------------------------------------------------------
-                | ABSENT
-                |--------------------------------------------------------------------------
-                */
-
                 $isAbsent =
                     (
                         (int) (
@@ -876,12 +645,6 @@ class EditMarkHelper
                         ? 1
                         : 0;
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | MARKS
-                |--------------------------------------------------------------------------
-                */
 
                 $theory =
                     $request
@@ -907,12 +670,6 @@ class EditMarkHelper
                         ?? null;
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | ABSENT = ZERO
-                |--------------------------------------------------------------------------
-                */
-
                 if ($isAbsent) {
 
                     $theory =
@@ -926,12 +683,6 @@ class EditMarkHelper
                 }
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | UPDATE
-            |--------------------------------------------------------------------------
-            */
 
             $mark->update([
 
@@ -947,12 +698,6 @@ class EditMarkHelper
                 'is_absent' =>
                     $isAbsent,
 
-                /*
-                |--------------------------------------------------------------------------
-                | OPTIONAL
-                |--------------------------------------------------------------------------
-                */
-
                 'is_optional' =>
                     $isOptional,
 
@@ -960,12 +705,6 @@ class EditMarkHelper
                     Auth::id(),
             ]);
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | AUDIT LOG
-            |--------------------------------------------------------------------------
-            */
 
             $remarks =
                 'Teacher Marks Update';
@@ -1053,31 +792,18 @@ class EditMarkHelper
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUCCESS
-        |--------------------------------------------------------------------------
-        */
-
         return redirect()
             ->back()
             ->with(
                 'success',
                 'Marks Updated Successfully.'
             );
-    
     }
 
 
     /*
     |--------------------------------------------------------------------------
     | ADMIN MARKS ENTRY OPERATIONS
-    |--------------------------------------------------------------------------
-    |
-    | Extracted from AdminMarksEntryService without changing business logic.
-    | The service remains a thin compatibility facade while these methods keep
-    | the existing validation, database queries, audit logging and redirects.
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -1130,29 +856,11 @@ class EditMarkHelper
             'practicalPassingMarks' =>
                 0,
 
-            /*
-            |--------------------------------------------------------------------------
-            | ADMINISTRATOR CAN ALWAYS EDIT
-            |--------------------------------------------------------------------------
-            */
-
             'marksLocked' =>
                 false,
 
-            /*
-            |--------------------------------------------------------------------------
-            | OPTIONAL
-            |--------------------------------------------------------------------------
-            */
-
             'isOptionalEnabled' =>
                 false,
-
-            /*
-            |--------------------------------------------------------------------------
-            | PASSING
-            |--------------------------------------------------------------------------
-            */
 
             'passingPercentage' =>
                 40,
@@ -1166,37 +874,28 @@ class EditMarkHelper
     }
 
 
-    /**
- * Determine whether the Optional feature is enabled for a given standard.
- *
- * @param int|null $standardId
- * @param mixed|null $allocation  (optional) TeacherClassAllocation or related model
- * @return bool
- */
-public static function isOptionalEnabledForStandard($standardId, $allocation = null): bool
-{
-    $standardId = (int) $standardId;
+    public static function isOptionalEnabledForStandard($standardId, $allocation = null): bool
+    {
+        $standardId = (int) $standardId;
 
-    // Include all 11th & 12th standards (including streams)
-    if (in_array($standardId, [11, 12, 19, 20, 21, 22, 23, 24], true)) {
-        return true;
-    }
-
-    // Fallback: check standard name if allocation is provided
-    if ($allocation) {
-        $standardName = strtoupper(trim((string) optional($allocation->standard)->standard_name));
-        $normalized = trim((string) preg_replace('/[\s\.\-]+/', ' ', $standardName));
-
-        if (in_array($normalized, [
-            '11', '11TH', 'ELEVENTH', 'XI',
-            '12', '12TH', 'TWELFTH', 'XII',
-        ], true)) {
+        if (in_array($standardId, [11, 12, 19, 20, 21, 22, 23, 24], true)) {
             return true;
         }
-    }
 
-    return false;
-}
+        if ($allocation) {
+            $standardName = strtoupper(trim((string) optional($allocation->standard)->standard_name));
+            $normalized = trim((string) preg_replace('/[\s\.\-]+/', ' ', $standardName));
+
+            if (in_array($normalized, [
+                '11', '11TH', 'ELEVENTH', 'XI',
+                '12', '12TH', 'TWELFTH', 'XII',
+            ], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
 
     public static function getPassingPercentage(
@@ -1231,12 +930,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATE CONTEXT
-        |--------------------------------------------------------------------------
-        */
-
         if (
             (int) $academicYearId <= 0
             ||
@@ -1256,20 +949,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 : 'PENDING';
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | POSSIBLE SUBJECT IDS
-        |--------------------------------------------------------------------------
-        |
-        | Current format:
-        |     subjects.id
-        |
-        | Legacy format:
-        |     standard_wise_subjects.id
-        |
-        |--------------------------------------------------------------------------
-        */
 
         $possibleSubjectIds =
             collect([
@@ -1304,20 +983,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             ->unique()
             ->values();
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | STUDENT MARKS EXIST
-        |--------------------------------------------------------------------------
-        |
-        | This intentionally does NOT require TSA.
-        |
-        | This matches ExamProgressController:
-        |
-        | academic_year + section + standard + division + exam + subject
-        |
-        |--------------------------------------------------------------------------
-        */
 
         $marksExist =
             DB::table(
@@ -1355,12 +1020,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             return 'COMPLETED';
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | FALLBACK TO STORED TMS STATUS
-        |--------------------------------------------------------------------------
-        */
 
         return $storedStatus !== ''
             ? $storedStatus
@@ -1408,27 +1067,11 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | REQUEST EXAM
-        |--------------------------------------------------------------------------
-        */
-
         $requestedExamId =
             $request->input(
                 'exam_master_id'
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD TEACHER MARKS STATUS
-        |--------------------------------------------------------------------------
-        |
-        | No section_id is selected here because the table does not contain it.
-        |
-        |--------------------------------------------------------------------------
-        */
 
         $status =
             TeacherMarksStatus::query()
@@ -1455,12 +1098,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 )
                 ->first();
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD TSA
-        |--------------------------------------------------------------------------
-        */
 
         $tsa =
             TeacherSubjectAllocation::query()
@@ -1493,12 +1130,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             $tsa->allocation;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM ID
-        |--------------------------------------------------------------------------
-        */
-
         $examId =
             (int) (
                 $requestedExamId
@@ -1515,12 +1146,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             return $data;
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM
-        |--------------------------------------------------------------------------
-        */
 
         $exam =
             $exams->firstWhere(
@@ -1551,12 +1176,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             $exam;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD
-        |--------------------------------------------------------------------------
-        */
-
         $standardId =
             (int) (
                 $status?->standard_id
@@ -1565,12 +1184,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | DIVISION
-        |--------------------------------------------------------------------------
-        */
-
         $divisionId =
             (int) (
                 $status?->division_id
@@ -1578,12 +1191,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 $allocation->division_id
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | ACADEMIC YEAR
-        |--------------------------------------------------------------------------
-        */
 
         $academicYearId =
             (int) (
@@ -1597,18 +1204,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SECTION
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        | teacher_marks_status does NOT contain section_id.
-        | Always take section_id from class allocation.
-        |
-        |--------------------------------------------------------------------------
-        */
-
         $sectionId =
             (int) (
                 $allocation->section_id
@@ -1616,12 +1211,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 0
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | OPTIONAL
-        |--------------------------------------------------------------------------
-        */
 
         $data['isOptionalEnabled'] =
             self::isOptionalEnabledForStandard(
@@ -1635,12 +1224,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 $standardId
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATE ACADEMIC YEAR
-        |--------------------------------------------------------------------------
-        */
 
         $requestedAcademicYearId =
             $request->input(
@@ -1667,12 +1250,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATE CLASS DATA
-        |--------------------------------------------------------------------------
-        */
-
         if (
             $academicYearId <= 0
             ||
@@ -1689,12 +1266,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             return $data;
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT
-        |--------------------------------------------------------------------------
-        */
 
         $actualSubjectId =
             self::resolveSelectedSubject(
@@ -1716,12 +1287,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             return $data;
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT MASTER
-        |--------------------------------------------------------------------------
-        */
 
         $subject =
             Subject::query()
@@ -1750,12 +1315,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD MAPPING
-        |--------------------------------------------------------------------------
-        */
-
         if (
             !$subjectService->isMappedToStandard(
                 $actualSubjectId,
@@ -1770,12 +1329,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | BUILD DISPLAY ASSIGNMENT
-        |--------------------------------------------------------------------------
-        */
-
         $displayAssignment =
             self::buildDisplayAssignment(
                 $tsa,
@@ -1786,12 +1339,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 $selectedSubjectId
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | EFFECTIVE STATUS
-        |--------------------------------------------------------------------------
-        */
 
         $effectiveStatus =
             self::getEffectiveStatus(
@@ -1816,12 +1363,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         $data['selectedClassAllocation'] =
             $allocation;
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
 
         $subjectConfig =
             $subjectService->getSubjectConfig(
@@ -1848,12 +1389,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             $subjectConfig;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENT CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
-
         $component =
             self::getComponentConfig(
                 $exam,
@@ -1868,12 +1403,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 $component
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD STUDENTS
-        |--------------------------------------------------------------------------
-        */
 
         try {
 
@@ -1899,12 +1428,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD EXISTING MARKS
-        |--------------------------------------------------------------------------
-        */
-
         $data['existingMarks'] =
             self::loadExistingMarks(
                 $examId,
@@ -1917,21 +1440,9 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | ADMINISTRATOR CAN ALWAYS MODIFY
-        |--------------------------------------------------------------------------
-        */
-
         $data['marksLocked'] =
             false;
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | MESSAGE
-        |--------------------------------------------------------------------------
-        */
 
         if (
             $effectiveStatus === 'COMPLETED'
@@ -2057,12 +1568,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         $subjectService
     ) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | 1. EXPLICIT SUBJECT
-        |--------------------------------------------------------------------------
-        */
-
         if ($selectedSubjectId) {
 
             $actual =
@@ -2079,12 +1584,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | 2. HISTORICAL SUBJECT
-        |--------------------------------------------------------------------------
-        */
 
         $historicalSubjectIds =
             StudentMark::query()
@@ -2137,12 +1636,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | 3. TMS SUBJECT
-        |--------------------------------------------------------------------------
-        */
-
         if (
             $status
             &&
@@ -2163,12 +1656,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | 4. TSA SUBJECT
-        |--------------------------------------------------------------------------
-        */
 
         if (
             $tsa
@@ -2283,12 +1770,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         $assignment->resolved_tms_subject_id =
             $status?->subject_id;
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | STORED STATUS
-        |--------------------------------------------------------------------------
-        */
 
         $assignment->resolved_status =
             strtoupper(
@@ -2436,12 +1917,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | RESOLVE SUBJECT IDS
-        |--------------------------------------------------------------------------
-        */
-
         foreach (
             $marks as $mark
         ) {
@@ -2461,12 +1936,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | KEEP STANDARD / DIVISION
-        |--------------------------------------------------------------------------
-        */
 
         $marks =
             $marks->filter(
@@ -2491,12 +1960,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | ONE MARK PER STUDENT
-        |--------------------------------------------------------------------------
-        */
-
         return $marks
             ->unique(
                 'student_id'
@@ -2507,135 +1970,93 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
     }
 
 
+    /**
+     * Resolve the theory / oral / practical configuration for a single
+     * subject in a single exam.
+     *
+     * Priority:
+     *   1. exam_master_subjects split columns (if they exist and are > 0)
+     *   2. Hardcoded exam structure (same source the Exam Master edit page uses)
+     *   3. Whole-subject max as theory (last-resort fallback)
+     */
     public static function getComponentConfig(
         $exam,
         $subjectConfig,
         $standardId
     ): array {
 
-        $showTheory =
-            true;
+        /* ==========================================================
+         | 1. Split columns on exam_master_subjects
+         ========================================================== */
 
+        $subjectMax     = (float) ($subjectConfig->max_marks     ?? 0);
+        $subjectPassing = (float) ($subjectConfig->passing_marks ?? 0);
 
-        $showOral =
-            (bool) (
-                $exam->has_oral
-                ??
-                false
+        $theoryMax     = (float) ($subjectConfig->theory_max_marks        ?? 0);
+        $theoryPass    = (float) ($subjectConfig->theory_passing_marks    ?? 0);
+        $oralMax       = (float) ($subjectConfig->oral_max_marks          ?? 0);
+        $oralPass      = (float) ($subjectConfig->oral_passing_marks      ?? 0);
+        $practicalMax  = (float) ($subjectConfig->practical_max_marks     ?? 0);
+        $practicalPass = (float) ($subjectConfig->practical_passing_marks ?? 0);
+
+        /* ==========================================================
+         | 2. Hardcoded exam structure
+         ========================================================== */
+
+        if ($theoryMax <= 0 && $oralMax <= 0 && $practicalMax <= 0) {
+
+            $subjectName = (string) (
+                $subjectConfig->subject_name
+                ?? ''
             );
 
-
-        $showPractical =
-            (bool) (
-                $exam->has_practical
-                ??
-                false
+            $values = \App\Helpers\ExamStructureHelper::getComponentValues(
+                (int) $standardId,
+                (string) ($exam->exam_name ?? ''),
+                $subjectName
             );
 
-
-        $examName =
-            strtoupper(
-                trim(
-                    (string)
-                    $exam->exam_name
-                )
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UNIT TEST 1
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            str_contains(
-                $examName,
-                'UNIT TEST 1'
-            )
-        ) {
-
-            $showOral =
-                false;
-
-            $showPractical =
-                false;
+            $theoryMax     = (float) $values['theory_max_marks'];
+            $theoryPass    = (float) $values['theory_passing_marks'];
+            $oralMax       = (float) $values['oral_max_marks'];
+            $oralPass      = (float) $values['oral_passing_marks'];
+            $practicalMax  = (float) $values['practical_max_marks'];
+            $practicalPass = (float) $values['practical_passing_marks'];
         }
 
+        /* ==========================================================
+         | 3. Last-resort: treat whole subject as theory
+         ========================================================== */
 
-        /*
-        |--------------------------------------------------------------------------
-        | THEORY
-        |--------------------------------------------------------------------------
-        */
+        if ($theoryMax <= 0 && $oralMax <= 0 && $practicalMax <= 0) {
 
-        $theoryMaxMarks =
-            (float) (
-                $subjectConfig->max_marks
-                ??
-                0
-            );
+            $theoryMax  = $subjectMax;
+            $theoryPass = $subjectPassing > 0
+                ? $subjectPassing
+                : ResultHelper::getPassingMarks($standardId, $subjectMax);
+        }
 
+        /* ==========================================================
+         | Show flags
+         ========================================================== */
 
-        $theoryPassingMarks =
-            ResultHelper::getPassingMarks(
-                $standardId,
-                $theoryMaxMarks
-            );
-
+        $showTheory    = $theoryMax    > 0;
+        $showOral      = $oralMax      > 0;
+        $showPractical = $practicalMax > 0;
 
         return [
+            'showTheory'            => $showTheory,
+            'showOral'              => $showOral,
+            'showPractical'         => $showPractical,
 
-            'showTheory' =>
-                $showTheory,
+            'theoryMaxMarks'        => $theoryMax,
+            'theoryPassingMarks'    => $theoryPass,
 
-            'showOral' =>
-                $showOral,
+            'oralMaxMarks'          => $showOral      ? $oralMax       : 0,
+            'oralPassingMarks'      => $showOral      ? $oralPass      : 0,
 
-            'showPractical' =>
-                $showPractical,
-
-            'theoryMaxMarks' =>
-                $theoryMaxMarks,
-
-            'theoryPassingMarks' =>
-                $theoryPassingMarks,
-
-            'oralMaxMarks' =>
-                $showOral
-                    ? (float) (
-                        $exam->oral_max_marks
-                        ??
-                        0
-                    )
-                    : 0,
-
-            'oralPassingMarks' =>
-                $showOral
-                    ? (float) (
-                        $exam->oral_passing_marks
-                        ??
-                        0
-                    )
-                    : 0,
-
-            'practicalMaxMarks' =>
-                $showPractical
-                    ? (float) (
-                        $exam->practical_max_marks
-                        ??
-                        0
-                    )
-                    : 0,
-
-            'practicalPassingMarks' =>
-                $showPractical
-                    ? (float) (
-                        $exam->practical_passing_marks
-                        ??
-                        0
-                    )
-                    : 0,
+            'practicalMaxMarks'     => $showPractical ? $practicalMax  : 0,
+            'practicalPassingMarks' => $showPractical ? $practicalPass : 0,
         ];
     }
 
@@ -2715,12 +2136,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         ]);
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | PARSE SELECTION
-        |--------------------------------------------------------------------------
-        */
-
         [
             $tsaId,
             $selectedSubjectId
@@ -2745,12 +2160,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TSA
-        |--------------------------------------------------------------------------
-        */
-
         $tsa =
             TeacherSubjectAllocation::with([
                 'allocation.standard',
@@ -2773,12 +2182,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS
-        |--------------------------------------------------------------------------
-        */
-
         $status =
             TeacherMarksStatus::query()
                 ->where(
@@ -2794,12 +2197,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 )
                 ->first();
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | CLASS ALLOCATION
-        |--------------------------------------------------------------------------
-        */
 
         $classAllocation =
             TeacherClassAllocation::with([
@@ -2821,12 +2218,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD
-        |--------------------------------------------------------------------------
-        */
-
         $standardId =
             (int) (
                 $status?->standard_id
@@ -2835,12 +2226,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | DIVISION
-        |--------------------------------------------------------------------------
-        */
-
         $divisionId =
             (int) (
                 $status?->division_id
@@ -2848,12 +2233,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 $classAllocation->division_id
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | ACADEMIC YEAR
-        |--------------------------------------------------------------------------
-        */
 
         $academicYearId =
             (int) (
@@ -2865,16 +2244,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SECTION
-        |--------------------------------------------------------------------------
-        |
-        | teacher_marks_status DOES NOT contain section_id.
-        |
-        |--------------------------------------------------------------------------
-        */
-
         $sectionId =
             (int) (
                 $classAllocation->section_id
@@ -2882,12 +2251,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 0
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM
-        |--------------------------------------------------------------------------
-        */
 
         $exam =
             ExamMaster::query()
@@ -2913,24 +2276,12 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | OPTIONAL
-        |--------------------------------------------------------------------------
-        */
-
         $isOptionalEnabled =
             self::isOptionalEnabledForStandard(
                 $standardId,
                 $classAllocation
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT
-        |--------------------------------------------------------------------------
-        */
 
         $actualSubjectId =
             self::resolveSubjectForUpdate(
@@ -2954,12 +2305,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 ]);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT MASTER
-        |--------------------------------------------------------------------------
-        */
 
         $subject =
             Subject::query()
@@ -2985,12 +2330,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD MAPPING
-        |--------------------------------------------------------------------------
-        */
-
         if (
             !$subjectService->isMappedToStandard(
                 $actualSubjectId,
@@ -3006,12 +2345,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 ]);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT CONFIGURATION
-        |--------------------------------------------------------------------------
-        */
 
         $subjectConfig =
             $subjectService->getSubjectConfig(
@@ -3035,12 +2368,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                 ]);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | COMPONENTS
-        |--------------------------------------------------------------------------
-        */
 
         $component =
             self::getComponentConfig(
@@ -3074,12 +2401,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             $component['practicalMaxMarks'];
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SAVE
-        |--------------------------------------------------------------------------
-        */
-
         DB::transaction(
             function () use (
                 $request,
@@ -3107,12 +2428,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                     $studentId =
                         (string) $studentId;
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | FIND EXISTING MARK
-                    |--------------------------------------------------------------------------
-                    */
 
                     $mark =
                         StudentMark::query()
@@ -3142,12 +2457,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             ->first();
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | OLD VALUES
-                    |--------------------------------------------------------------------------
-                    */
-
                     $oldTheory =
                         $mark?->theory_obtained_marks;
 
@@ -3168,12 +2477,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                         );
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ABSENT
-                    |--------------------------------------------------------------------------
-                    */
-
                     $isAbsent =
                         (
                             (int) (
@@ -3188,12 +2491,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             ? 1
                             : 0;
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | OPTIONAL
-                    |--------------------------------------------------------------------------
-                    */
 
                     $isOptional =
                         $isOptionalEnabled
@@ -3212,24 +2509,12 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             : 0;
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | OPTIONAL PRIORITY
-                    |--------------------------------------------------------------------------
-                    */
-
                     if ($isOptional) {
 
                         $isAbsent =
                             0;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | REQUEST MARKS
-                    |--------------------------------------------------------------------------
-                    */
 
                     $theory =
                         $request
@@ -3257,12 +2542,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             ??
                             null;
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | OPTIONAL / ABSENT
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (
                         $isOptional
@@ -3296,12 +2575,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                     }
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | THEORY
-                    |--------------------------------------------------------------------------
-                    */
-
                     $theory =
                         self::validateMark(
                             $theory,
@@ -3311,12 +2584,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             $studentId
                         );
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ORAL
-                    |--------------------------------------------------------------------------
-                    */
 
                     if ($showOral) {
 
@@ -3331,12 +2598,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                     }
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | PRACTICAL
-                    |--------------------------------------------------------------------------
-                    */
-
                     if ($showPractical) {
 
                         $practical =
@@ -3349,12 +2610,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             );
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SAVE DATA
-                    |--------------------------------------------------------------------------
-                    */
 
                     $saveData = [
 
@@ -3391,12 +2646,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                         'is_optional' =>
                             $isOptional,
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | ADMIN UPDATE KEEPS MARK UNLOCKED
-                        |--------------------------------------------------------------------------
-                        */
-
                         'is_locked' =>
                             0,
 
@@ -3404,12 +2653,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             Auth::id(),
                     ];
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | UPDATE EXISTING
-                    |--------------------------------------------------------------------------
-                    */
 
                     if ($mark) {
 
@@ -3421,12 +2664,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             false;
 
                     } else {
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | CREATE NEW
-                        |--------------------------------------------------------------------------
-                        */
 
                         $mark =
                             StudentMark::create(
@@ -3449,12 +2686,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             true;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | AUDIT LOG
-                    |--------------------------------------------------------------------------
-                    */
 
                     $auditRemarks =
                         $wasCreated
@@ -3538,12 +2769,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | REDIRECT
-        |--------------------------------------------------------------------------
-        */
-
         return redirect()->route(
             'result-generation.admin-marks.edit',
             [
@@ -3589,12 +2814,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         $subjectService
     ) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | 1. SELECTED SUBJECT
-        |--------------------------------------------------------------------------
-        */
-
         if ($selectedSubjectId) {
 
             $actual =
@@ -3611,12 +2830,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | 2. EXISTING STUDENT MARK
-        |--------------------------------------------------------------------------
-        */
 
         $historicalSubject =
             StudentMark::query()
@@ -3664,12 +2877,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | 3. TMS
-        |--------------------------------------------------------------------------
-        */
-
         if (
             $status
             &&
@@ -3690,12 +2897,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | 4. TSA
-        |--------------------------------------------------------------------------
-        */
 
         if (
             $tsa
@@ -3769,12 +2970,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             (int) $request->section_id;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | ACTUAL SUBJECT
-        |--------------------------------------------------------------------------
-        */
-
         $actualSubjectId =
             $subjectService
                 ->resolveActualSubjectId(
@@ -3793,12 +2988,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | POSSIBLE SUBJECT IDS
-        |--------------------------------------------------------------------------
-        */
-
         $possibleSubjectIds =
             $subjectService
                 ->getPossibleSubjectIds(
@@ -3806,12 +2995,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                     $standardId
                 );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD MARKS
-        |--------------------------------------------------------------------------
-        */
 
         $marks =
             StudentMark::query()
@@ -3854,12 +3037,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TRANSACTION
-        |--------------------------------------------------------------------------
-        */
-
         DB::transaction(
             function () use (
                 $request,
@@ -3871,12 +3048,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                     $marks as $mark
                 ) {
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | UNLOCK
-                    |--------------------------------------------------------------------------
-                    */
-
                     $mark->update([
 
                         'is_locked' =>
@@ -3886,12 +3057,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                             Auth::id(),
                     ]);
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | AUDIT
-                    |--------------------------------------------------------------------------
-                    */
 
                     MarkAuditLog::create([
 
@@ -3926,12 +3091,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
                     ]);
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | RESET STATUS
-                |--------------------------------------------------------------------------
-                */
 
                 $tsaIds =
                     $marks
@@ -3969,12 +3128,6 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
         );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | REDIRECT
-        |--------------------------------------------------------------------------
-        */
-
         return redirect()->route(
             'result-generation.admin-marks.edit',
             [
@@ -4010,5 +3163,94 @@ public static function isOptionalEnabledForStandard($standardId, $allocation = n
             'success',
             'Marks reopened successfully.'
         );
+    }
+
+        /* ======================================================================
+     | BLADE STATE EXTRACTION
+     |
+     | Consolidates all the per-request computations the admin marks edit
+     | blade needs. Keeps the blade itself thin.
+     ====================================================================== */
+
+    public static function extractEditBladeState(
+        $existingMarks,
+        $assignments,
+        $selectedTsaId,
+        $isOptionalEnabled,
+        $teacherSubjectAllocation,
+        $selectedClassAllocation
+    ): array {
+
+        /* ---------- Last modified ---------- */
+        $latest = collect($existingMarks ?? [])
+            ->filter(fn ($m) => !empty($m->updated_at))
+            ->sortByDesc(fn ($m) => $m->updated_at)
+            ->first();
+
+        $lastModifiedAt   = $latest->updated_at ?? null;
+        $lastModifiedById = $latest->updated_by ?? null;
+
+        $lastModifiedByName = '';
+        if ($lastModifiedById) {
+            try {
+                $lastModifiedByName = optional(\App\Models\User::find($lastModifiedById))->name
+                    ?? ('User ID ' . $lastModifiedById);
+            } catch (\Throwable $e) {
+                $lastModifiedByName = 'User ID ' . $lastModifiedById;
+            }
+        }
+
+        /* ---------- Optional column flag ---------- */
+        $allocation = $teacherSubjectAllocation?->allocation
+            ?? $selectedClassAllocation
+            ?? null;
+
+        $standardId = (int) ($allocation?->standard_id ?? 0);
+
+        $showOptionalColumn = (bool) ($isOptionalEnabled ?? false)
+            || in_array($standardId, [19, 20, 21, 22, 23, 24], true);
+
+        /* ---------- Current status ---------- */
+        $currentStatus = 'PENDING';
+        if ($selectedTsaId && $assignments) {
+            $rec = $assignments->firstWhere('id', $selectedTsaId);
+            if ($rec) {
+                $currentStatus = strtoupper(trim((string) ($rec->resolved_status ?? 'PENDING')));
+            }
+        }
+
+        return [
+            'lastModifiedAt'     => $lastModifiedAt,
+            'lastModifiedByName' => $lastModifiedByName,
+            'showOptionalColumn' => $showOptionalColumn,
+            'currentStatus'      => $currentStatus,
+            'statusBadgeClass'   => self::statusBadgeClass($currentStatus),
+        ];
+    }
+
+
+    /**
+     * CSS class suffix for a status badge.
+     */
+    public static function statusBadgeClass(string $status): string
+    {
+        return match (strtoupper(trim($status))) {
+            'COMPLETED' => 'admin-status-completed',
+            'LOCKED'    => 'admin-status-locked',
+            'PENDING'   => 'admin-status-pending',
+            default     => 'admin-status-default',
+        };
+    }
+
+
+    /**
+     * Format a mark as an integer string (empty string when null).
+     */
+    public static function formatIntegerMark($value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+        return (string) (int) round((float) $value);
     }
 }

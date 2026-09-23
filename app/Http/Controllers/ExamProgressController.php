@@ -144,74 +144,36 @@ class ExamProgressController extends Controller
                 'tms.teacher_subject_allocation_id'
             )
 
-            /*
-            |--------------------------------------------------------------------------
-            | STANDARD-WISE SUBJECT MAPPING
-            |--------------------------------------------------------------------------
-            |
-            | Accept both:
-            |
-            | sws.subject_id = tsa.subject_id
-            |
-            | and old records where tsa.subject_id may contain
-            | standard_wise_subjects.id.
-            |
-            */
-
-            ->join(
-                'standard_wise_subjects as sws',
-                function ($join) {
-
-                    $join->on(
-                        'sws.standard_id',
-                        '=',
-                        'tms.standard_id'
-                    )
-
-                    ->where(
-                        'sws.is_active',
-                        1
-                    )
-
-                    ->where(
-                        function ($q) {
-
-                            $q->whereColumn(
-                                'sws.subject_id',
-                                '=',
-                                'tsa.subject_id'
-                            )
-
-                            ->orWhereColumn(
-                                'sws.id',
-                                '=',
-                                'tsa.subject_id'
-                            );
-                        }
-                    );
-                }
-            )
-
-            /*
-            |--------------------------------------------------------------------------
-            | SUBJECT
-            |--------------------------------------------------------------------------
-            */
-
             ->join(
                 'subjects as subj',
                 'subj.id',
                 '=',
-                DB::raw(
-                    'COALESCE(sws.subject_id, tsa.subject_id)'
-                )
-            )
+                DB::raw("
+                    COALESCE(
 
-            /*
-            |--------------------------------------------------------------------------
-            | RELATED TABLES
-            |--------------------------------------------------------------------------
-            */
+                        (
+                            SELECT sws1.subject_id
+                            FROM standard_wise_subjects sws1
+                            WHERE sws1.standard_id = tms.standard_id
+                              AND sws1.subject_id = tsa.subject_id
+                              AND sws1.is_active  = 1
+                            LIMIT 1
+                        ),
+
+                        (
+                            SELECT sws2.subject_id
+                            FROM standard_wise_subjects sws2
+                            WHERE sws2.standard_id = tms.standard_id
+                              AND sws2.id         = tsa.subject_id
+                              AND sws2.is_active  = 1
+                            LIMIT 1
+                        ),
+
+                        tsa.subject_id
+
+                    )
+                ")
+            )
 
             ->leftJoin(
                 'exam_masters as em',
@@ -299,55 +261,33 @@ class ExamProgressController extends Controller
         |--------------------------------------------------------------------------
         | EFFECTIVE STATUS
         |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | teacher_marks_status may still say PENDING when existing
-        | student marks belong to an older TSA.
-        |
-        | Therefore COMPLETED is determined by:
-        |
-        | Academic Year
-        | Section
-        | Standard
-        | Division
-        | Exam
-        | Actual Subject
-        |
-        | teacher_subject_allocation_id is intentionally NOT used
-        | while locating existing student marks.
-        |
         */
 
         $effectiveStatusSql = "
             CASE
 
+                WHEN UPPER(
+                    TRIM(
+                        COALESCE(
+                            tms.status,
+                            ''
+                        )
+                    )
+                ) = 'COMPLETED'
+
+                THEN 'COMPLETED'
+
                 WHEN EXISTS (
 
                     SELECT 1
-
                     FROM student_marks sm
-
-                    WHERE sm.academic_year_id =
-                        tms.academic_year_id
-
-                    AND sm.section_id =
-                        tca.section_id
-
-                    AND sm.standard_id =
-                        tms.standard_id
-
-                    AND sm.division_id =
-                        tms.division_id
-
-                    AND sm.exam_master_id =
-                        tms.exam_master_id
-
-                    AND sm.subject_id =
-                        COALESCE(
-                            sws.subject_id,
-                            tsa.subject_id
-                        )
+                    WHERE sm.academic_year_id = tms.academic_year_id
+                      AND sm.section_id       = tca.section_id
+                      AND sm.standard_id      = tms.standard_id
+                      AND sm.division_id      = tms.division_id
+                      AND sm.exam_master_id   = tms.exam_master_id
+                      AND sm.subject_id       = subj.id
+                      AND sm.is_locked        = 1
 
                 )
 
@@ -357,7 +297,7 @@ class ExamProgressController extends Controller
                     TRIM(
                         COALESCE(
                             tms.status,
-                            ''
+                            'PENDING'
                         )
                     )
                 )
@@ -411,6 +351,16 @@ class ExamProgressController extends Controller
         |--------------------------------------------------------------------------
         | STATUS RECORDS
         |--------------------------------------------------------------------------
+        |
+        | PRIMARY SORT: teacher_subject_allocation_id DESC
+        |
+        | This guarantees the most recently created allocation appears at
+        | the top of the list, matching the "ID" column.
+        |
+        | Secondary sorts keep a stable, predictable ordering when the
+        | primary key is the same (which cannot happen in practice since
+        | it's a unique ID, but harmless to keep for safety).
+        |
         */
 
         $statuses =
@@ -454,12 +404,6 @@ class ExamProgressController extends Controller
                     'subj.id as resolved_subject_id',
                 ])
 
-                /*
-                |--------------------------------------------------------------------------
-                | EFFECTIVE STATUS
-                |--------------------------------------------------------------------------
-                */
-
                 ->selectRaw(
                     "
                     {$effectiveStatusSql}
@@ -467,6 +411,20 @@ class ExamProgressController extends Controller
                     "
                 )
 
+                /*
+                |--------------------------------------------------------------------------
+                | PRIMARY: newest allocation first
+                |--------------------------------------------------------------------------
+                */
+                ->orderByDesc(
+                    'tms.teacher_subject_allocation_id'
+                )
+
+                /*
+                |--------------------------------------------------------------------------
+                | STABLE SECONDARY SORTS
+                |--------------------------------------------------------------------------
+                */
                 ->orderBy(
                     'em.display_order'
                 )
@@ -479,7 +437,7 @@ class ExamProgressController extends Controller
                     'd.display_order'
                 )
 
-                ->orderBy(
+                ->orderByDesc(
                     'tms.id'
                 )
 
@@ -492,20 +450,6 @@ class ExamProgressController extends Controller
         |--------------------------------------------------------------------------
         | LOAD MARK COUNTS
         |--------------------------------------------------------------------------
-        |
-        | Do NOT rely only on teacher_subject_allocation_id.
-        |
-        | Existing marks may have an older TSA.
-        |
-        | Therefore count marks using:
-        |
-        | Academic Year
-        | Section
-        | Standard
-        | Division
-        | Exam
-        | Subject
-        |
         */
 
         foreach ($statuses as $status) {
@@ -521,12 +465,6 @@ class ExamProgressController extends Controller
                     )
                 );
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | MARK COUNT
-            |--------------------------------------------------------------------------
-            */
 
             $markCountQuery =
                 DB::table(
@@ -558,15 +496,6 @@ class ExamProgressController extends Controller
                     (int) $status->resolved_subject_id
                 );
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SECTION
-            |--------------------------------------------------------------------------
-            |
-            | Find the section through the Teacher Class Allocation.
-            |
-            */
 
             $sectionId =
                 DB::table(

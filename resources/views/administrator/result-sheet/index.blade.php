@@ -10,99 +10,33 @@
 @php
 use App\Helpers\ResultSheetBladeHelper;
 
-$resultCollection = collect($results ?? []);
-$columnCollection = collect($displayColumns ?? []);
-$sortedResults = ResultSheetBladeHelper::getUniqueSortedStudents($resultCollection);
+$sheet = ResultSheetBladeHelper::buildSheetData([
+    'displayColumns'   => $displayColumns ?? [],
+    'results'          => $results ?? [],
+    'standard'         => $standard ?? null,
+    'classTeacher'     => $classTeacher ?? null,
+    'classTeacherName' => $classTeacherName ?? null,
+    'principal'        => $principal ?? null,
+    'principalName'    => $principalName ?? null,
+    'passPercentage'   => $passPercentage ?? null,
+]);
 
-$currentStandardId = (int) ($standard->id ?? 0);
-$resultPassingPercentage = (int) \App\Helpers\MarksHelper::getPassingPercentage($currentStandardId);
+$columnCollection         = $sheet['columns'];
+$sortedResults            = $sheet['students'];
+$currentStandardId        = $sheet['standardId'];
+$resultPassingPercentage  = (int) $sheet['passingPercentage'];
+$studentCalculations      = $sheet['calculations'];
+$displayTotalMaxMarks     = $sheet['displayTotalMaxMarks'];
+$isSeniorOptionalStandard = $sheet['isSeniorOptionalStandard'];
+$overallGradeAnalysis     = $sheet['overallGradeAnalysis'];
+$subjectAnalysis          = $sheet['subjectAnalysis'];
+$classTeacherName         = $sheet['classTeacherName'];
+$principalName            = $sheet['principalName'];
+$hasResultSheetData       = $sheet['hasData'];
 
-$studentCalculations = ResultSheetBladeHelper::buildStudentCalculations(
-    $sortedResults,
-    $columnCollection,
-    $currentStandardId,
-    $resultPassingPercentage
-);
-
-$displayTotalMaxMarks = ResultSheetBladeHelper::calculateDisplayTotalMaxMarks(
-    $columnCollection,
-    $currentStandardId
-);
-
-$isSeniorOptionalStandard = ResultSheetBladeHelper::isSeniorOptionalStandard($currentStandardId);
-
-$isSeniorOptionalColumn = fn ($column) => ResultSheetBladeHelper::isSeniorOptionalColumn($column, $currentStandardId);
-$isSeniorCompulsoryColumn = fn ($column) => ResultSheetBladeHelper::isSeniorCompulsoryColumn($column, $currentStandardId);
-
-$extractStaffName = fn ($record) => ResultSheetBladeHelper::extractStaffName($record);
-$formatStaffName = fn ($name) => ResultSheetBladeHelper::formatStaffName($name);
-
-$rawClassTeacherName = $extractStaffName($classTeacher ?? null);
-if ($rawClassTeacherName === '' && isset($classTeacherName)) {
-    $rawClassTeacherName = trim((string) $classTeacherName);
-}
-$classTeacherName = $formatStaffName($rawClassTeacherName);
-
-$rawPrincipalName = $extractStaffName($principal ?? null);
-if ($rawPrincipalName === '' && isset($principalName)) {
-    $rawPrincipalName = trim((string) $principalName);
-}
-$principalName = $formatStaffName($rawPrincipalName);
-
-$displayNumber = fn ($value) => ResultSheetBladeHelper::displayNumber($value);
-
-$analysisRanges = [
-    'A1' => '91-100%',
-    'A2' => '81-90%',
-    'B1' => '71-80%',
-    'B2' => '61-70%',
-    'C1' => '51-60%',
-    'C2' => '41-50%',
-    'D'  => '33-40%',
-    'E1' => '21-32%',
-    'E2' => '1-20%',
-    'F'  => '0%',
-];
-
-$overallGradeAnalysis = [];
-foreach ($analysisRanges as $grade => $range) {
-    $overallGradeAnalysis[$grade] = [
-        'range' => $range,
-        'girls' => 0,
-        'boys' => 0,
-        'total' => 0,
-    ];
-}
-$overallGradeAnalysis['TOTAL'] = [
-    'range' => 'TOTAL',
-    'girls' => 0,
-    'boys' => 0,
-    'total' => $sortedResults->count(),
-];
-
-foreach ($sortedResults as $student) {
-    $calc = $studentCalculations[ResultSheetBladeHelper::getStudentKey($student)] ?? null;
-    if (!$calc) continue;
-
-    $gender = strtoupper(trim((string) ($student->gender ?? $student->sex ?? '')));
-    $genderKey = in_array($gender, ['F','FEMALE','GIRL','GIRLS'], true) ? 'girls' : 'boys';
-    $grade = strtoupper(trim((string) $calc['grade']));
-
-    if (isset($overallGradeAnalysis[$grade])) {
-        $overallGradeAnalysis[$grade][$genderKey]++;
-        $overallGradeAnalysis[$grade]['total']++;
-    }
-    $overallGradeAnalysis['TOTAL'][$genderKey]++;
-}
-
-$subjectAnalysis = ResultSheetBladeHelper::calculateSubjectAnalysis(
-    $sortedResults,
-    $columnCollection,
-    $studentCalculations,
-    true
-);
-
-$hasResultSheetData = $columnCollection->count() > 0;
+$isSeniorOptionalColumn   = fn ($c) => ResultSheetBladeHelper::isSeniorOptionalColumn($c, $currentStandardId);
+$isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsoryColumn($c, $currentStandardId);
+$displayNumber            = fn ($v) => ResultSheetBladeHelper::displayNumber($v);
 @endphp
 
 <div class="erp-card no-print">
@@ -180,7 +114,7 @@ $hasResultSheetData = $columnCollection->count() > 0;
                     @foreach($columnCollection as $column)
                         @php
                             $subjectMax = (float) ($column->max_marks ?? 0);
-                            $subjectPassing = $subjectMax > 0 ? \App\Helpers\MarksHelper::getPassingMarks($currentStandardId, $subjectMax) : 0;
+                            $subjectPassing = ResultSheetBladeHelper::resolveSubjectPassing($column, $currentStandardId);
                             $subjectIsOptional = $isSeniorOptionalStandard ? $isSeniorOptionalColumn($column) : ((int) ($column->is_optional ?? 0) === 1);
                         @endphp
                         <th colspan="2">

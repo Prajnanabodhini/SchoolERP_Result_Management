@@ -2,591 +2,246 @@
 
 @section('content')
 
-<div class="erp-page">
+<style>
+    .report-card-page, .report-card-page * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    .report-card-page { max-width: 1300px; margin: 12px auto; padding: 0 12px; }
+    .rc-card { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.05); margin-bottom: 12px; }
+    .rc-title { font-size: 18px; font-weight: 700; color: #2563eb; margin: 0 0 12px; }
+    .rc-filter-bar { display: flex; align-items: flex-end; flex-wrap: nowrap; gap: 8px; padding: 10px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+    .rc-filter-bar.secondary { border-top: 0; border-bottom: 0; padding-top: 0; padding-bottom: 0; }
+    .rc-filter-group { display: flex; flex-direction: column; gap: 3px; }
+    .rc-filter-group label { font-size: 11px; font-weight: 700; color: #374151; white-space: nowrap; }
+    .rc-filter-group select, .rc-filter-group input { height: 32px; padding: 4px 8px; font-size: 12px; border: 1px solid #9ca3af; border-radius: 4px; background: #fff; }
+    .rc-filter-group select:focus, .rc-filter-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
+    .rc-filter-group select:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+    .w-ay { width: 150px; } .w-exam { width: 210px; } .w-std { width: 120px; } .w-div { width: 90px; } .w-student { width: 340px; }
+    .rc-btn { height: 32px; padding: 4px 14px; font-size: 12px; font-weight: 600; border: 0; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; white-space: nowrap; }
+    .rc-btn-green { background: #16a34a; color: #fff; } .rc-btn-green:hover { background: #15803d; }
+    .rc-btn-orange { background: #d97706; color: #fff; } .rc-btn-orange:hover { background: #b45309; }
+    .alert-error { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 8px 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; }
+    .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; }
+    .alert-success { background: #dcfce7; border: 1px solid #86efac; color: #166534; padding: 8px 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; }
+    @media print { .no-print { display: none !important; } }
+    @media (max-width: 900px) { .rc-filter-bar { flex-wrap: wrap; } .w-ay, .w-exam, .w-std, .w-div, .w-student { width: 100%; } }
+</style>
 
-    <div class="erp-card no-print">
+<div class="report-card-page">
 
-        <h2 class="text-xl font-bold text-blue-700 mb-4">
-            Student Report Card
-        </h2>
+    <div class="rc-card no-print">
 
-        
+        <h2 class="rc-title">Student Report Card</h2>
 
-<hr class="my-3">
+        @if(!empty($error))
+            <div class="alert-error">{{ $error }}</div>
+        @elseif(session('error'))
+            <div class="alert-error">{{ session('error') }}</div>
+        @endif
+        @if(session('success'))
+            <div class="alert-success">{{ session('success') }}</div>
+        @endif
 
-<div style="
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    font-size:12px;
-">
+        {{-- SEARCH FORM: Academic Year → Standard → Division → Exam --}}
+        <form method="POST" action="{{ route('report-card.search') }}" class="rc-filter-bar" id="rcSearchForm">
+            @csrf
 
-    <form method="POST"
-      action="{{ route('report-card.search') }}"
-      style="
-        display:flex;
-        align-items:center;
-        gap:6px;
-        flex-wrap:wrap;
-      ">
+            {{-- 1. Academic Year --}}
+            <div class="rc-filter-group">
+                <label>Academic Year</label>
+                <select name="academic_year_id" id="academic_year_id" class="w-ay" required>
+                    <option value="">Select</option>
+                    @foreach($academicYears as $year)
+                        <option value="{{ $year->id }}" {{ ($academic_year_id ?? '') == $year->id ? 'selected' : '' }}>
+                            {{ $year->year_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
 
-        @csrf
+            {{-- 2. Standard --}}
+            <div class="rc-filter-group">
+                <label>Standard</label>
+                <select name="standard_id" id="standard_id" class="w-std" required>
+                    <option value="">Select</option>
+                    @foreach($standards as $standard)
+                        <option value="{{ $standard->id }}" {{ ($standard_id ?? '') == $standard->id ? 'selected' : '' }}>
+                            {{ $standard->standard_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
 
-        <label>Academic Year</label>
+            {{-- 3. Division --}}
+            <div class="rc-filter-group">
+                <label>Division</label>
+                <select name="division_id" id="division_id" class="w-div" required>
+                    <option value="">Select</option>
+                    @foreach($divisions as $division)
+                        <option value="{{ $division->id }}" {{ ($division_id ?? '') == $division->id ? 'selected' : '' }}>
+                            {{ $division->division_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
 
-        <select name="academic_year_id"
-                class="border rounded px-1 py-1"
-                style="width:140px;"
-                required>
-            <option value="">Select</option>
+            {{-- 4. Exam (loaded by AJAX from Standard) --}}
+            <div class="rc-filter-group">
+                <label>Exam</label>
+                <select name="exam_master_id" id="exam_master_id" class="w-exam" required disabled>
+                    <option value="">Select Standard first</option>
+                </select>
+            </div>
 
-            @foreach($academicYears as $year)
-                <option value="{{ $year->id }}"
-                    {{ ($academic_year_id ?? '') == $year->id ? 'selected' : '' }}>
-                    {{ $year->year_name }}
-                </option>
-            @endforeach
-        </select>
+            <button type="submit" class="rc-btn rc-btn-green">Search</button>
+        </form>
 
-        <label>Exam</label>
+        {{-- STUDENT PICKER --}}
+        @if(($academic_year_id ?? '') && ($standard_id ?? '') && ($division_id ?? ''))
 
-        <select name="exam_master_id"
-                class="border rounded px-1 py-1"
-                style="width:140px;"
-                required>
-            <option value="">Select</option>
+            @if(count($students) === 0)
+                <div class="alert-info" style="margin-top:12px;">
+                    <strong>No students found</strong> for the selected Academic Year + Standard + Division.
+                </div>
+            @else
+                <div class="rc-filter-bar secondary" style="margin-top:12px;">
 
-            @foreach($exams as $exam)
-                <option value="{{ $exam->id }}"
-                    {{ ($exam_master_id ?? '') == $exam->id ? 'selected' : '' }}>
-                    {{ $exam->exam_name }}
-                </option>
-            @endforeach
-        </select>
+                    <div class="rc-filter-group">
+                        <label>Student</label>
+                        <select id="student_id" class="w-student" required>
+                            <option value="">Select Student</option>
+                            @foreach($students as $student)
+                                <option value="{{ $student->Studentid }}">
+                                    {{ $student->Studentid }} - {{ $student->studname }}{{ !empty($student->fathername) ? ' ' . $student->fathername : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-        <label>Standard</label>
+                    <button type="button" class="rc-btn rc-btn-orange" onclick="openProgressCard()">
+                        Progress Card
+                    </button>
 
-        <select name="standard_id"
-                class="border rounded px-1 py-1"
-                style="width:120px;"
-                required>
-            <option value="">Select</option>
-
-            @foreach($standards as $standard)
-                <option value="{{ $standard->id }}"
-                    {{ ($standard_id ?? '') == $standard->id ? 'selected' : '' }}>
-                    {{ $standard->standard_name }}
-                </option>
-            @endforeach
-        </select>
-
-        <label>Division</label>
-
-        <select name="division_id"
-                class="border rounded px-1 py-1"
-                style="width:90px;"
-                required>
-            <option value="">Select</option>
-
-            @foreach($divisions as $division)
-                <option value="{{ $division->id }}"
-                    {{ ($division_id ?? '') == $division->id ? 'selected' : '' }}>
-                    {{ $division->division_name }}
-                </option>
-            @endforeach
-        </select>
-
-        <button type="submit"
-                class="erp-btn erp-btn-save"
-                style="height:30px;padding:0 12px;">
-            Search
-        </button>
-
-    </form>
-
-    @if(isset($students) && count($students))
-
-    <form method="POST"
-      action="{{ route('report-card.show') }}"
-      style="
-        display:flex;
-        align-items:center;
-        gap:6px;
-        flex-wrap:wrap;
-      ">
-
-        @csrf
-
-        <input type="hidden"
-               name="academic_year_id"
-               value="{{ $academic_year_id }}">
-
-        <input type="hidden"
-               name="exam_master_id"
-               value="{{ $exam_master_id }}">
-
-        <input type="hidden"
-               name="standard_id"
-               value="{{ $standard_id }}">
-
-        <input type="hidden"
-               name="division_id"
-               value="{{ $division_id }}">
-
-        <label>Student</label>
-
-        <select name="student_id"
-                class="border rounded px-1 py-1"
-                style="width:300px;"
-                required>
-
-            <option value="">Select Student</option>
-
-            @foreach($students as $student)
-                <option value="{{ $student->Studentid }}">
-                    {{ $student->Studentid }} - {{ $student->studname }}
-                </option>
-            @endforeach
-
-        </select>
-
-        <button type="submit"
-                class="erp-btn erp-btn-add"
-                style="height:30px;padding:0 12px;">
-            View Report Card
-        </button>
-
-        @if(isset($report) && $report)
-
-        <a href="{{ route('report-card.print',[
-            'student' => $report->student_id,
-            'exam'    => $report->exam_master_id,
-            'year'    => $report->academic_year_id
-        ]) }}"
-           target="_blank"
-           class="erp-btn erp-btn-save"
-           style="
-                height:30px;
-                line-height:30px;
-                padding:0 12px;
-                text-decoration:none;
-                display:inline-block;
-           ">
-            Print Report Card
-        </a>
+                </div>
+            @endif
 
         @endif
 
-    </form>
-
-    @endif
+    </div>
 
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+(function () {
+    const aySel   = document.getElementById('academic_year_id');
+    const stdSel  = document.getElementById('standard_id');
+    const divSel  = document.getElementById('division_id');
+    const examSel = document.getElementById('exam_master_id');
+    const form    = document.getElementById('rcSearchForm');
 
-    const studentSelect =
-        document.querySelector('select[form="viewReportForm"]');
+    if (!aySel || !stdSel || !examSel || !form) return;
 
-    const hiddenStudent =
-        document.getElementById('student_id_hidden');
+    // Server-side values (used to restore state after a Search submit)
+    const preSelectedExam = "{{ $exam_master_id ?? '' }}";
+    const examsUrl        = "{{ route('report-card.exams-by-standard') }}";
+    const csrfToken       = (document.querySelector('meta[name="csrf-token"]')?.content)
+                          || document.querySelector('input[name="_token"]')?.value
+                          || '';
 
-    if(studentSelect && hiddenStudent)
-    {
-        studentSelect.addEventListener('change', function(){
-            hiddenStudent.value = this.value;
-        });
+    let requestSeq = 0; // guard against out-of-order AJAX responses
 
-        hiddenStudent.value = studentSelect.value;
+    async function loadExams(standardId, academicYearId, selectValue) {
+        if (!standardId) {
+            examSel.innerHTML = '<option value="">Select Standard first</option>';
+            examSel.disabled  = true;
+            return;
+        }
+
+        const seq = ++requestSeq;
+
+        examSel.disabled  = true;
+        examSel.innerHTML = '<option value="">Loading…</option>';
+
+        try {
+            const res = await fetch(examsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type':    'application/json',
+                    'Accept':          'application/json',
+                    'X-CSRF-TOKEN':    csrfToken,
+                    'X-Requested-With':'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    standard_id:      standardId,
+                    academic_year_id: academicYearId || null,
+                }),
+            });
+
+            if (seq !== requestSeq) return; // a newer request superseded this one
+
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const exams = await res.json();
+
+            if (!exams.length) {
+                examSel.innerHTML = '<option value="">No exams for this Standard</option>';
+                examSel.disabled  = true;
+                return;
+            }
+
+            let html = '<option value="">Select</option>';
+            exams.forEach(function (e) {
+                const isSel = String(selectValue) === String(e.id) ? ' selected' : '';
+                const name  = String(e.exam_name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += '<option value="' + e.id + '"' + isSel + '>' + name + '</option>';
+            });
+            examSel.innerHTML = html;
+            examSel.disabled  = false;
+
+        } catch (err) {
+            if (seq !== requestSeq) return;
+            console.error('Exam load failed:', err);
+            examSel.innerHTML = '<option value="">Error loading exams</option>';
+            examSel.disabled  = true;
+        }
     }
-});
+
+    // User changes Standard → reload exams, clear previous selection
+    stdSel.addEventListener('change', function () {
+        loadExams(stdSel.value, aySel.value, '');
+    });
+
+    // User changes Academic Year → reload exams (exams may be year-scoped)
+    aySel.addEventListener('change', function () {
+        if (stdSel.value) loadExams(stdSel.value, aySel.value, '');
+    });
+
+    // Block submit if no exam selected (disabled required attribute is ignored)
+    form.addEventListener('submit', function (e) {
+        if (!examSel.value) {
+            e.preventDefault();
+            alert('Please select an Exam.');
+            return;
+        }
+    });
+
+    // On page load after a Search submit → repopulate exams and reselect old value
+    if (stdSel.value) {
+        loadExams(stdSel.value, aySel.value, preSelectedExam);
+    }
+})();
+
+function openProgressCard()
+{
+    const select = document.getElementById('student_id');
+    if (!select || !select.value) {
+        alert('Please select a Student first.');
+        return;
+    }
+    const studentId = encodeURIComponent(select.value);
+    const examId    = "{{ $exam_master_id ?? '' }}";
+    const yearId    = "{{ $academic_year_id ?? '' }}";
+    if (!examId || !yearId) { alert('Exam or Academic Year is missing.'); return; }
+    const url = "{{ url('report-card/progress-card') }}/" + studentId + "/" + examId + "/" + yearId;
+    window.open(url, '_blank');
+}
 </script>
 
-@if(isset($report) && $report)
-<div style="
-    border:2px solid #000;
-    padding:10px;
-    margin-top:10px;
-">
-<div id="report-card-print">
-
-{{-- <div class="erp-card mt-4"> --}}
-
-    <div class="flex items-center justify-center gap-4">
-{{-- 
-    <img src="{{ asset('images/school-logo.png') }}"
-         alt="School Logo"
-         style="height:80px;width:auto;">
-
-    <div class="text-center">
-
-        <h2 class="text-2xl font-bold">
-            PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE
-        </h2>
-
-        <h3 class="text-lg font-semibold">
-            SHIRGAON / CHIKHALI
-        </h3> --}}
-
-        <hr style="
-    border:1px solid #000;
-    margin-top:8px;
-    margin-bottom:8px;
-">
-
-<h3 style="
-    font-size:20px;
-    font-weight:bold;
-    color:#000;
-    text-align:center;
-">
-    REPORT CARD
-</h3>
-
-    {{-- </div> --}}
-    </div>
-    {{-- <hr class="my-4"> --}}
-
-    <div style="
-    border:1px solid #000;
-    padding:4px;
-    margin-top:4px;
-">
-
-    <table
-    class="w-full"
-    style="
-        font-size:14px;
-        border-collapse:collapse;
-    ">
-
-        <tr>
-            <td width="18%">
-                <span style="font-weight:bold;color:#000;">
-    Student ID :
-</span>
-            </td>
-            <td width="32%">
-                {{ $report->student_id }}
-            </td>
-
-            <td width="18%">
-                <strong>Roll No :</strong>
-            </td>
-            <td width="32%">
-                {{ $report->rollno }}
-            </td>
-        </tr>
-
-        <tr>
-            <td>
-                <span style="font-weight:bold;color:#000;">
-    Student Name :
-</span>
-                
-            </td>
-            <td>
-                {{ $report->full_student_name }}
-            </td>
-
-            <td>
-                <strong>Academic Year :</strong>
-            </td>
-            <td>
-                {{ $report->year_name }}
-            </td>
-        </tr>
-
-        <tr>
-            <td>
-                <span style="font-weight:bold;color:#000;">
-    Exam :
-</span>
-            </td>
-            <td>
-                {{ $report->exam_name }}
-            </td>
-
-            <td>
-                <strong>Rank :</strong>
-            </td>
-            <td>
-                {{ $report->rank }}
-            </td>
-        </tr>
-
-        <tr>
-            <td>
-                <span style="font-weight:bold;color:#000;">
-    Standard :
-</span>
-            </td>
-            <td>
-                {{ $report->standard_name }}
-            </td>
-
-            <td>
-                <strong>Division :</strong>
-            </td>
-            <td>
-                {{ $report->division_name }}
-            </td>
-        </tr>
-
-    </table>
-
-</div>
-
-       
-
-        <hr class="my-4">
-
-    <table
-    class="w-full report-table"
-    style="
-        border-collapse:collapse;
-        border:1px solid #000;
-    ">
-
-        <thead>
-<tr>
-    <th style="border:1px solid #000;padding:4px;" text-center">Sr</th>
-    <th style="border:1px solid #000;padding:4px;"" style="text-align:left;">Subject</th>
-    <th style="border:1px solid #000;padding:4px;" text-center">Max Marks</th>
-    <th style="border:1px solid #000;padding:4px;" text-center">Passing</th>
-    <th style="border:1px solid #000;padding:4px;" text-center">Obtained</th>    
-    <th style="border:1px solid #000;padding:4px;" text-center">Result</th>
-</tr>
-</thead>
-        <tbody>
-
-@foreach($subjects as $index => $subject)
-
-<tr>
-
-    <td style="border:1px solid #000;padding:4px;text-align:center;">
-        {{ $index + 1 }}
-    </td>
-
-    <td style="border:1px solid #000;padding:4px;" text-left">
-        {{ $subject->subject_name }}
-    </td>
-
-    <td style="border:1px solid #000;padding:4px;text-align:center;">
-    {{ $subject->max_marks }}
-</td>
-
-<td style="border:1px solid #000;padding:4px;text-align:center;">
-    {{ $subject->passing_marks }}
-</td>
-
-<td style="border:1px solid #000;padding:4px;text-align:center;">
-    {{ $subject->obtained_marks }}
-</td>
-
-<td style="border:1px solid #000;padding:4px;text-align:center;">
-    {{ $subject->subject_result }}
-</td>
-</tr>
-
-@endforeach
-
-</tbody>
-    </table>
-
-    <hr class="my-4">
-
-    <div class="grid grid-cols-2 gap-3">
-@php
-
-$totalMaxMarks =
-    $subjects->sum('max_marks');
-
-$totalObtainedMarks =
-    $subjects->sum('obtained_marks');
-
-$percentage =
-    $totalMaxMarks > 0
-    ? round(
-        ($totalObtainedMarks * 100)
-        / $totalMaxMarks,
-        2
-      )
-    : 0;
-
-@endphp
-    </div>
-<div></div>
-<div class="flex items-left justify-left gap-4">
-        <div class="flex items-left justify-left gap-4">
-            <strong>Total Marks :</strong>
-            {{ number_format($totalMaxMarks,2) }}
-        </div>
-
-        <div>
-            <strong>Total Obtained Marks :</strong>
-            {{ number_format($totalObtainedMarks,2) }}
-        </div>
-
-        <div>
-            <strong>Percentage :</strong>
-            {{ number_format($percentage,2) }} %
-        </div>
-
-        <div>
-            <strong>Grade :</strong>
-            {{ $report->grade }}
-        </div>
-
-        <div>
-            <strong>Result :</strong>
-
-            @if($report->result == 'PASS')
-
-                <span class="text-green-700 font-bold">
-                    PASS
-                </span>
-
-            @else
-
-                <span class="text-red-700 font-bold">
-                    FAIL
-                </span>
-
-            @endif
-
-        </div>
-
-    </div>
-    </div>
-    <div style="margin-top:20px;" class="flex justify-center gap-20">
-
-    <div class="text-center">
-        <div style="width:180px;">
-            _____________________
-        </div>
-        <div class="mt-2 font-semibold">
-            Class Teacher
-        </div>
-    </div>
-
-    <div class="text-center">
-        <div style="width:180px;">
-            _____________________
-        </div>
-        <div class="mt-2 font-semibold">
-            Principal
-        </div>
-    </div>
-
-</div>
-</div>
-</div>
-@endif
-
-</div>
-
 @endsection
-
-<style>
-
-@media print
-{
-    /* nav,
-    .no-print,
-    .bg-blue-100,
-    .school-header
-    {
-        display:none !important;
-    } */
-    main
-    {
-        min-height:auto !important;
-        height:auto !important;
-        padding:0 !important;
-        margin:0 !important;
-    }
-    #report-card-print
-    {
-        margin:0 !important;
-        padding:0 !important;
-        page-break-after:avoid !important;
-    }
-    @page
-    {
-        size:A4 portrait;
-        margin:8mm;
-    }
-.report-table td,
-.report-table th
-{
-    font-size:14px;
-}
-    nav,
-    .no-print
-    {
-        display:none !important;
-    }
-
-    html,
-    body
-    {
-        background:#fff !important;
-        overflow:visible !important;
-        height:auto !important;
-        margin:0 !important;
-        padding:0 !important;
-        font-size:12px !important;
-    }
-
-    .erp-page,
-    .erp-card
-    {
-        margin:0 !important;
-        padding:0 !important;
-        border:none !important;
-        box-shadow:none !important;
-        overflow:visible !important;
-        height:auto !important;
-    }
-
-    table
-    {
-        page-break-inside:auto;
-    }
-
-    tr
-    {
-        page-break-inside:avoid;
-    }
-
-    th,
-    td
-    {
-        padding:2px !important;
-    }
-
-    hr
-    {
-        margin:5px 0 !important;
-    }
-
-    .mt-20
-    {
-        margin-top:30px !important;
-    }
-
-    .mt-4
-    {
-        margin-top:5px !important;
-    }
-
-    .my-4
-    {
-        margin-top:5px !important;
-        margin-bottom:5px !important;
-    }
-}
-
-</style>

@@ -4,12 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
+use App\Models\AcademicYear;
 use App\Models\Standard;
 use App\Models\Division;
 use App\Models\Subject;
 use App\Models\StudentSkillSubject;
-use App\Models\AcademicYear;
 use App\Helpers\StudentHelper;
 
 class StudentSkillSubjectController extends Controller
@@ -17,164 +16,112 @@ class StudentSkillSubjectController extends Controller
     public function index(Request $request)
     {
         $academicYears = AcademicYear::orderByDesc('year_name')->get();
-
-        $standards = Standard::where('is_active', 1)
-            ->orderBy('display_order')
-            ->get();
-
-        $divisions = Division::where('is_active', 1)
-            ->orderBy('division_name')
-            ->get();
+        $standards     = Standard::where('is_active', 1)->orderBy('display_order')->get();
+        $divisions     = Division::where('is_active', 1)->orderBy('division_name')->get();
 
         $students = collect();
 
-        $skillSubjects = collect();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Skill Subjects
-        |--------------------------------------------------------------------------
-        */
-
-        if ($request->standard_id) {
-
-            $skillSubjects = Subject::join(
-                'standard_subjects',
-                'subjects.id',
-                '=',
-                'standard_subjects.subject_id'
-            )
-            ->where(
-                'standard_subjects.standard_id',
-                $request->standard_id
-            )
-            ->where(
-                'subjects.subject_type_id',
-                2
-            )
-            ->where(
-                'subjects.is_active',
-                1
-            )
-            ->select('subjects.*')
-            ->orderBy('subjects.subject_name')
+        // Global fetch: Skill (2) + Co-Scholastic (3) Subjects
+        $skillSubjects = Subject::whereIn('subject_type_id', [2, 3])
+            ->where('is_active', 1)
+            ->orderBy('subject_name')
             ->get();
-        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Students
-        |--------------------------------------------------------------------------
-        */
-
+        // Fetch students for MULTIPLE standards + divisions
         if (
             $request->filled('academic_year_id') &&
-            $request->filled('standard_id') &&
-            $request->filled('division_id')
+            $request->filled('standard_ids') &&
+            $request->filled('division_ids')
         ) {
-
-            $academicYear = AcademicYear::find(
-                $request->academic_year_id
-            );
+            $academicYear = AcademicYear::find($request->academic_year_id);
 
             if ($academicYear) {
+                $yearId = $academicYear->old_year_id ?? substr($academicYear->year_name, 0, 4);
 
-                /*
-                |--------------------------------------------------------------------------
-                | ERP Year
-                |--------------------------------------------------------------------------
-                */
+                // Build lookup maps for names
+                $standardMap = $standards->pluck('standard_name', 'id');
+                $divisionMap = $divisions->pluck('division_name', 'id');
 
-                $yearId =
-                    $academicYear->old_year_id
-                    ?? substr(
-                        $academicYear->year_name,
-                        0,
-                        4
-                    );
+                // Loop through every Standard × Division combination
+                foreach ($request->standard_ids as $stdId) {
+                    foreach ($request->division_ids as $divId) {
+                        $classStudents = StudentHelper::getStudentsDirectERP(
+                            $yearId,
+                            $stdId,
+                            $divId
+                        );
 
-                /*
-                |--------------------------------------------------------------------------
-                | Load Students From Old ERP
-                |--------------------------------------------------------------------------
-                */
+                        // Attach class info + roll number logic is already inside helper
+                        foreach ($classStudents as $s) {
+                            $s->class_standard_id = $stdId;
+                            $s->class_division_id = $divId;
+                            $s->class_label = ($standardMap[$stdId] ?? '') . ' - ' . ($divisionMap[$divId] ?? '');
+                        }
 
-                $students =
-                    StudentHelper::getStudentsDirectERP(
-                        $yearId,
-                        $request->standard_id,
-                        $request->division_id
-                    );
+                        $students = $students->merge($classStudents);
+                    }
+                }
 
-                /*
-                |--------------------------------------------------------------------------
-                | Load Saved Skill Subject
-                |--------------------------------------------------------------------------
-                */
+                // Fetch existing allocations in one query
+                if ($students->isNotEmpty()) {
+                    $studentIds = $students->pluck('Studentid')->toArray();
 
-                foreach ($students as $student) {
+                    $allocations = StudentSkillSubject::where('academic_year_id', $academicYear->id)
+                        ->whereIn('student_id', $studentIds)
+                        ->pluck('subject_id', 'student_id');
 
-                    $student->selected_subject =
-                        StudentSkillSubject::where(
-                            'academic_year_id',
-                            $academicYear->id
-                        )
-                        ->where(
-                            'student_id',
-                            $student->Studentid
-                        )
-                        ->value('subject_id');
+                    foreach ($students as $student) {
+                        $student->selected_subject = $allocations[$student->Studentid] ?? null;
+                    }
                 }
             }
         }
 
-        return view(
-            'student-skill-subjects.index',
-            compact(
-                'academicYears',
-                'standards',
-                'divisions',
-                'students',
-                'skillSubjects'
-            )
-        );
+        return view('student-skill-subjects.index', compact(
+            'academicYears', 'standards', 'divisions', 'students', 'skillSubjects'
+        ));
     }
 
     public function save(Request $request)
     {
-        $request->validate([
-            'academic_year_id' => 'required'
-        ]);
+        $request->validate(['academic_year_id' => 'required']);
+        $academicYearId = $request->academic_year_id;
 
-        $academicYearId =
-            $request->academic_year_id;
-
-        foreach (
-            $request->skill_subject ?? []
-            as $studentId => $subjectId
-        ) {
-
-            if (!$subjectId) {
-                continue;
-            }
+        foreach ($request->skill_subject ?? [] as $studentId => $subjectId) {
+            if (!$subjectId) continue;
 
             StudentSkillSubject::updateOrCreate(
-                [
-                    'academic_year_id' => $academicYearId,
-                    'student_id'       => $studentId
-                ],
-                [
-                    'subject_id' => $subjectId,
-                    'updated_by' => Auth::id()
-                ]
+                ['academic_year_id' => $academicYearId, 'student_id' => $studentId],
+                ['subject_id' => $subjectId, 'updated_by' => Auth::id()]
             );
         }
 
-        return redirect()
-            ->back()
-            ->with(
-                'success',
-                'Skill Subject Allocation Saved Successfully'
+        return redirect()->back()->with('success', 'Skill Subject Allocation Saved Successfully');
+    }
+
+    /**
+     * BULK ALLOCATION: Assign one skill subject to ALL loaded students in one click.
+     */
+    public function bulkAllocate(Request $request)
+    {
+        $request->validate([
+            'academic_year_id' => 'required',
+            'subject_id'       => 'required',
+            'student_ids'      => 'required|array',
+        ]);
+
+        $academicYearId = $request->academic_year_id;
+        $subjectId      = $request->subject_id;
+        $count          = 0;
+
+        foreach ($request->student_ids as $studentId) {
+            StudentSkillSubject::updateOrCreate(
+                ['academic_year_id' => $academicYearId, 'student_id' => $studentId],
+                ['subject_id' => $subjectId, 'updated_by' => Auth::id()]
             );
+            $count++;
+        }
+
+        return redirect()->back()->with('success', "{$count} students allocated successfully.");
     }
 }

@@ -92,176 +92,102 @@ class TeacherBulkHelper
     }
 
     public static function resolveSubject($incomingSubjectId, $standardId, $examMasterId): ?array
-{
-    $incomingSubjectId = (int) $incomingSubjectId;
-    $standardId = (int) $standardId;
-    $examMasterId = (int) $examMasterId;
+    {
+        $incomingSubjectId = (int) $incomingSubjectId;
+        $standardId = (int) $standardId;
+        $examMasterId = (int) $examMasterId;
 
-    if (
-        $incomingSubjectId <= 0 ||
-        $standardId <= 0 ||
-        $examMasterId <= 0
-    ) {
-        return null;
-    }
+        if (
+            $incomingSubjectId <= 0 ||
+            $standardId <= 0 ||
+            $examMasterId <= 0
+        ) {
+            return null;
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | EXAM
-    |--------------------------------------------------------------------------
-    */
+        $exam = ExamMaster::find($examMasterId);
 
-    $exam = ExamMaster::find($examMasterId);
+        if (!$exam) {
+            return null;
+        }
 
-    if (!$exam) {
-        return null;
-    }
+        if (
+            $exam->standard_id &&
+            (int) $exam->standard_id !== $standardId
+        ) {
+            return null;
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STANDARD MUST MATCH EXAM
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $exam->standard_id &&
-        (int) $exam->standard_id !== $standardId
-    ) {
-        return null;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 1. TRY STANDARD-WISE MAPPING BY MASTER SUBJECT ID
-    |--------------------------------------------------------------------------
-    */
-
-    $standardSubject = DB::table('standard_wise_subjects as sws')
-        ->where('sws.standard_id', $standardId)
-        ->where('sws.subject_id', $incomingSubjectId)
-        ->where('sws.is_active', 1)
-        ->first();
-
-    /*
-    |--------------------------------------------------------------------------
-    | 2. TRY LEGACY STANDARD-WISE MAPPING ID
-    |--------------------------------------------------------------------------
-    */
-
-    if (!$standardSubject) {
         $standardSubject = DB::table('standard_wise_subjects as sws')
             ->where('sws.standard_id', $standardId)
-            ->where('sws.id', $incomingSubjectId)
+            ->where('sws.subject_id', $incomingSubjectId)
             ->where('sws.is_active', 1)
             ->first();
-    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | 3. DIRECT MASTER SUBJECT ID
-    |--------------------------------------------------------------------------
-    |
-    | Blade submits subjects.id.
-    | Therefore Subject ID 10 is valid when subjects.id = 10
-    | and that subject is attached to the selected Exam.
-    |
-    */
+        if (!$standardSubject) {
+            $standardSubject = DB::table('standard_wise_subjects as sws')
+                ->where('sws.standard_id', $standardId)
+                ->where('sws.id', $incomingSubjectId)
+                ->where('sws.is_active', 1)
+                ->first();
+        }
 
-    $subject = null;
+        $subject = null;
 
-    if ($standardSubject) {
+        if ($standardSubject) {
 
-        $subject = Subject::where('id', $standardSubject->subject_id)
-            ->where('is_active', 1)
-            ->first();
+            $subject = Subject::where('id', $standardSubject->subject_id)
+                ->where('is_active', 1)
+                ->first();
 
-    } else {
+        } else {
 
-        /*
-        |--------------------------------------------------------------------------
-        | DIRECT SUBJECT MASTER FALLBACK
-        |--------------------------------------------------------------------------
-        */
+            $subject = Subject::where('id', $incomingSubjectId)
+                ->where('is_active', 1)
+                ->first();
 
-        $subject = Subject::where('id', $incomingSubjectId)
-            ->where('is_active', 1)
-            ->first();
+            if (!$subject) {
+                return null;
+            }
+
+            $standardSubject = DB::table('standard_wise_subjects as sws')
+                ->where('sws.standard_id', $standardId)
+                ->where('sws.subject_id', $subject->id)
+                ->where('sws.is_active', 1)
+                ->first();
+        }
 
         if (!$subject) {
             return null;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | CREATE A STANDARD-WISE OBJECT ONLY FOR RESOLUTION
-        |--------------------------------------------------------------------------
-        |
-        | We do not write anything to database here.
-        |
-        */
-
-        $standardSubject = DB::table('standard_wise_subjects as sws')
-            ->where('sws.standard_id', $standardId)
-            ->where('sws.subject_id', $subject->id)
-            ->where('sws.is_active', 1)
+        $examSubject = ExamMasterSubject::where('exam_master_id', $examMasterId)
+            ->where('subject_id', $subject->id)
             ->first();
+
+        if (!$examSubject && $standardSubject) {
+
+            $examSubject = ExamMasterSubject::where(
+                    'exam_master_id',
+                    $examMasterId
+                )
+                ->where(
+                    'subject_id',
+                    $standardSubject->id
+                )
+                ->first();
+        }
+
+        if (!$examSubject) {
+            return null;
+        }
+
+        return [
+            'subject' => $subject,
+            'examSubject' => $examSubject,
+            'standardSubject' => $standardSubject,
+        ];
     }
-
-    if (!$subject) {
-        return null;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | EXAM SUBJECT MUST CONTAIN THE SAME MASTER SUBJECT
-    |--------------------------------------------------------------------------
-    */
-
-    $examSubject = ExamMasterSubject::where('exam_master_id', $examMasterId)
-        ->where('subject_id', $subject->id)
-        ->first();
-
-    /*
-    |--------------------------------------------------------------------------
-    | LEGACY EXAM MAPPING SUPPORT
-    |--------------------------------------------------------------------------
-    */
-
-    if (!$examSubject && $standardSubject) {
-
-        $examSubject = ExamMasterSubject::where(
-                'exam_master_id',
-                $examMasterId
-            )
-            ->where(
-                'subject_id',
-                $standardSubject->id
-            )
-            ->first();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | SUBJECT IS NOT PART OF SELECTED EXAM
-    |--------------------------------------------------------------------------
-    */
-
-    if (!$examSubject) {
-        return null;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | RETURN RESOLVED DATA
-    |--------------------------------------------------------------------------
-    */
-
-    return [
-        'subject' => $subject,
-        'examSubject' => $examSubject,
-        'standardSubject' => $standardSubject,
-    ];
-}
 
     public static function getExamMappedSubjects($examMasterId, $standardId = null): Collection
     {
@@ -511,7 +437,6 @@ class TeacherBulkHelper
         }
     }
 
-    /* Exam is authoritative; the request academic_year_id is intentionally ignored. */
     public static function validateExamYear($exam, $academicYearId = null): ?string
     {
         if (!$exam->academic_year_id) {
@@ -548,12 +473,33 @@ class TeacherBulkHelper
         ]);
     }
 
-    public static function ensureTeacherMarksStatus($tsa, $request, $exam, $standard, $division, $subject)
-    {
-        $status = TeacherMarksStatus::where('teacher_subject_allocation_id', $tsa->id)->first();
-        if ($status) return $status;
+    public static function ensureTeacherMarksStatus(
+        $tsa,
+        $request,
+        $exam,
+        $standard,
+        $division,
+        $subject
+    ) {
+        $status = TeacherMarksStatus::where(
+                'teacher_subject_allocation_id',
+                $tsa->id
+            )
+            ->where('exam_master_id', $exam->id)
+            ->first();
 
-        return self::createTeacherMarksStatus($tsa, $request, $exam, $standard, $division, $subject);
+        if ($status) {
+            return $status;
+        }
+
+        return self::createTeacherMarksStatus(
+            $tsa,
+            $request,
+            $exam,
+            $standard,
+            $division,
+            $subject
+        );
     }
 
     public static function tsaRepresentsSubject($tsa, $actualSubjectId, $standardId): bool
@@ -574,6 +520,144 @@ class TeacherBulkHelper
         return $mapping && (int) $mapping->subject_id === $actualSubjectId;
     }
 
+    /**
+     * Ensure a TeacherSubjectAllocation exists for
+     * (class allocation, subject, exam).
+     *
+     * After the schema change:
+     *     uk_teacher_subject (teacher_class_allocation_id, subject_id, exam_master_id)
+     *
+     * each exam gets its own TSA row for the same class+subject.
+     */
+    public static function ensureSubjectAllocation(
+        $allocation,
+        $exam,
+        $standard,
+        $division,
+        $subject,
+        $request
+    ): TeacherSubjectAllocation {
+
+        $legacySubjectIds = DB::table('standard_wise_subjects')
+            ->where('standard_id', $standard->id)
+            ->where('subject_id', $subject->id)
+            ->where('is_active', 1)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Lookup scoped to (class allocation, subject, exam)
+        |--------------------------------------------------------------------------
+        */
+        $existing = TeacherSubjectAllocation::where(
+                'teacher_class_allocation_id',
+                $allocation->id
+            )
+            ->where('exam_master_id', $exam->id)
+            ->where(function ($q) use ($subject, $legacySubjectIds) {
+
+                $q->where('subject_id', $subject->id);
+
+                if (!empty($legacySubjectIds)) {
+                    $q->orWhereIn('subject_id', $legacySubjectIds);
+                }
+            })
+            ->orderBy('id')
+            ->first();
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2. Legacy orphan fallback
+        |--------------------------------------------------------------------------
+        */
+        if (!$existing) {
+
+            $existing = TeacherSubjectAllocation::where(
+                    'teacher_class_allocation_id',
+                    $allocation->id
+                )
+                ->where('exam_master_id', $exam->id)
+                ->get()
+                ->first(fn ($tsa) =>
+                    self::tsaRepresentsSubject(
+                        $tsa,
+                        $subject->id,
+                        $standard->id
+                    )
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Reuse existing TSA for this exam
+        |--------------------------------------------------------------------------
+        */
+        if ($existing) {
+
+            self::ensureTeacherMarksStatus(
+                $existing,
+                $request,
+                $exam,
+                $standard,
+                $division,
+                $subject
+            );
+
+            return $existing;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 4. Insert new TSA for this exam — with race-condition safety net
+        |--------------------------------------------------------------------------
+        */
+        try {
+
+            $tsa = TeacherSubjectAllocation::create([
+                'teacher_class_allocation_id' => $allocation->id,
+                'subject_id'                  => $subject->id,
+                'exam_master_id'              => $exam->id,
+            ]);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+
+            $isUniqueViolation =
+                str_contains($e->getMessage(), 'uk_teacher_subject')
+                || str_contains($e->getMessage(), '1062')
+                || (int) $e->getCode() === 23000;
+
+            if (!$isUniqueViolation) {
+                throw $e;
+            }
+
+            $tsa = TeacherSubjectAllocation::where(
+                    'teacher_class_allocation_id',
+                    $allocation->id
+                )
+                ->where('exam_master_id', $exam->id)
+                ->where('subject_id', $subject->id)
+                ->orderBy('id')
+                ->first();
+
+            if (!$tsa) {
+                throw $e;
+            }
+        }
+
+        self::createTeacherMarksStatus(
+            $tsa,
+            $request,
+            $exam,
+            $standard,
+            $division,
+            $subject
+        );
+
+        return $tsa;
+    }
+
     public static function store(Request $request): void
     {
         $exam = ExamMaster::findOrFail($request->exam_master_id);
@@ -582,27 +666,32 @@ class TeacherBulkHelper
             throw new \Exception('Selected Exam does not have an Academic Year assigned.');
         }
 
-        /* IMPORTANT: Exam determines the Academic Year. */
         $request->merge([
             'academic_year_id' => (int) $exam->academic_year_id,
         ]);
 
         foreach ($request->rows as $row) {
+
             foreach ($row['standards'] as $standardId) {
+
                 $standard = Standard::findOrFail($standardId);
+
                 $standardError = self::validateExamStandard($exam, $standard);
-                if ($standardError) throw new \Exception($standardError);
+                if ($standardError) {
+                    throw new \Exception($standardError);
+                }
 
                 foreach ($row['divisions'] as $divisionId) {
+
                     $division = Division::findOrFail($divisionId);
 
                     $allocation = TeacherClassAllocation::firstOrCreate(
                         [
-                            'user_id' => $request->user_id,
+                            'user_id'          => $request->user_id,
                             'academic_year_id' => (int) $exam->academic_year_id,
-                            'section_id' => $standard->section_id,
-                            'standard_id' => $standard->id,
-                            'division_id' => $division->id,
+                            'section_id'       => $standard->section_id,
+                            'standard_id'      => $standard->id,
+                            'division_id'      => $division->id,
                         ],
                         [
                             'is_class_teacher' => !empty($row['is_class_teacher']),
@@ -612,30 +701,29 @@ class TeacherBulkHelper
                     self::assertAllocationYear($allocation, $exam);
 
                     foreach ($row['subjects'] as $subjectId) {
-                        $resolved = self::resolveSubject($subjectId, $standard->id, $exam->id);
+
+                        $resolved = self::resolveSubject(
+                            $subjectId,
+                            $standard->id,
+                            $exam->id
+                        );
+
                         if (!$resolved) {
-                            throw new \Exception("Subject ID {$subjectId} is not valid for {$standard->standard_name} and selected Exam.");
+                            throw new \Exception(
+                                "Subject ID {$subjectId} is not valid for {$standard->standard_name} and selected Exam."
+                            );
                         }
 
                         $subject = $resolved['subject'];
 
-                        $existing = TeacherSubjectAllocation::where('teacher_class_allocation_id', $allocation->id)
-                            ->where('exam_master_id', $exam->id)
-                            ->get()
-                            ->first(fn ($tsa) => self::tsaRepresentsSubject($tsa, $subject->id, $standard->id));
-
-                        if ($existing) {
-                            self::ensureTeacherMarksStatus($existing, $request, $exam, $standard, $division, $subject);
-                            continue;
-                        }
-
-                        $tsa = TeacherSubjectAllocation::create([
-                            'teacher_class_allocation_id' => $allocation->id,
-                            'subject_id' => $subject->id,
-                            'exam_master_id' => $exam->id,
-                        ]);
-
-                        self::createTeacherMarksStatus($tsa, $request, $exam, $standard, $division, $subject);
+                        self::ensureSubjectAllocation(
+                            $allocation,
+                            $exam,
+                            $standard,
+                            $division,
+                            $subject,
+                            $request
+                        );
                     }
                 }
             }
@@ -729,7 +817,6 @@ class TeacherBulkHelper
             throw new \Exception('Selected Exam does not have an Academic Year assigned.');
         }
 
-        /* IMPORTANT: Exam determines the Academic Year. */
         $request->merge([
             'academic_year_id' => (int) $exam->academic_year_id,
         ]);
@@ -794,28 +881,20 @@ class TeacherBulkHelper
 
             self::assertAllocationYear($target, $exam);
 
-            $existing = TeacherSubjectAllocation::where('teacher_class_allocation_id', $target->id)
-                ->where('exam_master_id', $exam->id)->get();
-
             foreach ($selectedSubjectIds as $selectedSubjectId) {
                 $resolved = $resolvedSubjects->get((int) $selectedSubjectId);
                 if (!$resolved) continue;
 
                 $subject = $resolved['subject'];
-                $existingTsa = $existing->first(fn ($tsa) => self::tsaRepresentsSubject($tsa, $subject->id, $standard->id));
 
-                if ($existingTsa) {
-                    self::ensureTeacherMarksStatus($existingTsa, $request, $exam, $standard, $division, $subject);
-                    continue;
-                }
-
-                $tsa = TeacherSubjectAllocation::create([
-                    'teacher_class_allocation_id' => $target->id,
-                    'subject_id' => $subject->id,
-                    'exam_master_id' => $exam->id,
-                ]);
-
-                self::createTeacherMarksStatus($tsa, $request, $exam, $standard, $division, $subject);
+                self::ensureSubjectAllocation(
+                    $target,
+                    $exam,
+                    $standard,
+                    $division,
+                    $subject,
+                    $request
+                );
             }
         });
     }

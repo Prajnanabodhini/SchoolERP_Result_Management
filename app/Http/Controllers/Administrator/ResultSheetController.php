@@ -208,53 +208,83 @@ class ResultSheetController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function exportExcel(
-        Request $request
-    ) {
-        $request->validate([
-            'academic_year_id' =>
-                'required|integer',
+    /**
+ * Export the exact print page as an Excel file.
+ * Reuses the existing print() method so nothing else changes.
+ */
+public function exportExcel(Request $request)
+{
+    // 1) Reuse your existing print() method — same data, same blade
+    $printResponse = $this->print($request);
 
-            'exam_master_id' =>
-                'required|integer',
-
-            'division_id' =>
-                'required|integer',
-        ]);
-
-
-        $data =
-            $this->build($request);
-
-
-        if (
-            !empty($data['error'])
-        ) {
-
-            return redirect()
-                ->route(
-                    'result-sheet.index'
-                )
-                ->with(
-                    'error',
-                    $data['error']
-                );
-        }
-
-
-        $viewData =
-            $data['viewData'];
-
-
-        $this->attachAnalysis(
-            $viewData
-        );
-
-
-        return $this->makeExcelResponse(
-            $viewData
-        );
+    if ($printResponse instanceof \Illuminate\View\View) {
+        $html = $printResponse->render();
+    } elseif ($printResponse instanceof \Illuminate\Http\Response
+           || $printResponse instanceof \Symfony\Component\HttpFoundation\Response) {
+        $html = $printResponse->getContent();
+    } else {
+        $html = (string) $printResponse;
     }
+
+    // 2) Remove the on-screen control buttons completely
+    $html = preg_replace(
+        '/<div[^>]*class="[^"]*print-controls[^"]*"[^>]*>.*?<\/div>/is',
+        '',
+        $html,
+        1
+    );
+
+    // 3) Inject Excel-specific meta + hide anything with .no-print
+    $excelHead = <<<HTML
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!--[if gte mso 9]>
+<xml>
+    <x:ExcelWorkbook>
+        <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+                <x:Name>Result Sheet</x:Name>
+                <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                    <x:PageSetup>
+                        <x:Layout x:Orientation="Landscape"/>
+                        <x:PageMargins x:Bottom="0.3" x:Left="0.3" x:Right="0.3" x:Top="0.3"/>
+                    </x:PageSetup>
+                </x:WorksheetOptions>
+            </x:ExcelWorksheet>
+        </x:ExcelWorksheets>
+    </x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+    .no-print,
+    .print-controls,
+    .print-button,
+    .excel-button,
+    .close-button { display: none !important; }
+
+    /* keep text cells as text (prevents Excel from turning 001 into 1) */
+    td, th { mso-number-format:"\@"; }
+</style>
+HTML;
+
+    // 4) Insert the Excel meta right before </head>
+    if (stripos($html, '</head>') !== false) {
+        $html = preg_replace('/<\/head>/i', $excelHead . '</head>', $html, 1);
+    } else {
+        // fallback: prepend if no </head>
+        $html = $excelHead . $html;
+    }
+
+    // 5) Send the file as .xls (HTML-based Excel — preserves the exact print layout)
+    $fileName = 'result_sheet_' . date('Ymd_His') . '.xls';
+
+    return response($html, 200, [
+        'Content-Type'        => 'application/vnd.ms-excel; charset=utf-8',
+        'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        'Cache-Control'       => 'max-age=0',
+        'Pragma'              => 'public',
+    ]);
+}
 
 
     /*

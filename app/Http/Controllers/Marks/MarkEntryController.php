@@ -970,60 +970,113 @@ class MarkEntryController extends Controller
                         . '. Please configure this subject in Exam Master.';
                 }
 
+
                 /*
                 |--------------------------------------------------------------------------
                 | COMPONENTS
                 |--------------------------------------------------------------------------
+                |
+                | Term 1 / Term 2 use the dedicated term assessment method.
+                |
+                | Unit Test 1 and all other exams continue to use
+                | getComponentMaxMarks().
+                |
                 */
 
-                $componentData =
-                    MarksHelper::getComponentMaxMarks(
-                        $exam,
-                        $subjectConfig
-                    );
+                if (
+                    MarksHelper::isTermExam(
+                        $exam->exam_name ?? ''
+                    )
+                ) {
+
+                    $componentData =
+                        MarksHelper::getTermAssessmentStructure(
+                            $exam,
+                            $subjectConfig,
+                            $allocation->standard_id
+                        );
+
+                } else {
+
+                    $componentData =
+                        MarksHelper::getComponentMaxMarks(
+                            $exam,
+                            $subjectConfig
+                        );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | COMPONENT FLAGS
+                |--------------------------------------------------------------------------
+                */
 
                 $showTheory =
-                    $componentData['show_theory'];
+                    (bool) (
+                        $componentData['show_theory']
+                        ?? false
+                    );
 
                 $showOral =
-                    $componentData['show_oral'];
+                    (bool) (
+                        $componentData['show_oral']
+                        ?? false
+                    );
 
                 $showPractical =
-                    $componentData['show_practical'];
+                    (bool) (
+                        $componentData['show_practical']
+                        ?? false
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | MAX MARKS
+                |--------------------------------------------------------------------------
+                */
 
                 $theoryMaxMarks =
-                    $componentData['theory_max'];
+                    $componentData['theory_max']
+                    ?? 0;
 
                 $oralMaxMarks =
-                    $componentData['oral_max'];
+                    $componentData['oral_max']
+                    ?? 0;
 
                 $practicalMaxMarks =
-                    $componentData['practical_max'];
+                    $componentData['practical_max']
+                    ?? 0;
 
 
                 /*
                 |--------------------------------------------------------------------------
                 | PASSING MARKS
                 |--------------------------------------------------------------------------
+                |
+                | IMPORTANT:
+                |
+                | MarksHelper now resolves the subject/exam-specific passing
+                | marks. Therefore the controller consumes the values returned
+                | by the component resolver for ALL exam types.
+                |
+                | This prevents a generic 35% / 40% calculation from replacing
+                | the configured passing marks for individual subjects.
+                |
                 */
 
                 $theoryPassingMarks =
-                    MarksHelper::getPassingMarks(
-                        $allocation->standard_id,
-                        $theoryMaxMarks
-                    );
+                    $componentData['theory_passing']
+                    ?? 0;
 
                 $oralPassingMarks =
-                    MarksHelper::getPassingMarks(
-                        $allocation->standard_id,
-                        $oralMaxMarks
-                    );
+                    $componentData['oral_passing']
+                    ?? 0;
 
                 $practicalPassingMarks =
-                    MarksHelper::getPassingMarks(
-                        $allocation->standard_id,
-                        $practicalMaxMarks
-                    );
+                    $componentData['practical_passing']
+                    ?? 0;
             }
         }
 
@@ -1207,7 +1260,6 @@ class MarkEntryController extends Controller
             | LOAD EXISTING MARKS
             |--------------------------------------------------------------------------
             |
-            | IMPORTANT:
             | Existing student_marks records are identified by the actual class
             | and subject, not by teacher_subject_allocation_id.
             |
@@ -1217,7 +1269,6 @@ class MarkEntryController extends Controller
             | The collection is keyed by student_id because
             | MarksEntryBladeHelper::getExistingMark() reads it by student_id.
             |
-            |--------------------------------------------------------------------------
             */
 
             $existingMarks =
@@ -1251,93 +1302,44 @@ class MarkEntryController extends Controller
                         return (string) $mark->student_id;
                     });
 
+
             /*
             |--------------------------------------------------------------------------
-            | EXISTING MARKS = LOCKED
+            | LOCK STATUS FROM EXISTING MARKS
             |--------------------------------------------------------------------------
             |
-            | If any marks already exist for this exact Academic Year + Section +
-            | Standard + Division + Exam + Subject combination, the page is locked.
-            | This also handles legacy marks saved under another TSA ID.
+            | PREVIOUS BEHAVIOUR (REMOVED):
             |
-            |--------------------------------------------------------------------------
+            |   The old code force-locked every existing draft row on page
+            |   load:
+            |
+            |       if ($existingMarks->isNotEmpty()) {
+            |           $marksLocked = true;
+            |           StudentMark::query()
+            |               ->where(...)
+            |               ->update(['is_locked' => 1]);
+            |           ...
+            |       }
+            |
+            |   That caused "Save Marks" (draft) to behave like a final
+            |   submission — the very next page load flipped is_locked = 1.
+            |
+            | NEW BEHAVIOUR:
+            |
+            |   Marks are considered locked ONLY when at least one row was
+            |   already marked is_locked = 1 (by an explicit "Submit Final
+            |   Marks" action). Draft saves leave is_locked = 0, so the form
+            |   stays editable until the user actually submits.
+            |
             */
 
-            if ($existingMarks->isNotEmpty()) {
+            if (
+                $existingMarks
+                    ->where('is_locked', 1)
+                    ->isNotEmpty()
+            ) {
 
                 $marksLocked = true;
-
-                /*
-                | Keep all matching records locked.
-                */
-                StudentMark::query()
-                    ->where(
-                        'academic_year_id',
-                        $selectedClassAllocation->academic_year_id
-                    )
-                    ->where(
-                        'section_id',
-                        $selectedClassAllocation->section_id
-                    )
-                    ->where(
-                        'standard_id',
-                        $selectedClassAllocation->standard_id
-                    )
-                    ->where(
-                        'division_id',
-                        $selectedClassAllocation->division_id
-                    )
-                    ->where(
-                        'exam_master_id',
-                        $exam->id
-                    )
-                    ->where(
-                        'subject_id',
-                        $actualSubjectId
-                    )
-                    ->where(
-                        'is_locked',
-                        '!=',
-                        1
-                    )
-                    ->update([
-                        'is_locked' => 1,
-                    ]);
-
-                /*
-                | Refresh the collection so the Blade receives the current
-                | locked records.
-                */
-                $existingMarks =
-                    StudentMark::query()
-                        ->where(
-                            'academic_year_id',
-                            $selectedClassAllocation->academic_year_id
-                        )
-                        ->where(
-                            'section_id',
-                            $selectedClassAllocation->section_id
-                        )
-                        ->where(
-                            'standard_id',
-                            $selectedClassAllocation->standard_id
-                        )
-                        ->where(
-                            'division_id',
-                            $selectedClassAllocation->division_id
-                        )
-                        ->where(
-                            'exam_master_id',
-                            $exam->id
-                        )
-                        ->where(
-                            'subject_id',
-                            $actualSubjectId
-                        )
-                        ->get()
-                        ->keyBy(function ($mark) {
-                            return (string) $mark->student_id;
-                        });
             }
         }
 

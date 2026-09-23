@@ -6,29 +6,19 @@ use Illuminate\Support\Collection;
 
 class MarksEntryBladeHelper
 {
+    /* ============================================================
+     | STYLES — MARK ENTRY PAGE
+     | ============================================================ */
+
     public static function styles(): string
     {
         return <<<'CSS'
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | PAGE
-    |--------------------------------------------------------------------------
-    */
 
     .marks-entry-page,
     .marks-entry-page * {
         box-sizing: border-box;
         font-family: Arial, sans-serif !important;
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CARD
-    |--------------------------------------------------------------------------
-    */
 
     .marks-entry-card {
         background: #ffffff;
@@ -38,26 +28,12 @@ class MarksEntryBladeHelper
         padding: 20px;
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | TITLE
-    |--------------------------------------------------------------------------
-    */
-
     .marks-entry-title {
         margin: 0 0 15px;
         font-size: 20px;
         font-weight: 700;
         color: #2563eb;
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | FILTERS
-    |--------------------------------------------------------------------------
-    */
 
     .filter-row {
         display: flex;
@@ -115,24 +91,9 @@ class MarksEntryBladeHelper
         pointer-events: none;
     }
 
-    .academic-year-select {
-        width: 175px;
-    }
-
-    .exam-select {
-        width: 270px;
-    }
-
-    .assignment-select {
-        width: 350px;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | BUTTONS
-    |--------------------------------------------------------------------------
-    */
+    .academic-year-select { width: 175px; }
+    .exam-select          { width: 270px; }
+    .assignment-select    { width: 350px; }
 
     .erp-btn {
         min-height: 34px;
@@ -153,25 +114,11 @@ class MarksEntryBladeHelper
         line-height: 1.2;
     }
 
-    .erp-btn-save {
-        background: #2563eb;
-        color: #ffffff;
-    }
+    .erp-btn-save       { background: #2563eb; color: #ffffff; }
+    .erp-btn-save:hover { background: #1d4ed8; }
 
-    .erp-btn-save:hover {
-        background: #1d4ed8;
-    }
-
-    .erp-btn-green {
-        background: #16a34a;
-        color: #ffffff;
-        min-width: 150px;
-    }
-
-    .erp-btn-green:hover {
-        background: #15803d;
-    }
-
+    .erp-btn-green         { background: #16a34a; color: #ffffff; min-width: 150px; }
+    .erp-btn-green:hover   { background: #15803d; }
     .erp-btn-green:disabled {
         background: #9ca3af !important;
         color: #ffffff !important;
@@ -179,353 +126,258 @@ class MarksEntryBladeHelper
         opacity: 0.85;
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | MESSAGE BOXES
-    |--------------------------------------------------------------------------
-    */
-
     .error-box {
-        margin-top: 15px;
-        padding: 10px 12px;
-        border-radius: 5px;
-        background: #fef2f2;
-        border: 1px solid #fca5a5;
-        color: #991b1b;
+        margin-top: 15px; padding: 10px 12px; border-radius: 5px;
+        background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
         font-size: 12px;
     }
-
     .warning-box {
-        margin-top: 15px;
-        padding: 10px 12px;
-        border-radius: 5px;
-        background: #fffbeb;
-        border: 1px solid #fcd34d;
-        color: #92400e;
+        margin-top: 15px; padding: 10px 12px; border-radius: 5px;
+        background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
         font-size: 12px;
     }
-
     .saved-box {
-        margin-top: 15px;
-        padding: 10px 12px;
-        border-radius: 5px;
-        background: #fffbeb;
-        border: 1px solid #f59e0b;
-        color: #92400e;
-        font-size: 12px;
-        font-weight: 600;
+        margin-top: 15px; padding: 10px 12px; border-radius: 5px;
+        background: #fffbeb; border: 1px solid #f59e0b; color: #92400e;
+        font-size: 12px; font-weight: 600;
     }
-
     .success-box {
-        margin-top: 15px;
-        padding: 10px 12px;
-        border-radius: 5px;
-        background: #ecfdf5;
-        border: 1px solid #86efac;
-        color: #166534;
-        font-size: 12px;
-        font-weight: 600;
+        margin-top: 15px; padding: 10px 12px; border-radius: 5px;
+        background: #ecfdf5; border: 1px solid #86efac; color: #166534;
+        font-size: 12px; font-weight: 600;
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | SELECTED INFORMATION
-    |--------------------------------------------------------------------------
-    */
 
     .selected-info {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 15px;
-        padding: 10px 12px;
-        border-radius: 5px;
-        background: #eff6ff;
-        border: 1px solid #bfdbfe;
-        color: #1e3a8a;
+        display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+        margin-top: 15px; padding: 10px 12px; border-radius: 5px;
+        background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a;
         font-size: 12px;
     }
-
-    .selected-info-item {
-        font-weight: 700;
-    }
-
-    .selected-info-separator {
-        color: #93c5fd;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MARKS TABLE
-    |--------------------------------------------------------------------------
-    */
+    .selected-info-item      { font-weight: 700; }
+    .selected-info-separator { color: #93c5fd; }
 
     .marks-table-wrapper {
-        margin-top: 18px;
-        overflow-x: auto;
-        border: 1px solid #aeb6c1;
-        border-radius: 5px;
+        margin-top: 18px; overflow-x: auto;
+        border: 1px solid #aeb6c1; border-radius: 5px;
     }
-
     .marks-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #ffffff;
-        font-size: 12px;
+        width: 100%; border-collapse: collapse;
+        background: #ffffff; font-size: 12px;
     }
-
     .marks-table th {
-        background: #dbeafe;
-        color: #1e3a8a;
-        border: 1px solid #9aa5b1;
-        padding: 8px 6px;
-        text-align: center;
-        white-space: nowrap;
-        font-weight: 700;
+        background: #dbeafe; color: #1e3a8a; border: 1px solid #9aa5b1;
+        padding: 8px 6px; text-align: center; white-space: nowrap; font-weight: 700;
     }
-
     .marks-table td {
-        border: 1px solid #aeb6c1;
-        padding: 7px 6px;
-        white-space: nowrap;
-        vertical-align: middle;
+        border: 1px solid #aeb6c1; padding: 7px 6px;
+        white-space: nowrap; vertical-align: middle;
     }
+    .marks-table tbody tr:hover { background: #f8fafc; }
 
-    .marks-table tbody tr:hover {
-        background: #f8fafc;
-    }
-
-    .center {
-        text-align: center;
-    }
-
-    .student-name-cell {
-        min-width: 280px;
-        white-space: normal !important;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MARK INPUT
-    |--------------------------------------------------------------------------
-    */
+    .center            { text-align: center; }
+    .student-name-cell { min-width: 280px; white-space: normal !important; }
 
     .mark-input {
-        width: 62px;
-        height: 30px;
-        padding: 3px;
-        border: 1px solid #9ca3af;
-        border-radius: 4px;
-        text-align: center;
-        font-size: 13px;
-        -moz-appearance: textfield;
-        appearance: textfield;
+        width: 62px; height: 30px; padding: 3px;
+        border: 1px solid #9ca3af; border-radius: 4px;
+        text-align: center; font-size: 13px;
+        -moz-appearance: textfield; appearance: textfield;
     }
-
     .mark-input::-webkit-outer-spin-button,
-    .mark-input::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-    }
-
-    .mark-input:focus {
-        outline: none;
-        border-color: #2563eb;
-        box-shadow: 0 0 0 1px #2563eb;
-    }
-
-    .mark-input:read-only {
-        background: #f3f4f6;
-        color: #6b7280;
-        cursor: not-allowed;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ATTENDANCE
-    |--------------------------------------------------------------------------
-    */
+    .mark-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .mark-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
+    .mark-input:read-only { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
 
     .attendance-btn {
-        min-width: 82px;
-        padding: 5px 9px;
-        border: 0;
-        border-radius: 4px;
-        color: #ffffff;
-        font-size: 11px;
-        font-weight: 700;
-        cursor: pointer;
+        min-width: 82px; padding: 5px 9px; border: 0; border-radius: 4px;
+        color: #ffffff; font-size: 11px; font-weight: 700; cursor: pointer;
     }
-
-    .attendance-btn:focus {
-        outline: none;
-    }
-
-    .present-btn {
-        background: #16a34a;
-    }
-
-    .present-btn:hover {
-        background: #15803d;
-    }
-
-    .absent-btn {
-        background: #dc2626;
-    }
-
-    .absent-btn:hover {
-        background: #b91c1c;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | OPTIONAL BUTTON
-    |--------------------------------------------------------------------------
-    */
+    .attendance-btn:focus { outline: none; }
+    .present-btn      { background: #16a34a; }
+    .present-btn:hover { background: #15803d; }
+    .absent-btn       { background: #dc2626; }
+    .absent-btn:hover  { background: #b91c1c; }
 
     .optional-btn {
-        min-width: 82px;
-        padding: 5px 9px;
-        border: 0;
-        border-radius: 4px;
-        color: #ffffff;
-        background: #6b7280;
-        font-size: 11px;
-        font-weight: 700;
+        min-width: 82px; padding: 5px 9px; border: 0; border-radius: 4px;
+        color: #ffffff; background: #6b7280; font-size: 11px; font-weight: 700;
         cursor: pointer;
     }
+    .optional-btn:focus { outline: none; }
+    .optional-btn:hover { background: #4b5563; }
+    .optional-active-btn       { background: #d97706 !important; }
+    .optional-active-btn:hover { background: #b45309 !important; }
 
-    .optional-btn:focus {
-        outline: none;
-    }
+    .status-present  { color: #16a34a; font-weight: 700; }
+    .status-absent   { color: #dc2626; font-weight: 700; }
+    .status-optional { color: #d97706; font-weight: 700; }
 
-    .optional-btn:hover {
-        background: #4b5563;
-    }
-
-    .optional-active-btn {
-        background: #d97706 !important;
-    }
-
-    .optional-active-btn:hover {
-        background: #b45309 !important;
-    }
-
-    .status-present {
-        color: #16a34a;
-        font-weight: 700;
-    }
-
-    .status-absent {
-        color: #dc2626;
-        font-weight: 700;
-    }
-
-    .status-optional {
-        color: #d97706;
-        font-weight: 700;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | OPTIONAL HEADER
-    |--------------------------------------------------------------------------
-    */
-
-    .optional-header {
-        background: #fef3c7 !important;
-        color: #92400e !important;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | STATUS CELL
-    |--------------------------------------------------------------------------
-    */
+    .optional-header { background: #fef3c7 !important; color: #92400e !important; }
 
     .status-cell-wrapper {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 5px;
+        display: flex; flex-direction: column; align-items: center; gap: 5px;
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ACTION ROW
-    |--------------------------------------------------------------------------
-    */
 
     .marks-action-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 15px;
-        flex-wrap: wrap;
+        display: flex; align-items: center; gap: 10px;
+        margin-top: 15px; flex-wrap: wrap;
     }
-
     .student-count {
-        margin-left: auto;
-        background: #dbeafe;
-        color: #1e40af;
-        padding: 6px 10px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 600;
+        margin-left: auto; background: #dbeafe; color: #1e40af;
+        padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MOBILE
-    |--------------------------------------------------------------------------
-    */
 
     @media (max-width: 900px) {
-
-        .filter-group {
-            width: 100%;
-        }
-
+        .filter-group { width: 100%; }
         .academic-year-select,
         .exam-select,
-        .assignment-select {
-            width: 100%;
-        }
-
-        .student-count {
-            margin-left: 0;
-        }
+        .assignment-select { width: 100%; }
+        .student-count { margin-left: 0; }
     }
-
 
 CSS;
     }
 
+
+    /* ============================================================
+     | TAB STRIP  (shared by View Marks + Marks Entry)
+     | ============================================================ */
+
+    public static function tabStyles(): string
+    {
+        return <<<'CSS'
+
+    .tabs-container {
+        display: flex;
+        border-bottom: 2px solid #2563EB;
+        margin-bottom: 12px;
+        gap: 4px;
+    }
+    .active-tab {
+        background: #2563EB; color: #ffffff !important;
+        padding: 8px 16px; text-decoration: none;
+        border-radius: 5px 5px 0 0; font-weight: 700; font-size: 11px;
+    }
+    .inactive-tab {
+        background: #E5E7EB; color: #111827 !important;
+        padding: 8px 16px; text-decoration: none;
+        border-radius: 5px 5px 0 0; font-weight: 700; font-size: 11px;
+    }
+
+CSS;
+    }
+
+
+    public static function renderTabs(
+        string $activeTab,
+        string $marksEntryUrl,
+        string $viewMarksUrl
+    ): string {
+        $entryClass = $activeTab === 'entry' ? 'active-tab' : 'inactive-tab';
+        $viewClass  = $activeTab === 'view'  ? 'active-tab' : 'inactive-tab';
+
+        return '<div class="tabs-container">'
+            . '<a href="' . e($marksEntryUrl) . '" class="' . $entryClass . '">Marks Entry</a>'
+            . '<a href="' . e($viewMarksUrl)  . '" class="' . $viewClass  . '">View Marks</a>'
+            . '</div>';
+    }
+
+
+    public static function querySuffix(array $params): string
+    {
+        $filtered = array_filter($params, fn ($v) => $v !== null && $v !== '');
+        return $filtered ? '?' . http_build_query($filtered) : '';
+    }
+
+
+    /* ============================================================
+     | COMPONENT FLAGS  (theory / oral / practical)
+     | ============================================================ */
+
+    public static function resolveComponentFlags(
+        $showTheory,
+        $showOral,
+        $showPractical,
+        $records = null
+    ): array {
+        if (!empty($showTheory) || !empty($showOral) || !empty($showPractical)) {
+            return [
+                'theory'    => (bool) $showTheory,
+                'oral'      => (bool) $showOral,
+                'practical' => (bool) $showPractical,
+            ];
+        }
+
+        if (isset($records) && $records->isNotEmpty()) {
+            $first = $records->first();
+            return [
+                'theory'    => ((float) ($first->theory_max_marks    ?? 0)) > 0,
+                'oral'      => ((float) ($first->oral_max_marks      ?? 0)) > 0,
+                'practical' => ((float) ($first->practical_max_marks ?? 0)) > 0,
+            ];
+        }
+
+        return ['theory' => false, 'oral' => false, 'practical' => false];
+    }
+
+
+    /* ============================================================
+     | FORMAT / STATUS HELPERS
+     | ============================================================ */
+
     public static function formatMark($value): string
     {
-        if ($value === null || $value === '') {
-            return '';
-        }
+        if ($value === null || $value === '') return '';
 
         $number = (float) $value;
-
-        if (floor($number) == $number) {
-            return (string) (int) $number;
-        }
+        if (floor($number) == $number) return (string) (int) $number;
 
         return rtrim(rtrim(number_format($number, 2, '.', ''), '0'), '.');
     }
+
+    public static function displayMark($value): string
+    {
+        if ($value === null || $value === '') return '-';
+
+        $n = (float) $value;
+        return floor($n) === $n
+            ? (string) (int) $n
+            : number_format($n, 2);
+    }
+
+    public static function statusClass(string $status): string
+    {
+        return match (strtoupper(trim($status))) {
+            'OPT'         => 'status-optional',
+            'PASS'        => 'status-pass',
+            'FAIL'        => 'status-fail',
+            'ABSENT','AB' => 'status-absent',
+            default       => 'status-other',
+        };
+    }
+
+    public static function columnCount(
+        bool $showTheory,
+        bool $showOral,
+        bool $showPractical,
+        bool $showOptional = false,
+        bool $withAttendance = true,
+        int  $base = 3
+    ): int {
+        $cols = $base;
+        if ($withAttendance) $cols++;
+        if ($showOptional)   $cols++;
+        if ($showTheory)     $cols += 3;
+        if ($showOral)       $cols += 3;
+        if ($showPractical)  $cols += 3;
+        $cols++;
+        return $cols;
+    }
+
+
+    /* ============================================================
+     | STUDENT ACCESSORS
+     | ============================================================ */
 
     public static function getStudentId($student): int|string|null
     {
@@ -534,9 +386,7 @@ CSS;
             ?? $student->id
             ?? null;
 
-        if ($id === null || $id === '') {
-            return null;
-        }
+        if ($id === null || $id === '') return null;
 
         return is_numeric($id) ? (int) $id : $id;
     }
@@ -589,11 +439,14 @@ CSS;
         return $name !== '' ? $name : '-';
     }
 
+
+    /* ============================================================
+     | MARK LOOKUP / ABSENT / OPTIONAL
+     | ============================================================ */
+
     public static function getExistingMark($existingMarks, $studentId)
     {
-        if (!$existingMarks) {
-            return null;
-        }
+        if (!$existingMarks) return null;
 
         if ($existingMarks instanceof Collection) {
             return $existingMarks->get((string) $studentId)
@@ -611,13 +464,9 @@ CSS;
 
     public static function isAbsent($mark): bool
     {
-        if (!$mark) {
-            return false;
-        }
+        if (!$mark) return false;
 
-        if ((int) ($mark->is_absent ?? 0) === 1) {
-            return true;
-        }
+        if ((int) ($mark->is_absent ?? 0) === 1) return true;
 
         $status = strtoupper(trim((string) ($mark->status ?? '')));
         return in_array($status, ['AB', 'ABSENT'], true);
@@ -632,17 +481,10 @@ CSS;
 
     public static function getStatusText($mark): string
     {
-        if (!$mark) {
-            return 'PRESENT';
-        }
+        if (!$mark) return 'PRESENT';
 
-        if ((int) ($mark->is_optional ?? 0) === 1) {
-            return 'OPT';
-        }
-
-        if (self::isAbsent($mark)) {
-            return 'ABSENT';
-        }
+        if ((int) ($mark->is_optional ?? 0) === 1) return 'OPT';
+        if (self::isAbsent($mark)) return 'ABSENT';
 
         $status = strtoupper(trim((string) ($mark->status ?? '')));
         return $status !== '' ? $status : 'PRESENT';
@@ -653,9 +495,13 @@ CSS;
         if (!$mark || !isset($mark->{$field}) || $mark->{$field} === null || $mark->{$field} === '') {
             return '';
         }
-
         return self::formatMark($mark->{$field});
     }
+
+
+    /* ============================================================
+     | STANDARD / OPTIONAL FLAGS
+     | ============================================================ */
 
     public static function getSelectedStandardId($selectedClassAllocation, $teacherSubjectAllocation = null): int
     {
@@ -676,6 +522,11 @@ CSS;
         return (bool) $isOptionalEnabled
             || self::isOptionalStandard((int) $selectedStandardId);
     }
+
+
+    /* ============================================================
+     | ASSIGNMENT HELPERS
+     | ============================================================ */
 
     public static function getAssignmentSelectionKey($assignment): string
     {
@@ -706,6 +557,11 @@ CSS;
     {
         return strtoupper(trim((string) ($assignment->resolved_status ?? 'PENDING')));
     }
+
+
+    /* ============================================================
+     | SELECTED (CURRENT) HELPERS
+     | ============================================================ */
 
     public static function getSelectedTeacherName($classAllocation): string
     {
@@ -740,15 +596,20 @@ CSS;
     public static function getSelectedInformation($tsa, $classAllocation, $exam, $studentCount = null): array
     {
         return [
-            'teacher' => self::getSelectedTeacherName($classAllocation),
-            'subject' => self::getSelectedSubjectName($tsa),
+            'teacher'  => self::getSelectedTeacherName($classAllocation),
+            'subject'  => self::getSelectedSubjectName($tsa),
             'standard' => self::getSelectedStandardName($classAllocation),
             'division' => self::getSelectedDivisionName($classAllocation),
-            'exam' => self::getSelectedExamName($exam),
-            'status' => self::getSelectedStatus($tsa),
+            'exam'     => self::getSelectedExamName($exam),
+            'status'   => self::getSelectedStatus($tsa),
             'students' => $studentCount,
         ];
     }
+
+
+    /* ============================================================
+     | MARK-ID / ROW PREPARERS
+     | ============================================================ */
 
     public static function getMarkIdForStudent($student, $existingMarks = null): int|string|null
     {
@@ -759,9 +620,7 @@ CSS;
         $studentId = self::getStudentId($student);
         $mark = self::getExistingMark($existingMarks, $studentId);
 
-        if (!$mark || !isset($mark->id)) {
-            return null;
-        }
+        if (!$mark || !isset($mark->id)) return null;
 
         return (int) $mark->id;
     }
@@ -780,21 +639,21 @@ CSS;
         $markId = self::getMarkIdForStudent($student, $existingMarks);
 
         return [
-            'student_id' => $studentId,
-            'mark_id' => $markId,
-            'input_key' => $mode === 'edit' ? $markId : $studentId,
-            'gr_no' => self::getGrNo($student),
-            'roll_no' => self::getRollNo($student),
-            'name' => self::getFullStudentName($student),
-            'mark' => $mark,
-            'is_absent' => $isAbsent,
-            'is_optional' => $isOptional,
-            'status' => self::getStatusText($mark),
-            'theory' => self::getObtained($mark, 'theory_obtained_marks'),
-            'oral' => self::getObtained($mark, 'oral_obtained_marks'),
-            'practical' => self::getObtained($mark, 'practical_obtained_marks'),
+            'student_id'     => $studentId,
+            'mark_id'        => $markId,
+            'input_key'      => $mode === 'edit' ? $markId : $studentId,
+            'gr_no'          => self::getGrNo($student),
+            'roll_no'        => self::getRollNo($student),
+            'name'           => self::getFullStudentName($student),
+            'mark'           => $mark,
+            'is_absent'      => $isAbsent,
+            'is_optional'    => $isOptional,
+            'status'         => self::getStatusText($mark),
+            'theory'         => self::getObtained($mark, 'theory_obtained_marks'),
+            'oral'           => self::getObtained($mark, 'oral_obtained_marks'),
+            'practical'      => self::getObtained($mark, 'practical_obtained_marks'),
             'marks_readonly' => $marksLocked || $isAbsent || $isOptional,
-            'mode' => $mode,
+            'mode'           => $mode,
         ];
     }
 
@@ -823,20 +682,20 @@ CSS;
         $status = self::getStatusText($row);
 
         return [
-            'gr_no' => self::getGrNo($row),
-            'roll_no' => self::getRollNo($row),
-            'name' => self::getFullStudentName($row),
-            'is_optional' => $isOptional,
-            'is_absent' => $isAbsent,
-            'status' => $status,
-            'theory' => self::getObtained($row, 'theory_obtained_marks'),
-            'oral' => self::getObtained($row, 'oral_obtained_marks'),
-            'practical' => self::getObtained($row, 'practical_obtained_marks'),
-            'theory_max' => $row->theory_max_marks ?? null,
-            'theory_pass' => $row->theory_passing_marks ?? null,
-            'oral_max' => $row->oral_max_marks ?? null,
-            'oral_pass' => $row->oral_passing_marks ?? null,
-            'practical_max' => $row->practical_max_marks ?? null,
+            'gr_no'          => self::getGrNo($row),
+            'roll_no'        => self::getRollNo($row),
+            'name'           => self::getFullStudentName($row),
+            'is_optional'    => $isOptional,
+            'is_absent'      => $isAbsent,
+            'status'         => $status,
+            'theory'         => self::getObtained($row, 'theory_obtained_marks'),
+            'oral'           => self::getObtained($row, 'oral_obtained_marks'),
+            'practical'      => self::getObtained($row, 'practical_obtained_marks'),
+            'theory_max'     => $row->theory_max_marks    ?? null,
+            'theory_pass'    => $row->theory_passing_marks ?? null,
+            'oral_max'       => $row->oral_max_marks      ?? null,
+            'oral_pass'      => $row->oral_passing_marks  ?? null,
+            'practical_max'  => $row->practical_max_marks ?? null,
             'practical_pass' => $row->practical_passing_marks ?? null,
         ];
     }
@@ -848,14 +707,193 @@ CSS;
         )->values();
     }
 
-    public static function getStatusClass(string $status): string
+
+    /* ============================================================
+     | VIEW-ONLY STYLES
+     | ============================================================ */
+
+    public static function viewStyles(): string
     {
-        return match (strtoupper(trim($status))) {
-            'OPT' => 'status-optional',
-            'PASS' => 'status-pass',
-            'FAIL' => 'status-fail',
-            'ABSENT', 'AB' => 'status-absent',
-            default => 'status-other',
-        };
+        return <<<'CSS'
+
+    .view-only-box {
+        margin-top: 10px; padding: 7px 10px; border-radius: 4px;
+        background: #f3f4f6; border: 1px solid #d1d5db;
+        color: #374151; font-size: 11px; font-weight: 600;
+    }
+
+    .readonly-mark {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 42px; height: 22px; padding: 1px 5px;
+        background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 3px;
+        color: #111827; font-size: 11px; font-weight: 600;
+    }
+    .readonly-mark.absent {
+        background: #fee2e2; border-color: #fca5a5; color: #991b1b;
+    }
+    .readonly-mark.optional {
+        background: #fef3c7; border-color: #fcd34d; color: #92400e; font-weight: 700;
+    }
+
+    .status-pass,
+    .status-fail,
+    .status-absent,
+    .status-optional,
+    .status-other {
+        display: inline-block; padding: 3px 7px; border-radius: 3px;
+        font-weight: 700; font-size: 10px;
+    }
+    .status-pass     { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .status-fail     { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .status-absent   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .status-optional { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .status-other    { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+
+    .student-count {
+        display: inline-flex; align-items: center;
+        background: #dbeafe; color: #1e40af;
+        padding: 5px 8px; border-radius: 3px;
+        font-size: 11px; font-weight: 600;
+    }
+
+CSS;
+    }
+
+        /* ============================================================
+     | ENTRY PAGE — FILTER OPTIONS
+     | ============================================================ */
+
+    public static function renderYearOptions($years, $selectedId): string
+    {
+        $html = '';
+        foreach ($years as $year) {
+            $id   = $year->id;
+            $name = $year->year_name ?? $year->name ?? $id;
+            $sel  = ((string) $selectedId === (string) $id) ? 'selected' : '';
+            $html .= '<option value="' . e($id) . '" ' . $sel . '>' . e($name) . '</option>';
+        }
+        return $html;
+    }
+
+    public static function renderExamOptions($exams, $selectedId): string
+    {
+        $html = '';
+        foreach ($exams as $exam) {
+            $id   = $exam->id;
+            $name = $exam->display_exam_name ?? $exam->exam_name ?? $id;
+            $sel  = ((string) $selectedId === (string) $id) ? 'selected' : '';
+            $html .= '<option value="' . e($id) . '" ' . $sel . '>' . e($name) . '</option>';
+        }
+        return $html;
+    }
+
+    public static function renderAssignmentOptions($assignments, $selectedId): string
+    {
+        $html = '';
+        foreach ($assignments as $assignment) {
+            $id       = $assignment->id;
+            $teacher  = self::getAssignmentTeacherName($assignment);
+            $subject  = self::getAssignmentSubjectName($assignment);
+            $standard = self::getAssignmentStandardName($assignment);
+            $division = self::getAssignmentDivisionName($assignment);
+
+            $label = $teacher . ' - ' . $subject . ' - ' . $standard;
+            if ($division && $division !== '-') {
+                $label .= ' - ' . $division;
+            }
+
+            $sel = ((string) $selectedId === (string) $id) ? 'selected' : '';
+            $html .= '<option value="' . e($id) . '" ' . $sel . '>' . e($label) . '</option>';
+        }
+        return $html;
+    }
+
+
+    /* ============================================================
+     | ENTRY PAGE — STUDENT ROW PREPARATION
+     | ============================================================ */
+
+    public static function getRollSortKey($student): int
+    {
+        $rollNo = $student->rollno
+            ?? $student->roll_no
+            ?? $student->roll_number
+            ?? $student->roll
+            ?? null;
+
+        if ($rollNo === null || $rollNo === '') {
+            return PHP_INT_MAX;
+        }
+
+        return is_numeric($rollNo) ? (int) $rollNo : PHP_INT_MAX;
+    }
+
+    public static function prepareEntryRow(
+        $record,
+        $existingMarks,
+        bool $optionalEnabled,
+        bool $marksLocked
+    ): array {
+        $studentId = self::getStudentId($record);
+        $mark      = self::getExistingMark($existingMarks, $studentId);
+
+        $isAbsent   = self::isAbsent($mark);
+        $isOptional = self::isOptional($mark, $optionalEnabled);
+
+        if ($isOptional) {
+            $isAbsent = false;
+        }
+
+        $marksReadOnly = $isAbsent || $isOptional || $marksLocked;
+
+        $theoryValue    = self::formatMark($mark?->theory_obtained_marks);
+        $oralValue      = self::formatMark($mark?->oral_obtained_marks);
+        $practicalValue = self::formatMark($mark?->practical_obtained_marks);
+
+        $oldTheory = old('theory_marks.' . $studentId);
+        if ($oldTheory !== null) {
+            $theoryValue = self::formatMark($oldTheory);
+        }
+
+        $oldOral = old('oral_marks.' . $studentId);
+        if ($oldOral !== null) {
+            $oralValue = self::formatMark($oldOral);
+        }
+
+        $oldPractical = old('practical_marks.' . $studentId);
+        if ($oldPractical !== null) {
+            $practicalValue = self::formatMark($oldPractical);
+        }
+
+        return [
+            'student_id'      => $studentId,
+            'gr_no'           => self::getGrNo($record),
+            'roll_no'         => self::getRollNo($record),
+            'full_name'       => self::getFullStudentName($record),
+            'roll_sort_key'   => self::getRollSortKey($record),
+            'is_absent'       => $isAbsent,
+            'is_optional'     => $isOptional,
+            'marks_readonly'  => $marksReadOnly,
+            'theory_value'    => $theoryValue,
+            'oral_value'      => $oralValue,
+            'practical_value' => $practicalValue,
+        ];
+    }
+
+    public static function prepareEntryRows(
+        $students,
+        $existingMarks,
+        bool $optionalEnabled,
+        bool $marksLocked
+    ): Collection {
+        return collect($students)
+            ->map(fn ($s) => self::prepareEntryRow(
+                $s,
+                $existingMarks,
+                $optionalEnabled,
+                $marksLocked
+            ))
+            ->sortBy('roll_sort_key')
+            ->values();
     }
 }
