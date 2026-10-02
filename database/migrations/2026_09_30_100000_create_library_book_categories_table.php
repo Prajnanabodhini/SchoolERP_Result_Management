@@ -8,24 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('exam_patterns', function (Blueprint $table) {
-
+        Schema::create('library_book_categories', function (Blueprint $table) {
             $table->id();
-
-            $table->string('pattern_name');
-
-            $table->string('pattern_type')->nullable();
-
-            $table->text('description')->nullable();
-
+            $table->string('category_name', 100);
+            $table->string('description', 255)->nullable();
             $table->boolean('is_active')->default(true);
-
             $table->timestamps();
+
+            $table->index('category_name');
+            $table->index('is_active');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('exam_patterns');
+        Schema::dropIfExists('library_book_categories');
     }
 };

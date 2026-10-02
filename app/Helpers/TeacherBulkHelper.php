@@ -12,6 +12,7 @@ use App\Models\Subject;
 use App\Models\TeacherClassAllocation;
 use App\Models\TeacherMarksStatus;
 use App\Models\TeacherSubjectAllocation;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,7 @@ class TeacherBulkHelper
 {
     public static function teachers(): Collection
     {
-        return \App\Models\User::where('role', 'Teacher')
+        return User::where('role', 'Teacher')
             ->where('is_active', 1)
             ->orderBy('name')
             ->get();
@@ -459,6 +460,73 @@ class TeacherBulkHelper
         return null;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | NEW: DUPLICATE DETECTION
+    |--------------------------------------------------------------------------
+    | For the same (exam, standard, division, subject), only ONE teacher
+    | can be allocated.
+    |
+    | Returns the name of the teacher who already has the subject, or null.
+    |--------------------------------------------------------------------------
+    */
+    private static function findExistingTeacherForSubject(
+        int $examId,
+        int $standardId,
+        int $divisionId,
+        int $subjectId,
+        int $excludeUserId,
+        ?int $excludeAllocationId = null
+    ): ?string {
+
+        if (
+            $examId <= 0 ||
+            $standardId <= 0 ||
+            $divisionId <= 0 ||
+            $subjectId <= 0
+        ) {
+            return null;
+        }
+
+        /* Include legacy subject ids mapped to the same master subject */
+        $legacySubjectIds = DB::table('standard_wise_subjects')
+            ->where('standard_id', $standardId)
+            ->where('subject_id', $subjectId)
+            ->where('is_active', 1)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        $subjectCandidates = array_unique(array_merge([$subjectId], $legacySubjectIds));
+
+        $query = DB::table('teacher_subject_allocations as tsa')
+            ->join(
+                'teacher_class_allocations as tca',
+                'tca.id',
+                '=',
+                'tsa.teacher_class_allocation_id'
+            )
+            ->where('tsa.exam_master_id', $examId)
+            ->whereIn('tsa.subject_id', $subjectCandidates)
+            ->where('tca.standard_id', $standardId)
+            ->where('tca.division_id', $divisionId)
+            ->where('tca.user_id', '!=', $excludeUserId);
+
+        if ($excludeAllocationId) {
+            $query->where('tca.id', '!=', $excludeAllocationId);
+        }
+
+        $existing = $query->first(['tca.user_id']);
+
+        if (!$existing) {
+            return null;
+        }
+
+        $teacher = User::find($existing->user_id);
+
+        return $teacher ? $teacher->name : 'another teacher';
+    }
+
     public static function createTeacherMarksStatus($tsa, $request, $exam, $standard, $division, $subject)
     {
         return TeacherMarksStatus::create([
@@ -523,11 +591,6 @@ class TeacherBulkHelper
     /**
      * Ensure a TeacherSubjectAllocation exists for
      * (class allocation, subject, exam).
-     *
-     * After the schema change:
-     *     uk_teacher_subject (teacher_class_allocation_id, subject_id, exam_master_id)
-     *
-     * each exam gets its own TSA row for the same class+subject.
      */
     public static function ensureSubjectAllocation(
         $allocation,
@@ -546,11 +609,6 @@ class TeacherBulkHelper
             ->map(fn ($id) => (int) $id)
             ->toArray();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 1. Lookup scoped to (class allocation, subject, exam)
-        |--------------------------------------------------------------------------
-        */
         $existing = TeacherSubjectAllocation::where(
                 'teacher_class_allocation_id',
                 $allocation->id
@@ -567,11 +625,6 @@ class TeacherBulkHelper
             ->orderBy('id')
             ->first();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 2. Legacy orphan fallback
-        |--------------------------------------------------------------------------
-        */
         if (!$existing) {
 
             $existing = TeacherSubjectAllocation::where(
@@ -589,11 +642,6 @@ class TeacherBulkHelper
                 );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 3. Reuse existing TSA for this exam
-        |--------------------------------------------------------------------------
-        */
         if ($existing) {
 
             self::ensureTeacherMarksStatus(
@@ -608,11 +656,6 @@ class TeacherBulkHelper
             return $existing;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 4. Insert new TSA for this exam — with race-condition safety net
-        |--------------------------------------------------------------------------
-        */
         try {
 
             $tsa = TeacherSubjectAllocation::create([
@@ -715,6 +758,24 @@ class TeacherBulkHelper
                         }
 
                         $subject = $resolved['subject'];
+
+                        /* ---------- DUPLICATE CHECK ---------- */
+                        $otherTeacher = self::findExistingTeacherForSubject(
+                            (int) $exam->id,
+                            (int) $standard->id,
+                            (int) $division->id,
+                            (int) $subject->id,
+                            (int) $request->user_id
+                        );
+
+                        if ($otherTeacher) {
+                            throw new \Exception(
+                                "Cannot allocate '{$subject->subject_name}' for "
+                                . "{$standard->standard_name} - {$division->division_name}. "
+                                . "Already allocated to {$otherTeacher}. "
+                                . "Please remove that allocation first or edit it to change the teacher."
+                            );
+                        }
 
                         self::ensureSubjectAllocation(
                             $allocation,
@@ -886,6 +947,25 @@ class TeacherBulkHelper
                 if (!$resolved) continue;
 
                 $subject = $resolved['subject'];
+
+                /* ---------- DUPLICATE CHECK ---------- */
+                $otherTeacher = self::findExistingTeacherForSubject(
+                    (int) $exam->id,
+                    (int) $standard->id,
+                    (int) $division->id,
+                    (int) $subject->id,
+                    (int) $request->user_id,
+                    (int) $target->id
+                );
+
+                if ($otherTeacher) {
+                    throw new \Exception(
+                        "Cannot allocate '{$subject->subject_name}' for "
+                        . "{$standard->standard_name} - {$division->division_name}. "
+                        . "Already allocated to {$otherTeacher}. "
+                        . "Please remove that allocation first or edit it to change the teacher."
+                    );
+                }
 
                 self::ensureSubjectAllocation(
                     $target,

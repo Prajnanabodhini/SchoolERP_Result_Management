@@ -692,4 +692,93 @@ public static function getStudentsForMarksEntry($yearId, $standardId, $divisionI
             ->orderBy('division')
             ->get();
     }
+
+    public static function getStudentsDirectERPWithCaste(
+    $yearId,
+    $laravelStandardId,
+    $laravelDivisionId
+) {
+    /*
+    |--------------------------------------------------------------------------
+    | 1. Get students exactly as before — no changes to the original query.
+    |--------------------------------------------------------------------------
+    */
+
+    $students = self::getStudentsDirectERP(
+        $yearId,
+        $laravelStandardId,
+        $laravelDivisionId
+    );
+
+    if ($students->isEmpty()) {
+        return $students;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 2. Bulk-fetch caste + subcaste for all students in ONE query.
+    |--------------------------------------------------------------------------
+    |
+    | Note the spelling difference between the two tables:
+    |   FeeMstStudent.casteid  (with 'e')
+    |   MstCaste.castid        (without 'e')
+    |
+    */
+
+    $studentIds = $students
+        ->pluck('Studentid')
+        ->filter()
+        ->unique()
+        ->values()
+        ->all();
+
+    if (empty($studentIds)) {
+        return $students;
+    }
+
+    $casteMap = DB::connection('sqlsrv_olderp')
+        ->table('FeeMstStudent as fs')
+
+        ->leftJoin(
+            'MstCaste as mc',
+            'mc.castid',
+            '=',
+            'fs.casteid'
+        )
+
+        ->leftJoin(
+            'MstSubCaste as msc',
+            'msc.subcasteid',
+            '=',
+            'fs.subcasteid'
+        )
+
+        ->whereIn('fs.Studentid', $studentIds)
+
+        ->select(
+            'fs.Studentid',
+            DB::raw('mc.Caste AS caste'),
+            DB::raw('msc.subcaste AS subcaste')
+        )
+
+        ->get()
+        ->keyBy('Studentid');
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3. Attach caste / subcaste to each student object.
+    |--------------------------------------------------------------------------
+    */
+
+    foreach ($students as $student) {
+
+        $row = $casteMap->get($student->Studentid);
+
+        $student->caste = $row->caste ?? null;
+
+        $student->subcaste = $row->subcaste ?? null;
+    }
+
+    return $students;
+}
 }

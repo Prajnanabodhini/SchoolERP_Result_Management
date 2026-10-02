@@ -3,8 +3,6 @@
 @section('content')
 
 @php
-    // Build the Result Analytics Dashboard URL with the user's current filters.
-    // Falls back to request() query params if a blade variable isn't passed.
     $backParams = array_filter([
         'academic_year_id' => $yearId     ?? request('academic_year_id'),
         'standard_id'      => $standardId ?? request('standard_id'),
@@ -35,7 +33,6 @@
     .sd-kpi .title { font-size: 12px; font-weight: bold; color: #374151; }
     .sd-kpi .value { font-size: 22px; font-weight: bold; color: #1d4ed8; margin-top: 6px; }
 
-    /* ---------- Marks table ---------- */
     .marks-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .marks-table th, .marks-table td {
         border: 1px solid #d1d5db;
@@ -91,7 +88,6 @@
                 <strong>Exam:</strong> {{ $examName }}
             </div>
         </div>
-        {{-- Back → Result Analytics Dashboard with the SAME selected filters --}}
         <a href="{{ $backUrl }}"
            class="erp-btn"
            style="background:#fff;color:#1e40af;font-weight:700;">
@@ -185,22 +181,18 @@
                         <td>{{ $i + 1 }}</td>
                         <td class="subject-cell">{{ $row->subject_name }}</td>
 
-                        {{-- Theory --}}
                         <td>{{ $row->theory_max     > 0 ? $row->theory_max     : '-' }}</td>
                         <td>{{ $row->theory_max     > 0 ? $row->theory_passing : '-' }}</td>
                         <td>{{ $row->theory_max     > 0 ? $row->theory_obtained: '-' }}</td>
 
-                        {{-- Oral --}}
                         <td>{{ $row->oral_max       > 0 ? $row->oral_max       : '-' }}</td>
                         <td>{{ $row->oral_max       > 0 ? $row->oral_passing   : '-' }}</td>
                         <td>{{ $row->oral_max       > 0 ? $row->oral_obtained  : '-' }}</td>
 
-                        {{-- Practical --}}
                         <td>{{ $row->practical_max  > 0 ? $row->practical_max  : '-' }}</td>
                         <td>{{ $row->practical_max  > 0 ? $row->practical_passing : '-' }}</td>
                         <td>{{ $row->practical_max  > 0 ? $row->practical_obtained: '-' }}</td>
 
-                        {{-- Total --}}
                         <td>{{ $row->max }}</td>
                         <td><strong>{{ $row->passing }}</strong></td>
                         <td><strong>{{ $row->obtained }}</strong></td>
@@ -299,10 +291,23 @@ new Chart(document.getElementById('subjectPercentChart'), {
     },
     options: {
         indexAxis: 'y',
+        /* ---------- FIX: allow labels to render outside plot area ---------- */
+        layout: {
+            padding: {
+                top: 10,
+                bottom: 10,
+                left: 10,
+                right: 60      /* reserve space for "100%" label on the right */
+            }
+        },
         plugins: {
             legend: { display: false },
             datalabels: {
-                color: '#000', anchor: 'end', align: 'right',
+                color: '#000',
+                anchor: 'end',
+                align: 'right',
+                offset: 6,          /* small gap between bar end and label */
+                clip: false,        /* IMPORTANT: don't clip the label */
                 font: { weight: 'bold' },
                 formatter: v => v + '%'
             },
@@ -315,8 +320,10 @@ new Chart(document.getElementById('subjectPercentChart'), {
         },
         scales: {
             x: {
-                beginAtZero: true, max: 100,
-                title: { display: true, text: 'Percentage (%)', color: '#374151', font: { size: 12, weight: 'bold' } }
+                beginAtZero: true,
+                max: 110,          /* extra headroom so 100% label fits comfortably */
+                title: { display: true, text: 'Percentage (%)', color: '#374151', font: { size: 12, weight: 'bold' } },
+                ticks: { stepSize: 20, color: '#374151' }
             },
             y: {
                 title: { display: true, text: 'Subject', color: '#374151', font: { size: 12, weight: 'bold' } },

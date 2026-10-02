@@ -221,27 +221,46 @@
 }
 
 
+/* HEADER — dark navy, matching Exam Master / Teacher Bulk Allocation */
 .result-table th {
 
-    background: #DBEAFE;
+    background: #1e3a8a;
+
+    color: #FFFFFF;
 
     font-weight: 700 !important;
 
-    border: 1px solid #D1D5DB;
+    border: 1px solid #d1d5db;
 
-    padding: 8px;
+    padding: 8px 6px;
 
     white-space: nowrap;
+
+    text-align: left;
 }
 
 
 .result-table td {
 
-    border: 1px solid #D1D5DB;
+    border: 1px solid #d1d5db;
 
-    padding: 8px;
+    padding: 7px 6px;
 
     white-space: nowrap;
+}
+
+
+/* Zebra striping */
+.result-table tbody tr:nth-child(even) {
+
+    background: #f9fafb;
+}
+
+
+/* Row hover tint */
+.result-table tbody tr:hover {
+
+    background: #fef9c3;
 }
 
 

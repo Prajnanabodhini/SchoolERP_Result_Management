@@ -1,341 +1,490 @@
 @php
-$menus = include app_path('Helpers/MenuConfig.php');
+    $menus = include app_path('Helpers/MenuConfig.php');
 @endphp
 
 @if(auth()->check())
 
-<nav style="background:#1E3A8A;padding:8px 12px;">
+<nav class="erp-navbar">
+    <div class="erp-navbar__inner">
 
-<style>
+        {{-- ============================================================
+             MOBILE HAMBURGER
+             ============================================================ --}}
+        <button type="button"
+                class="erp-navbar__hamburger"
+                onclick="erpToggleMobileMenu()"
+                aria-label="Toggle menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
 
-.menu-wrapper{
-    display:flex;
-    align-items:center;
-    width:100%;
-}
+        {{-- ============================================================
+             LEFT: MENU ITEMS
+             ============================================================ --}}
+        <div class="erp-navbar__menu" id="erpMainMenu">
 
-/* .mobile-menu-btn{
-    display:block;
-} */
+            {{-- Dashboard --}}
+            @if(canView('Dashboard'))
+                <a href="{{ route('dashboard') }}"
+                   class="erp-navbar__item {{ request()->routeIs('dashboard') ? 'is-active' : '' }}">
+                    Dashboard
+                </a>
+            @endif
 
-.menu-bar{
-    display:flex;
-    align-items:center;
-    gap:6px;
-}
+            {{-- Grouped menus --}}
+            @foreach($menus as $group => $items)
 
-.menu-btn{
-    background:#2563EB;
-    color:white !important;
-    padding:8px 12px;
-    border-radius:4px;
-    font-size:13px;
-    font-weight:600;
-    text-decoration:none;
-    border:none;
-    cursor:pointer;
+                @if($group != 'Dashboard' && canAccessAny($items))
 
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
+                    <div class="erp-navbar__dropdown">
+                        <button type="button"
+                                class="erp-navbar__item erp-navbar__item--dropdown"
+                                onclick="erpToggleDropdown(event, 'dd-{{ \Illuminate\Support\Str::slug($group) }}')">
+                            {{ $group }}
+                            <svg class="erp-navbar__chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
 
-.menu-btn:hover{
-    background:#1D4ED8;
-}
+                        <div class="erp-navbar__dropdown-panel" id="dd-{{ \Illuminate\Support\Str::slug($group) }}">
+                            @foreach($items as $item)
+                                @if(canView($item['name']))
+                                    <a href="{{ $item['route'] == '#' ? '#' : route($item['route']) }}"
+                                       class="erp-navbar__dropdown-item {{ request()->routeIs($item['route']) ? 'is-active' : '' }}">
+                                        {{ $item['name'] }}
+                                    </a>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
 
-.dropdown{
-    position:relative;
-}
+                @endif
 
-.dropdown-content{
-    display:none;
-    position:absolute;
-    top:100%;
-    left:0;
-    min-width:250px;
-    background:white;
-    border:1px solid #D1D5DB;
-    border-radius:4px;
-    box-shadow:0 4px 12px rgba(0,0,0,.15);
-    z-index:9999;
-}
-
-.dropdown-content a{
-    display:block;
-    padding:8px 12px;
-    color:#111827;
-    text-decoration:none;
-    border-bottom:1px solid #E5E7EB;
-    font-size:12px;
-}
-
-.dropdown-content a:last-child{
-    border-bottom:none;
-}
-
-.dropdown-content a:hover{
-    background:#FEF3C7;
-}
-
-.show-menu{
-    display:block !important;
-}
-
-.user-panel{
-    margin-left:auto;
-    display:flex;
-    align-items:center;
-    gap:6px;
-}
-
-.user-btn{
-    padding:8px 12px;
-    border-radius:4px;
-    color:white;
-    text-decoration:none;
-    font-size:12px;
-    font-weight:600;
-}
-
-.profile-btn{
-    background:#16A34A;
-}
-
-.logout-btn{
-    background:#DC2626;
-    border:none;
-    cursor:pointer;
-}
-
-/* MOBILE */
-
-@media(max-width:768px){
-
-    .mobile-menu-btn{
-        display:block;
-        width:100%;
-        background:#2563EB;
-        color:white;
-        border:none;
-        padding:10px;
-        border-radius:4px;
-        font-size:16px;
-        font-weight:bold;
-        margin-bottom:8px;
-    }
-
-    .menu-wrapper{
-        flex-direction:column;
-        align-items:stretch;
-    }
-
-    .menu-bar{
-        display:none;
-        flex-direction:column;
-        width:100%;
-        gap:4px;
-    }
-
-    .menu-bar.show{
-        display:flex !important;
-    }
-
-    .dropdown{
-        width:100%;
-    }
-
-    .menu-btn{
-        width:100%;
-        justify-content:flex-start;
-    }
-
-    .dropdown-content{
-        position:relative;
-        width:100%;
-        min-width:100%;
-        box-shadow:none;
-    }
-
-    .user-panel{
-        margin-left:0;
-        margin-top:10px;
-        flex-wrap:wrap;
-    }
-}
-
-</style>
-
-<div class="menu-wrapper">
-
-<button
-    type="button"
-    class="mobile-menu-btn"
-    onclick="toggleMobileMenu()">
-    
-</button>
-<div class="menu-bar" id="mainMenu">
-
-{{-- Dashboard --}}
-
-@if(canView('Dashboard'))
-
-<a href="{{ route('dashboard') }}"
-   class="menu-btn">
-    Dashboard
-</a>
-
-@endif
-
-{{-- Other Menus --}}
-
-@foreach($menus as $group => $items)
-
-    @if($group != 'Dashboard')
-
-        @if(canAccessAny($items))
-
-        <div class="dropdown">
-
-            <button
-                type="button"
-                class="menu-btn"
-                onclick="toggleMenu('{{ \Illuminate\Support\Str::slug($group) }}')">
-
-                {{ $group }} ▼
-
-            </button>
-
-            <div
-                id="{{ \Illuminate\Support\Str::slug($group) }}"
-                class="dropdown-content">
-
-                @foreach($items as $item)
-
-                    @if(canView($item['name']))
-
-                    <a href="
-                    {{
-                        $item['route'] == '#'
-                        ? '#'
-                        : route($item['route'])
-                    }}
-                    ">
-                        {{ $item['name'] }}
-                    </a>
-
-                    @endif
-
-                @endforeach
-
-            </div>
+            @endforeach
 
         </div>
 
-        @endif
+        {{-- ============================================================
+             RIGHT: USER PANEL
+             ============================================================ --}}
+        <div class="erp-navbar__user">
 
-    @endif
+            <div class="erp-navbar__welcome">
+                <span class="erp-navbar__welcome-label">Welcome</span>
+                <span class="erp-navbar__welcome-name">{{ auth()->user()->name }}</span>
+            </div>
 
-@endforeach
+            <a href="{{ route('profile.edit') }}" class="erp-navbar__btn erp-navbar__btn--profile">
+                Profile
+            </a>
 
-</div>
+            <form method="POST" action="{{ route('logout') }}" class="erp-navbar__logout-form">
+                @csrf
+                <button type="submit" class="erp-navbar__btn erp-navbar__btn--logout">
+                    Logout
+                </button>
+            </form>
 
-<div class="user-panel">
+        </div>
 
-<span style="color:white;font-size:13px;font-weight:bold;">
-    Welcome, {{ auth()->user()->name }}
-</span>
+    </div>
+</nav>
 
-<a href="{{ route('profile.edit') }}"
-   class="user-btn profile-btn">
-    Profile
-</a>
+<style>
+/* =================================================================
+   ERP NAVBAR — MODERN SINGLE ROW
+   ================================================================= */
 
-<form method="POST"
-      action="{{ route('logout') }}"
-      style="margin:0;">
-    @csrf
+.erp-navbar {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+    position: relative;
+    z-index: 1000;
+}
 
-    <button
-        type="submit"
-        class="user-btn logout-btn">
-        Logout
-    </button>
-</form>
+.erp-navbar__inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    min-height: 52px;
+}
 
-</div>
+/* ---------------- HAMBURGER (mobile only) ---------------- */
 
-</div>
+.erp-navbar__hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0 8px;
+    flex-shrink: 0;
+}
+.erp-navbar__hamburger span {
+    display: block;
+    height: 2px;
+    background: #fff;
+    border-radius: 2px;
+    transition: .25s ease;
+}
+.erp-navbar__hamburger:hover {
+    background: rgba(255, 255, 255, .18);
+}
+
+/* ---------------- MENU BAR ---------------- */
+
+.erp-navbar__menu {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.erp-navbar__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    background: transparent;
+    color: #e0e7ff;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s ease, color .15s ease;
+    line-height: 1.2;
+}
+
+.erp-navbar__item:hover {
+    background: rgba(255, 255, 255, .12);
+    color: #ffffff;
+}
+
+.erp-navbar__item.is-active {
+    background: rgba(255, 255, 255, .18);
+    color: #ffffff;
+}
+
+.erp-navbar__chevron {
+    transition: transform .2s ease;
+    opacity: .8;
+}
+.erp-navbar__item--dropdown.is-open .erp-navbar__chevron {
+    transform: rotate(180deg);
+}
+
+/* ---------------- DROPDOWN ---------------- */
+
+.erp-navbar__dropdown {
+    position: relative;
+}
+
+.erp-navbar__dropdown-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 240px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
+    padding: 6px;
+    display: none;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity .15s ease, transform .15s ease;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.erp-navbar__dropdown-panel.is-open {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.erp-navbar__dropdown-item {
+    display: block;
+    padding: 8px 12px;
+    color: #1f2937;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background .12s ease, color .12s ease;
+}
+
+.erp-navbar__dropdown-item:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.erp-navbar__dropdown-item.is-active {
+    background: #dbeafe;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+/* ---------------- USER PANEL ---------------- */
+
+.erp-navbar__user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.erp-navbar__welcome {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    color: #e0e7ff;
+    font-size: 13px;
+    padding: 0 6px;
+    white-space: nowrap;
+}
+.erp-navbar__welcome-label {
+    opacity: .75;
+}
+.erp-navbar__welcome-name {
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.erp-navbar__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter .15s ease, transform .1s ease;
+}
+.erp-navbar__btn:hover {
+    filter: brightness(1.1);
+}
+.erp-navbar__btn:active {
+    transform: translateY(1px);
+}
+
+.erp-navbar__btn--profile {
+    background: #16a34a;
+}
+.erp-navbar__btn--logout {
+    background: #dc2626;
+}
+
+.erp-navbar__logout-form {
+    margin: 0;
+}
+
+/* =================================================================
+   RESPONSIVE — MOBILE / TABLET
+   ================================================================= */
+
+@media (max-width: 1024px) {
+
+    .erp-navbar__welcome {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+
+    .erp-navbar__hamburger {
+        display: flex;
+    }
+
+    .erp-navbar__inner {
+        flex-wrap: wrap;
+    }
+
+    .erp-navbar__menu {
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 2px;
+        order: 3;
+        margin-top: 8px;
+        padding: 8px 0 4px;
+        border-top: 1px solid rgba(255, 255, 255, .15);
+    }
+
+    .erp-navbar__menu.is-open {
+        display: flex;
+    }
+
+    .erp-navbar__item {
+        width: 100%;
+        justify-content: space-between;
+        padding: 10px 14px;
+        font-size: 14px;
+    }
+
+    .erp-navbar__dropdown {
+        width: 100%;
+    }
+
+    .erp-navbar__dropdown-panel {
+        position: static;
+        width: 100%;
+        min-width: 0;
+        box-shadow: none;
+        border: none;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, .08);
+        margin: 2px 0 6px;
+        padding: 4px;
+        display: none;
+        opacity: 1;
+        transform: none;
+        max-height: none;
+    }
+
+    .erp-navbar__dropdown-panel.is-open {
+        display: block;
+    }
+
+    .erp-navbar__dropdown-item {
+        color: #e0e7ff;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .erp-navbar__dropdown-item:hover,
+    .erp-navbar__dropdown-item.is-active {
+        background: rgba(255, 255, 255, .15);
+        color: #ffffff;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .erp-navbar__inner {
+        padding: 8px 10px;
+    }
+
+    .erp-navbar__btn {
+        padding: 0 12px;
+        font-size: 12px;
+        height: 32px;
+    }
+
+    .erp-navbar__welcome-name {
+        max-width: 90px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+</style>
 
 <script>
+/* =================================================================
+   NAVBAR — Dropdown + Mobile Menu Toggle
+   ================================================================= */
 
-function toggleMenu(menuId)
-{
+function erpToggleDropdown(event, dropdownId) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const target = document.getElementById(dropdownId);
+    if (!target) return;
+
+    const isCurrentlyOpen = target.classList.contains('is-open');
+
+    /* Close ALL open dropdowns */
     document
-        .querySelectorAll('.dropdown-content')
-        .forEach(function(menu){
-
-            if(menu.id !== menuId)
-            {
-                menu.classList.remove('show-menu');
-            }
-
+        .querySelectorAll('.erp-navbar__dropdown-panel.is-open')
+        .forEach(function (el) {
+            el.classList.remove('is-open');
         });
 
-    let current =
-        document.getElementById(menuId);
+    document
+        .querySelectorAll('.erp-navbar__item--dropdown.is-open')
+        .forEach(function (el) {
+            el.classList.remove('is-open');
+        });
 
-    if(current)
-    {
-        current.classList.toggle('show-menu');
+    /* Toggle current */
+    if (!isCurrentlyOpen) {
+        target.classList.add('is-open');
+
+        const btn = target.previousElementSibling;
+        if (btn) btn.classList.add('is-open');
     }
 }
 
-document.addEventListener(
-'click',
-function(event){
+function erpToggleMobileMenu() {
+    const menu = document.getElementById('erpMainMenu');
+    if (menu) menu.classList.toggle('is-open');
+}
 
-    if(!event.target.closest('.dropdown'))
-    {
+/* Close dropdowns on outside click */
+document.addEventListener('click', function (event) {
+    if (!event.target.closest('.erp-navbar__dropdown')) {
         document
-            .querySelectorAll('.dropdown-content')
-            .forEach(function(menu){
-
-                menu.classList.remove('show-menu');
-
+            .querySelectorAll('.erp-navbar__dropdown-panel.is-open')
+            .forEach(function (el) {
+                el.classList.remove('is-open');
+            });
+        document
+            .querySelectorAll('.erp-navbar__item--dropdown.is-open')
+            .forEach(function (el) {
+                el.classList.remove('is-open');
             });
     }
-
 });
 
-function toggleMobileMenu()
-{
-    document
-        .getElementById('mainMenu')
-        .classList
-        .toggle('show');
-}
-
-window.addEventListener(
-'resize',
-function(){
-
-    let menu =
-        document.getElementById('mainMenu');
-
-    if(window.innerWidth > 768)
-    {
-        menu.style.display = 'flex';
+/* Close dropdowns on ESC */
+document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+        document
+            .querySelectorAll('.erp-navbar__dropdown-panel.is-open')
+            .forEach(function (el) {
+                el.classList.remove('is-open');
+            });
+        document
+            .querySelectorAll('.erp-navbar__item--dropdown.is-open')
+            .forEach(function (el) {
+                el.classList.remove('is-open');
+            });
     }
-    else
-    {
-        menu.style.display = '';
-    }
-
 });
 
+/* Reset mobile menu state on resize */
+let erpResizeTimer;
+window.addEventListener('resize', function () {
+    clearTimeout(erpResizeTimer);
+    erpResizeTimer = setTimeout(function () {
+        if (window.innerWidth > 900) {
+            const menu = document.getElementById('erpMainMenu');
+            if (menu) menu.classList.remove('is-open');
+        }
+    }, 150);
+});
 </script>
-
-</nav>
 
 @endif

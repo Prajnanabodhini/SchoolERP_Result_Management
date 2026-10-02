@@ -14,9 +14,30 @@
     .analytics-filters label {
         font-size: 11px; font-weight: 700; color: #374151; white-space: nowrap;
     }
+
+    /* ---------- SELECT WRAPPER + CUSTOM ARROW ---------- */
+    .analytics-select-wrap { position: relative; display: inline-block; }
+    .analytics-select-wrap .analytics-select-arrow {
+        position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+        width: 0; height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #6b7280;
+        pointer-events: none;
+    }
+    .analytics-select-wrap.disabled .analytics-select-arrow { border-top-color: #cbd5e1; }
+
     .analytics-filters select {
-        height: 34px; padding: 4px 8px; font-size: 12px;
-        border: 1px solid #9ca3af; border-radius: 4px; background: #fff;
+        height: 34px;
+        padding: 4px 28px 4px 8px;
+        font-size: 12px;
+        border: 1px solid #9ca3af;
+        border-radius: 4px;
+        background: #fff;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        cursor: pointer;
     }
     .analytics-filters select:focus {
         outline: none; border-color: #2563eb;
@@ -140,48 +161,60 @@
 
                 <div class="filter-group">
                     <label>Academic Year <span style="color:#dc2626;">*</span></label>
-                    <select name="academic_year_id" id="ay_sel" class="filter-ay" required>
-                        <option value="">Select Year</option>
-                        @foreach($academicYears as $year)
-                            <option value="{{ $year->id }}"
-                                {{ request('academic_year_id') == $year->id ? 'selected' : '' }}>
-                                {{ $year->year_name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div class="analytics-select-wrap">
+                        <select name="academic_year_id" id="ay_sel" class="filter-ay" required>
+                            <option value="">Select Year</option>
+                            @foreach($academicYears as $year)
+                                <option value="{{ $year->id }}"
+                                    {{ request('academic_year_id') == $year->id ? 'selected' : '' }}>
+                                    {{ $year->year_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="analytics-select-arrow"></span>
+                    </div>
                 </div>
 
                 <div class="filter-group">
                     <label>Standard <span style="color:#dc2626;">*</span></label>
-                    <select name="standard_id" id="std_sel" class="filter-std" required>
-                        <option value="">Select</option>
-                        @foreach($standards as $standard)
-                            <option value="{{ $standard->id }}"
-                                {{ request('standard_id') == $standard->id ? 'selected' : '' }}>
-                                {{ $standard->standard_name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div class="analytics-select-wrap">
+                        <select name="standard_id" id="std_sel" class="filter-std" required>
+                            <option value="">Select</option>
+                            @foreach($standards as $standard)
+                                <option value="{{ $standard->id }}"
+                                    {{ request('standard_id') == $standard->id ? 'selected' : '' }}>
+                                    {{ $standard->standard_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="analytics-select-arrow"></span>
+                    </div>
                 </div>
 
                 <div class="filter-group">
                     <label>Division <span style="color:#dc2626;">*</span></label>
-                    <select name="division_id" id="div_sel" class="filter-div" required>
-                        <option value="">Select</option>
-                        @foreach($divisions as $division)
-                            <option value="{{ $division->id }}"
-                                {{ request('division_id') == $division->id ? 'selected' : '' }}>
-                                {{ $division->division_name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div class="analytics-select-wrap">
+                        <select name="division_id" id="div_sel" class="filter-div" required>
+                            <option value="">Select</option>
+                            @foreach($divisions as $division)
+                                <option value="{{ $division->id }}"
+                                    {{ request('division_id') == $division->id ? 'selected' : '' }}>
+                                    {{ $division->division_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="analytics-select-arrow"></span>
+                    </div>
                 </div>
 
                 <div class="filter-group">
                     <label>Exam <span style="color:#6b7280;">(optional)</span></label>
-                    <select name="exam_master_id" id="exam_sel" class="filter-exam">
-                        <option value="">Select Standard first</option>
-                    </select>
+                    <div class="analytics-select-wrap disabled" id="exam_select_wrap">
+                        <select name="exam_master_id" id="exam_sel" class="filter-exam">
+                            <option value="">Select Standard first</option>
+                        </select>
+                        <span class="analytics-select-arrow"></span>
+                    </div>
                 </div>
 
                 <button type="submit" class="erp-btn erp-btn-save" style="height:34px;">
@@ -210,6 +243,7 @@
         const stdSel  = document.getElementById('std_sel');
         const divSel  = document.getElementById('div_sel');
         const examSel = document.getElementById('exam_sel');
+        const examWrap = document.getElementById('exam_select_wrap');
 
         const preSelectedExam = "{{ request('exam_master_id') }}";
         const examsUrl        = "{{ route('report-card.exams-by-standard') }}";
@@ -223,11 +257,13 @@
             if (!standardId) {
                 examSel.innerHTML = '<option value="">Select Standard first</option>';
                 examSel.disabled  = true;
+                if (examWrap) examWrap.classList.add('disabled');
                 return;
             }
             const seq = ++requestSeq;
             examSel.disabled  = true;
             examSel.innerHTML = '<option value="">Loading…</option>';
+            if (examWrap) examWrap.classList.add('disabled');
 
             try {
                 const res = await fetch(examsUrl, {
@@ -257,11 +293,13 @@
                 });
                 examSel.innerHTML = html;
                 examSel.disabled  = false;
+                if (examWrap) examWrap.classList.remove('disabled');
             } catch (err) {
                 if (seq !== requestSeq) return;
                 console.error('Exam load failed:', err);
                 examSel.innerHTML = '<option value="">Error loading exams</option>';
                 examSel.disabled  = true;
+                if (examWrap) examWrap.classList.add('disabled');
             }
         }
 
@@ -284,6 +322,7 @@
             loadExams(stdSel.value, aySel.value, preSelectedExam);
         } else {
             examSel.disabled = true;
+            if (examWrap) examWrap.classList.add('disabled');
         }
     })();
     </script>

@@ -1399,4 +1399,251 @@ class MarkEntryController extends Controller
             )
         );
     }
+
+        /*
+    |--------------------------------------------------------------------------
+    | VIEW (READ-ONLY MARKS VIEW)
+    |--------------------------------------------------------------------------
+    | Same filter logic as index() — so year/exam/assignment dropdowns populate
+    | exactly the same way. Marks are shown read-only.
+    */
+    public function view(Request $request)
+    {
+        $academicYears = collect();
+        $exams         = collect();
+        $assignments   = collect();
+
+        $exam                    = null;
+        $teacherSubjectAllocation = null;
+        $selectedClassAllocation = null;
+        $records                 = collect();
+        $error                   = '';
+        $showTheory              = false;
+        $showOral                = false;
+        $showPractical           = false;
+        $marksLocked             = false;
+
+        $user = Auth::user();
+        if (!$user) {
+            abort(403);
+        }
+
+        $userId          = (int) Auth::id();
+        $isAdministrator = MarksHelper::isAdministrator();
+
+        $academicYearId = $request->input('academic_year_id');
+        $examId         = $request->input('exam_master_id');
+        $tsaId          = $request->input('teacher_subject_allocation_id');
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACADEMIC YEARS
+        |--------------------------------------------------------------------------
+        */
+        $academicYears = AcademicYear::query()
+            ->where('is_active', 1)
+            ->orderByDesc('id')
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | EXAMS (filtered by year)
+        |--------------------------------------------------------------------------
+        */
+        $examQuery = ExamMaster::query()
+            ->where('is_active', 1)
+            ->orderBy('display_order')
+            ->orderBy('exam_name');
+
+        if ($academicYearId !== null && $academicYearId !== '') {
+            $examQuery->where('academic_year_id', (int) $academicYearId);
+        }
+
+        $exams = $examQuery->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | SELECTED EXAM
+        |--------------------------------------------------------------------------
+        */
+        if ($examId) {
+            $exam = ExamMaster::where('id', (int) $examId)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$exam) {
+                $error = 'Selected exam was not found.';
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SELECTED TSA
+        |--------------------------------------------------------------------------
+        */
+        if ($tsaId) {
+            $tsaQuery = TeacherSubjectAllocation::query()
+                ->with([
+                    'allocation.teacher',
+                    'allocation.academicYear',
+                    'allocation.section',
+                    'allocation.standard',
+                    'allocation.division',
+                    'exam',
+                ])
+                ->where('id', (int) $tsaId);
+
+            if ($examId) {
+                $tsaQuery->where('exam_master_id', (int) $examId);
+            }
+
+            if (!$isAdministrator) {
+                $tsaQuery->whereHas('allocation', function ($query) use ($userId) {
+                    $query->where('user_id', $userId);
+                });
+            }
+
+            $teacherSubjectAllocation = $tsaQuery->first();
+
+            if (!$teacherSubjectAllocation) {
+                $error = 'Selected teaching assignment was not found or is not assigned to you.';
+            } else {
+                $selectedClassAllocation = $teacherSubjectAllocation->allocation;
+
+                if (!$selectedClassAllocation) {
+                    $teacherSubjectAllocation = null;
+                    $error = 'Teacher class allocation not found.';
+                } else {
+                    $resolvedYear = $selectedClassAllocation->academic_year_id ?? null;
+                    if ($resolvedYear !== null && $resolvedYear !== '') {
+                        $academicYearId = (int) $resolvedYear;
+                        $request->merge(['academic_year_id' => $academicYearId]);
+                    }
+
+                    if (!$exam) {
+                        $exam = $teacherSubjectAllocation->exam;
+                    }
+                }
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD ASSIGNMENTS (for dropdown)
+        |--------------------------------------------------------------------------
+        */
+        $assignmentQuery = TeacherSubjectAllocation::query()
+            ->with([
+                'allocation.teacher',
+                'allocation.academicYear',
+                'allocation.section',
+                'allocation.standard',
+                'allocation.division',
+                'exam',
+            ]);
+
+        if ($examId) {
+            $assignmentQuery->where('exam_master_id', (int) $examId);
+        }
+
+        if ($academicYearId !== null && $academicYearId !== '') {
+            $assignmentQuery->whereHas('allocation', function ($query) use ($academicYearId) {
+                $query->where('academic_year_id', (int) $academicYearId);
+            });
+        }
+
+        if (!$isAdministrator) {
+            $assignmentQuery->whereHas('allocation', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            });
+        }
+
+        $assignments = $assignmentQuery->orderByDesc('id')->get();
+
+        $assignments = $assignments->filter(function ($assignment) {
+            $allocation     = $assignment->allocation;
+            $assignmentExam = $assignment->exam;
+
+            if (!$allocation || !$assignmentExam) {
+                return false;
+            }
+
+            if ($assignmentExam->academic_year_id === null) {
+                return true;
+            }
+
+            return (int) $assignmentExam->academic_year_id === (int) $allocation->academic_year_id;
+        })->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | DETERMINE COMPONENT FLAGS (theory / oral / practical)
+        |--------------------------------------------------------------------------
+        */
+        if ($exam && $teacherSubjectAllocation && $selectedClassAllocation) {
+            $subjectId = $teacherSubjectAllocation->subject_id;
+
+            $subjectConfig = MarksHelper::resolveExamSubjectConfig(
+                $exam,
+                $selectedClassAllocation->standard_id,
+                $subjectId
+            );
+
+            if ($subjectConfig) {
+                if (MarksHelper::isTermExam($exam->exam_name ?? '')) {
+                    $componentData = MarksHelper::getTermAssessmentStructure(
+                        $exam,
+                        $subjectConfig,
+                        $selectedClassAllocation->standard_id
+                    );
+                } else {
+                    $componentData = MarksHelper::getComponentMaxMarks($exam, $subjectConfig);
+                }
+
+                $showTheory    = (bool) ($componentData['show_theory']    ?? false);
+                $showOral      = (bool) ($componentData['show_oral']      ?? false);
+                $showPractical = (bool) ($componentData['show_practical'] ?? false);
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD MARKS RECORDS
+        |--------------------------------------------------------------------------
+        */
+        if ($teacherSubjectAllocation && $exam && $selectedClassAllocation && !$error) {
+            $records = StudentMark::query()
+                ->where('academic_year_id', $selectedClassAllocation->academic_year_id)
+                ->where('standard_id',     $selectedClassAllocation->standard_id)
+                ->where('division_id',     $selectedClassAllocation->division_id)
+                ->where('exam_master_id',  $exam->id)
+                ->where('subject_id',      $teacherSubjectAllocation->subject_id)
+                ->get();
+
+            if ($records->where('is_locked', 1)->isNotEmpty()) {
+                $marksLocked = true;
+            }
+        }
+
+        if ($academicYearId !== null && $academicYearId !== '') {
+            $request->merge(['academic_year_id' => $academicYearId]);
+        }
+
+        return view('marks-entry.view', compact(
+            'request',
+            'academicYears',
+            'academicYearId',
+            'exams',
+            'assignments',
+            'exam',
+            'teacherSubjectAllocation',
+            'selectedClassAllocation',
+            'records',
+            'error',
+            'showTheory',
+            'showOral',
+            'showPractical',
+            'marksLocked'
+        ));
+    }
 }

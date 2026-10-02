@@ -11,9 +11,46 @@
     .rc-filter-bar.secondary { border-top: 0; border-bottom: 0; padding-top: 0; padding-bottom: 0; }
     .rc-filter-group { display: flex; flex-direction: column; gap: 3px; }
     .rc-filter-group label { font-size: 11px; font-weight: 700; color: #374151; white-space: nowrap; }
-    .rc-filter-group select, .rc-filter-group input { height: 32px; padding: 4px 8px; font-size: 12px; border: 1px solid #9ca3af; border-radius: 4px; background: #fff; }
-    .rc-filter-group select:focus, .rc-filter-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
+
+    /* ---------- SELECT WRAPPER + CUSTOM ARROW ---------- */
+    .rc-select-wrap { position: relative; display: inline-block; }
+    .rc-select-wrap select { width: 100%; }
+    .rc-select-arrow {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #6b7280;
+        pointer-events: none;
+    }
+    .rc-select-wrap.disabled .rc-select-arrow { border-top-color: #cbd5e1; }
+
+    .rc-filter-group select,
+    .rc-filter-group input {
+        height: 32px;
+        padding: 4px 28px 4px 8px;      /* right padding for arrow */
+        font-size: 12px;
+        border: 1px solid #9ca3af;
+        border-radius: 4px;
+        background: #fff;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        cursor: pointer;
+        outline: none;
+    }
+    .rc-filter-group input {
+        padding-right: 8px;             /* text inputs don't need arrow padding */
+        cursor: text;
+    }
+    .rc-filter-group select:focus,
+    .rc-filter-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
     .rc-filter-group select:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+
     .w-ay { width: 150px; } .w-exam { width: 210px; } .w-std { width: 120px; } .w-div { width: 90px; } .w-student { width: 340px; }
     .rc-btn { height: 32px; padding: 4px 14px; font-size: 12px; font-weight: 600; border: 0; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; white-space: nowrap; }
     .rc-btn-green { background: #16a34a; color: #fff; } .rc-btn-green:hover { background: #15803d; }
@@ -22,7 +59,7 @@
     .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; }
     .alert-success { background: #dcfce7; border: 1px solid #86efac; color: #166534; padding: 8px 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; }
     @media print { .no-print { display: none !important; } }
-    @media (max-width: 900px) { .rc-filter-bar { flex-wrap: wrap; } .w-ay, .w-exam, .w-std, .w-div, .w-student { width: 100%; } }
+    @media (max-width: 900px) { .rc-filter-bar { flex-wrap: wrap; } .w-ay, .w-exam, .w-std, .w-div, .w-student { width: 100%; } .rc-select-wrap { width: 100%; } }
 </style>
 
 <div class="report-card-page">
@@ -47,48 +84,60 @@
             {{-- 1. Academic Year --}}
             <div class="rc-filter-group">
                 <label>Academic Year</label>
-                <select name="academic_year_id" id="academic_year_id" class="w-ay" required>
-                    <option value="">Select</option>
-                    @foreach($academicYears as $year)
-                        <option value="{{ $year->id }}" {{ ($academic_year_id ?? '') == $year->id ? 'selected' : '' }}>
-                            {{ $year->year_name }}
-                        </option>
-                    @endforeach
-                </select>
+                <div class="rc-select-wrap">
+                    <select name="academic_year_id" id="academic_year_id" class="w-ay" required>
+                        <option value="">Select</option>
+                        @foreach($academicYears as $year)
+                            <option value="{{ $year->id }}" {{ ($academic_year_id ?? '') == $year->id ? 'selected' : '' }}>
+                                {{ $year->year_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <span class="rc-select-arrow"></span>
+                </div>
             </div>
 
             {{-- 2. Standard --}}
             <div class="rc-filter-group">
                 <label>Standard</label>
-                <select name="standard_id" id="standard_id" class="w-std" required>
-                    <option value="">Select</option>
-                    @foreach($standards as $standard)
-                        <option value="{{ $standard->id }}" {{ ($standard_id ?? '') == $standard->id ? 'selected' : '' }}>
-                            {{ $standard->standard_name }}
-                        </option>
-                    @endforeach
-                </select>
+                <div class="rc-select-wrap">
+                    <select name="standard_id" id="standard_id" class="w-std" required>
+                        <option value="">Select</option>
+                        @foreach($standards as $standard)
+                            <option value="{{ $standard->id }}" {{ ($standard_id ?? '') == $standard->id ? 'selected' : '' }}>
+                                {{ $standard->standard_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <span class="rc-select-arrow"></span>
+                </div>
             </div>
 
             {{-- 3. Division --}}
             <div class="rc-filter-group">
                 <label>Division</label>
-                <select name="division_id" id="division_id" class="w-div" required>
-                    <option value="">Select</option>
-                    @foreach($divisions as $division)
-                        <option value="{{ $division->id }}" {{ ($division_id ?? '') == $division->id ? 'selected' : '' }}>
-                            {{ $division->division_name }}
-                        </option>
-                    @endforeach
-                </select>
+                <div class="rc-select-wrap">
+                    <select name="division_id" id="division_id" class="w-div" required>
+                        <option value="">Select</option>
+                        @foreach($divisions as $division)
+                            <option value="{{ $division->id }}" {{ ($division_id ?? '') == $division->id ? 'selected' : '' }}>
+                                {{ $division->division_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <span class="rc-select-arrow"></span>
+                </div>
             </div>
 
             {{-- 4. Exam (loaded by AJAX from Standard) --}}
             <div class="rc-filter-group">
                 <label>Exam</label>
-                <select name="exam_master_id" id="exam_master_id" class="w-exam" required disabled>
-                    <option value="">Select Standard first</option>
-                </select>
+                <div class="rc-select-wrap disabled" id="exam_select_wrap">
+                    <select name="exam_master_id" id="exam_master_id" class="w-exam" required disabled>
+                        <option value="">Select Standard first</option>
+                    </select>
+                    <span class="rc-select-arrow"></span>
+                </div>
             </div>
 
             <button type="submit" class="rc-btn rc-btn-green">Search</button>
@@ -106,14 +155,17 @@
 
                     <div class="rc-filter-group">
                         <label>Student</label>
-                        <select id="student_id" class="w-student" required>
-                            <option value="">Select Student</option>
-                            @foreach($students as $student)
-                                <option value="{{ $student->Studentid }}">
-                                    {{ $student->Studentid }} - {{ $student->studname }}{{ !empty($student->fathername) ? ' ' . $student->fathername : '' }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div class="rc-select-wrap">
+                            <select id="student_id" class="w-student" required>
+                                <option value="">Select Student</option>
+                                @foreach($students as $student)
+                                    <option value="{{ $student->Studentid }}">
+                                        {{ $student->Studentid }} - {{ $student->studname }}{{ !empty($student->fathername) ? ' ' . $student->fathername : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <span class="rc-select-arrow"></span>
+                        </div>
                     </div>
 
                     <button type="button" class="rc-btn rc-btn-orange" onclick="openProgressCard()">
@@ -135,6 +187,7 @@
     const stdSel  = document.getElementById('standard_id');
     const divSel  = document.getElementById('division_id');
     const examSel = document.getElementById('exam_master_id');
+    const examWrap = document.getElementById('exam_select_wrap');
     const form    = document.getElementById('rcSearchForm');
 
     if (!aySel || !stdSel || !examSel || !form) return;
@@ -152,6 +205,7 @@
         if (!standardId) {
             examSel.innerHTML = '<option value="">Select Standard first</option>';
             examSel.disabled  = true;
+            if (examWrap) examWrap.classList.add('disabled');
             return;
         }
 
@@ -159,6 +213,7 @@
 
         examSel.disabled  = true;
         examSel.innerHTML = '<option value="">Loading…</option>';
+        if (examWrap) examWrap.classList.add('disabled');
 
         try {
             const res = await fetch(examsUrl, {
@@ -183,6 +238,7 @@
             if (!exams.length) {
                 examSel.innerHTML = '<option value="">No exams for this Standard</option>';
                 examSel.disabled  = true;
+                if (examWrap) examWrap.classList.add('disabled');
                 return;
             }
 
@@ -194,12 +250,14 @@
             });
             examSel.innerHTML = html;
             examSel.disabled  = false;
+            if (examWrap) examWrap.classList.remove('disabled');
 
         } catch (err) {
             if (seq !== requestSeq) return;
             console.error('Exam load failed:', err);
             examSel.innerHTML = '<option value="">Error loading exams</option>';
             examSel.disabled  = true;
+            if (examWrap) examWrap.classList.add('disabled');
         }
     }
 

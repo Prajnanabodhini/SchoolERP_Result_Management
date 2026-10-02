@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\TeacherBulkHelper;
+use App\Helpers\AllocationStatusHelper;
 use App\Models\Division;
 use App\Models\ExamMaster;
 use App\Models\Standard;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+
 
 class TeacherBulkAllocationController extends Controller
 {
@@ -24,24 +26,10 @@ class TeacherBulkAllocationController extends Controller
     {
         $academicYearId = $request->input('academic_year_id', '');
         $standardId     = $request->input('standard_id', '');
+        $divisionId     = $request->input('division_id', '');
         $examMasterId   = $request->input('exam_master_id', '');
 
         $exams = TeacherBulkHelper::exams($academicYearId, $standardId);
-
-        /*
-        |--------------------------------------------------------------------------
-        | PAGINATE BY (CLASS ALLOCATION, EXAM) PAIRS
-        |--------------------------------------------------------------------------
-        |
-        | A single TeacherClassAllocation can have TSAs across multiple exams.
-        | We want ONE row per (allocation + exam) so a teacher allocated for
-        | both Unit Test 1 and Term 1 gets two separate rows.
-        |
-        | Sort by "latest activity" — GREATEST(TSA.updated_at, TSA.created_at,
-        | TCA.updated_at, TCA.created_at) so recently-edited allocations
-        | bubble to the top.
-        |
-        */
 
         $pairQuery = DB::table('teacher_class_allocations as tca')
             ->join(
@@ -52,15 +40,7 @@ class TeacherBulkAllocationController extends Controller
             )
             ->select(
                 'tca.id as allocation_id',
-                DB::raw('COALESCE(tsa.exam_master_id, 0) as exam_master_id'),
-                DB::raw(
-                    'MAX(
-                        GREATEST(
-                            COALESCE(tsa.updated_at, tsa.created_at),
-                            COALESCE(tca.updated_at, tca.created_at)
-                        )
-                    ) as last_touched'
-                )
+                DB::raw('COALESCE(tsa.exam_master_id, 0) as exam_master_id')
             )
             ->groupBy(
                 'tca.id',
@@ -70,28 +50,28 @@ class TeacherBulkAllocationController extends Controller
         if ($academicYearId !== '') {
             $pairQuery->where('tca.academic_year_id', (int) $academicYearId);
         }
-
         if ($standardId !== '') {
             $pairQuery->where('tca.standard_id', (int) $standardId);
         }
-
+        if ($divisionId !== '') {
+            $pairQuery->where('tca.division_id', (int) $divisionId);
+        }
         if ($examMasterId !== '') {
             $pairQuery->where('tsa.exam_master_id', (int) $examMasterId);
         }
 
-        $pairQuery
-            ->orderByDesc('last_touched')
-            ->orderByDesc('tca.id');
+        /*
+        |--------------------------------------------------------------------------
+        | Latest created allocation first (descending by tca.id).
+        | Rows sharing the same allocation_id (multiple exams for one allocation)
+        | stay grouped because they share the same tca.id.
+        |--------------------------------------------------------------------------
+        */
+        $pairQuery->orderByDesc('tca.id');
 
         $pairs = $pairQuery
             ->paginate(25)
             ->withQueryString();
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD THE CLASS ALLOCATIONS FOR THIS PAGE
-        |--------------------------------------------------------------------------
-        */
 
         $allocationIds = collect($pairs->items())
             ->pluck('allocation_id')
@@ -110,25 +90,15 @@ class TeacherBulkAllocationController extends Controller
             ->get()
             ->keyBy('id');
 
-        /*
-        |--------------------------------------------------------------------------
-        | BUILD ONE DISPLAY ROW PER (ALLOCATION, EXAM)
-        |--------------------------------------------------------------------------
-        */
-
         $rows = collect();
 
         foreach ($pairs->items() as $pair) {
 
             $alloc = $allocationModels->get($pair->allocation_id);
-            if (!$alloc) {
-                continue;
-            }
+            if (!$alloc) continue;
 
-            /* Shallow clone so we don't mutate the shared model */
             $clone = clone $alloc;
 
-            /* Keep ONLY the TSAs that belong to this exam */
             $clone->setRelation(
                 'subjectAllocations',
                 $alloc->subjectAllocations
@@ -144,25 +114,48 @@ class TeacherBulkAllocationController extends Controller
             $rows->push($clone);
         }
 
-        /* Swap the paginator's items so the blade renders our split rows */
         $pairs->setCollection($rows);
 
-        /*
-        |--------------------------------------------------------------------------
-        | COMPUTE displaySubjects FOR EACH ROW
-        |--------------------------------------------------------------------------
-        */
-
         TeacherBulkHelper::prepareIndexAllocations($pairs);
+
+        $pendingCount  = 0;
+        $subjectStatus = [];
+        $pendingExam   = null;
+
+        if ($examMasterId !== '') {
+            $pendingExam = ExamMaster::find((int) $examMasterId);
+
+            if ($pendingExam) {
+                $count = AllocationStatusHelper::pendingCountForExam((int) $examMasterId);
+                $pendingCount  = max(0, $count);
+                $subjectStatus = AllocationStatusHelper::subjectStatusForExam((int) $examMasterId);
+            }
+        }
+
+        $pendingSummary = [];
+        $totalPending   = 0;
+
+        if ($examMasterId === '') {
+            $yearFilter     = $academicYearId !== '' ? (int) $academicYearId : null;
+            $pendingSummary = AllocationStatusHelper::summaryForAcademicYear($yearFilter);
+            $totalPending   = array_sum(array_column($pendingSummary, 'pending'));
+        }
 
         return view('administrator.teacher-bulk-allocation.index', [
             'allocations'    => $pairs,
             'standards'      => TeacherBulkHelper::standards(),
             'academicYears'  => TeacherBulkHelper::academicYears(),
+            'divisions'      => TeacherBulkHelper::divisions(),
             'exams'          => $exams,
             'academicYearId' => $academicYearId,
             'standardId'     => $standardId,
+            'divisionId'     => $divisionId,
             'examMasterId'   => $examMasterId,
+            'pendingCount'   => $pendingCount,
+            'subjectStatus'  => $subjectStatus,
+            'pendingExam'    => $pendingExam,
+            'pendingSummary' => $pendingSummary,
+            'totalPending'   => $totalPending,
         ]);
     }
 
@@ -207,25 +200,18 @@ class TeacherBulkAllocationController extends Controller
             return response()->json([
                 'success'  => false,
                 'message'  => 'Selected Exam does not have an Academic Year assigned.',
-                'standard' => null,
-                'section'  => null,
-                'divisions'=> [],
-                'subjects' => [],
+                'standard' => null, 'section' => null, 'divisions'=> [], 'subjects' => [],
             ], 422);
         }
 
         $standard = Standard::where('id', $exam->standard_id)
-            ->where('is_active', 1)
-            ->first();
+            ->where('is_active', 1)->first();
 
         if (!$standard) {
             return response()->json([
                 'success'  => false,
                 'message'  => 'No Standard is assigned to this Exam.',
-                'standard' => null,
-                'section'  => null,
-                'divisions'=> [],
-                'subjects' => [],
+                'standard' => null, 'section' => null, 'divisions'=> [], 'subjects' => [],
             ], 422);
         }
 
@@ -273,10 +259,7 @@ class TeacherBulkAllocationController extends Controller
     public function getStandards(Request $request)
     {
         $sectionId = $request->input('section_id');
-
-        if (!$sectionId) {
-            return response()->json([]);
-        }
+        if (!$sectionId) return response()->json([]);
 
         return response()->json(
             Standard::where('section_id', $sectionId)
@@ -298,9 +281,7 @@ class TeacherBulkAllocationController extends Controller
 
         if (!$examMasterId) {
             return response()->json([
-                'success'  => false,
-                'message'  => 'Exam is required.',
-                'subjects' => [],
+                'success' => false, 'message' => 'Exam is required.', 'subjects' => [],
             ], 422);
         }
 
@@ -308,9 +289,7 @@ class TeacherBulkAllocationController extends Controller
 
         if (!$exam) {
             return response()->json([
-                'success'  => false,
-                'message'  => 'Selected Exam was not found.',
-                'subjects' => [],
+                'success' => false, 'message' => 'Selected Exam was not found.', 'subjects' => [],
             ], 404);
         }
 
@@ -318,8 +297,8 @@ class TeacherBulkAllocationController extends Controller
 
         if ($examYearId <= 0) {
             return response()->json([
-                'success'  => false,
-                'message'  => 'Selected Exam does not have an Academic Year assigned.',
+                'success' => false,
+                'message' => 'Selected Exam does not have an Academic Year assigned.',
                 'subjects' => [],
             ], 422);
         }
@@ -328,8 +307,8 @@ class TeacherBulkAllocationController extends Controller
 
         if (!$standardId) {
             return response()->json([
-                'success'  => false,
-                'message'  => 'No Standard is assigned to this Exam.',
+                'success' => false,
+                'message' => 'No Standard is assigned to this Exam.',
                 'subjects' => [],
             ], 422);
         }
@@ -338,9 +317,7 @@ class TeacherBulkAllocationController extends Controller
 
         if (!$standard) {
             return response()->json([
-                'success'  => false,
-                'message'  => 'Standard not found.',
-                'subjects' => [],
+                'success' => false, 'message' => 'Standard not found.', 'subjects' => [],
             ], 404);
         }
 
@@ -359,16 +336,16 @@ class TeacherBulkAllocationController extends Controller
                 'standard_name' => $standard->standard_name,
             ],
             'subjects'         => $subjects->map(fn ($subject) => [
-                'mapping_id'       => $subject->mapping_id,
-                'subject_id'       => (int) $subject->subject_id,
-                'standard'         => $subject->standard_name,
-                'subject_name'     => $subject->subject_name ?: '-',
-                'subject_code'     => $subject->subject_code ?: '',
-                'short_name'       => $subject->short_name ?: '',
-                'is_optional'      => (int) $subject->is_optional,
-                'max_marks'        => $subject->max_marks,
-                'passing_marks'    => $subject->passing_marks,
-                'display_order'    => $subject->display_order,
+                'mapping_id'    => $subject->mapping_id,
+                'subject_id'    => (int) $subject->subject_id,
+                'standard'      => $subject->standard_name,
+                'subject_name'  => $subject->subject_name ?: '-',
+                'subject_code'  => $subject->subject_code ?: '',
+                'short_name'    => $subject->short_name ?: '',
+                'is_optional'   => (int) $subject->is_optional,
+                'max_marks'     => $subject->max_marks,
+                'passing_marks' => $subject->passing_marks,
+                'display_order' => $subject->display_order,
             ])->values(),
         ]);
     }
@@ -409,9 +386,7 @@ class TeacherBulkAllocationController extends Controller
                 'trace'   => $e->getTraceAsString(),
             ]);
 
-            return back()
-                ->withInput()
-                ->with('error', $e->getMessage());
+            return back()->withInput()->with('error', $e->getMessage());
         }
     }
 
@@ -477,9 +452,7 @@ class TeacherBulkAllocationController extends Controller
                 'trace'         => $e->getTraceAsString(),
             ]);
 
-            return back()
-                ->withInput()
-                ->with('error', $e->getMessage());
+            return back()->withInput()->with('error', $e->getMessage());
         }
     }
 

@@ -20,12 +20,6 @@ class AnalyticsController extends Controller
 
     /**
      * SQL that resolves student_marks.subject_id → subjects.id.
-     * Priority:
-     *   1. sws.subject_id = student_marks.subject_id  (modern)
-     *   2. sws.id         = student_marks.subject_id  (legacy)
-     *   3. student_marks.subject_id                    (fallback)
-     *
-     * Returns exactly ONE subject id → no duplicate rows.
      */
     private function resolvedSubjectIdSql(): string
     {
@@ -51,12 +45,8 @@ class AnalyticsController extends Controller
     }
 
     /**
-     * Given a collection of student_marks rows (joined with subjects),
-     * overwrite theory/oral/practical max + passing marks using
+     * Overwrite theory/oral/practical max + passing marks using
      * ExamStructureHelper — the same source the Exam Master edit page uses.
-     *
-     * Also sets theory_obtained / oral_obtained / practical_obtained so the
-     * blade can render them.
      */
     private function attachStructureMaxes($rows, int $standardId, string $examName)
     {
@@ -113,7 +103,6 @@ class AnalyticsController extends Controller
 
     /**
      * Collect subject ids that belong to a given exam.
-     * Used to filter out orphan marks (subject ids not actually in this exam).
      */
     private function allowedSubjectIds(?int $examId, int $standardId): array
     {
@@ -462,7 +451,6 @@ class AnalyticsController extends Controller
 
         $subjectMarks = $this->attachStructureMaxes($subjectMarks, $standardId, $examName ?? '');
 
-        /* Dedupe by subject_id */
         $subjectMarks = $subjectMarks
             ->unique('subject_id')
             ->values();
@@ -555,7 +543,6 @@ class AnalyticsController extends Controller
             )
             ->get();
 
-        /* Filter: only subjects that are actually part of each exam */
         $examTrendRaw = $examTrendRaw->filter(function ($r) {
             if (!$r->exam_id) return true;
             return DB::table('exam_master_subjects')
@@ -652,149 +639,130 @@ class AnalyticsController extends Controller
      |  SUBJECT DETAIL
      | ===================================================================== */
     public function subjectDetail(Request $request, $subjectId)
-{
-    $yearId     = $request->academic_year_id;
-    $standardId = $request->standard_id;
-    $divisionId = $request->division_id;
-    $examId     = $request->exam_master_id;
+    {
+        $yearId     = $request->academic_year_id;
+        $standardId = $request->standard_id;
+        $divisionId = $request->division_id;
+        $examId     = $request->exam_master_id;
 
-    if (!$yearId || !$standardId || !$divisionId) {
-        return redirect()->route('analytics.index')
-            ->with('error', 'Please apply filters first.');
-    }
-
-    $subjectName  = optional(\App\Models\Subject::find($subjectId))->subject_name ?? 'Subject';
-    $yearName     = optional(AcademicYear::find($yearId))->year_name     ?? $yearId;
-    $standardName = optional(Standard::find($standardId))->standard_name ?? $standardId;
-    $divisionName = optional(Division::find($divisionId))->division_name ?? $divisionId;
-    $examName     = $examId
-        ? (optional(ExamMaster::find($examId))->exam_name ?? null)
-        : 'All Exams';
-
-    $allowedSubjectIds = $this->allowedSubjectIds(
-        $examId ? (int) $examId : null,
-        (int) $standardId
-    );
-
-    /* ----------------------------------------------------------------
-     | Resolve the CORRECT max + passing for this subject
-     | Source 1: ExamStructureHelper (same source Exam Master uses)
-     | Source 2: exam_master_subjects (fallback)
-     | Source 3: hard-coded 40 (last resort)
-     ---------------------------------------------------------------- */
-
-    $structure = ExamStructureHelper::getComponentValues(
-        (int) $standardId,
-        $examName ?? '',
-        $subjectName
-    );
-
-    $subjectMaxTotal     = (float) ($structure['total_max_marks']     ?? 0);
-    $subjectPassingTotal = (float) ($structure['total_passing_marks'] ?? 0);
-
-    if ($subjectMaxTotal <= 0 && $examId) {
-        $cfg = DB::table('exam_master_subjects')
-            ->where('exam_master_id', $examId)
-            ->where('standard_id',    $standardId)
-            ->where('subject_id',     $subjectId)
-            ->first();
-
-        if ($cfg) {
-            $subjectMaxTotal     = (float) ($cfg->max_marks     ?? 0);
-            $subjectPassingTotal = (float) ($cfg->passing_marks ?? 0);
+        if (!$yearId || !$standardId || !$divisionId) {
+            return redirect()->route('analytics.index')
+                ->with('error', 'Please apply filters first.');
         }
-    }
 
-    if ($subjectMaxTotal <= 0) {
-        $subjectMaxTotal = 40.0;
-    }
+        $subjectName  = optional(\App\Models\Subject::find($subjectId))->subject_name ?? 'Subject';
+        $yearName     = optional(AcademicYear::find($yearId))->year_name     ?? $yearId;
+        $standardName = optional(Standard::find($standardId))->standard_name ?? $standardId;
+        $divisionName = optional(Division::find($divisionId))->division_name ?? $divisionId;
+        $examName     = $examId
+            ? (optional(ExamMaster::find($examId))->exam_name ?? null)
+            : 'All Exams';
 
-    if ($subjectPassingTotal <= 0) {
-        $subjectPassingTotal = (int) ceil($subjectMaxTotal * 0.35);
-    }
-
-    /* ----------------------------------------------------------------
-     | All sws ids that map to this subject
-     ---------------------------------------------------------------- */
-    $swsIds = DB::table('standard_wise_subjects')
-        ->where('subject_id', $subjectId)
-        ->where('standard_id', $standardId)
-        ->pluck('id')
-        ->map(fn($id) => (int) $id)
-        ->toArray();
-
-    /* ----------------------------------------------------------------
-     | Per-student obtained marks only (max comes from $subjectMaxTotal)
-     ---------------------------------------------------------------- */
-    $rowsQuery = StudentMark::where('student_marks.academic_year_id', $yearId)
-        ->where('student_marks.standard_id', $standardId)
-        ->where('student_marks.division_id', $divisionId)
-        ->where('student_marks.is_optional', 0)
-        ->when($examId, fn($q) => $q->where('student_marks.exam_master_id', $examId))
-        ->where(function ($q) use ($subjectId, $swsIds) {
-            $q->where('student_marks.subject_id', $subjectId);
-            if (!empty($swsIds)) {
-                $q->orWhereIn('student_marks.subject_id', $swsIds);
-            }
-        });
-
-    if (!empty($allowedSubjectIds)) {
-        $rowsQuery->whereIn(
-            DB::raw('(' . $this->resolvedSubjectIdSql() . ')'),
-            $allowedSubjectIds
+        $allowedSubjectIds = $this->allowedSubjectIds(
+            $examId ? (int) $examId : null,
+            (int) $standardId
         );
-    }
 
-    $rows = $rowsQuery
-        ->select(
-            'student_marks.student_id',
-            DB::raw("SUM(COALESCE(student_marks.theory_obtained_marks,0)
-                        + COALESCE(student_marks.oral_obtained_marks,0)
-                        + COALESCE(student_marks.practical_obtained_marks,0)) as obtained")
-        )
-        ->groupBy('student_marks.student_id')
-        ->get()
-        ->map(function ($r) use ($subjectMaxTotal, $subjectPassingTotal) {
-            $r->max_marks = $subjectMaxTotal;
-            $r->passing   = $subjectPassingTotal;
-            $r->percent   = $subjectMaxTotal > 0
-                ? round(($r->obtained / $subjectMaxTotal) * 100, 2)
-                : 0;
+        $structure = ExamStructureHelper::getComponentValues(
+            (int) $standardId,
+            $examName ?? '',
+            $subjectName
+        );
+
+        $subjectMaxTotal     = (float) ($structure['total_max_marks']     ?? 0);
+        $subjectPassingTotal = (float) ($structure['total_passing_marks'] ?? 0);
+
+        if ($subjectMaxTotal <= 0 && $examId) {
+            $cfg = DB::table('exam_master_subjects')
+                ->where('exam_master_id', $examId)
+                ->where('standard_id',    $standardId)
+                ->where('subject_id',     $subjectId)
+                ->first();
+
+            if ($cfg) {
+                $subjectMaxTotal     = (float) ($cfg->max_marks     ?? 0);
+                $subjectPassingTotal = (float) ($cfg->passing_marks ?? 0);
+            }
+        }
+
+        if ($subjectMaxTotal <= 0) {
+            $subjectMaxTotal = 40.0;
+        }
+
+        if ($subjectPassingTotal <= 0) {
+            $subjectPassingTotal = (int) ceil($subjectMaxTotal * 0.35);
+        }
+
+        $swsIds = DB::table('standard_wise_subjects')
+            ->where('subject_id', $subjectId)
+            ->where('standard_id', $standardId)
+            ->pluck('id')
+            ->map(fn($id) => (int) $id)
+            ->toArray();
+
+        $rowsQuery = StudentMark::where('student_marks.academic_year_id', $yearId)
+            ->where('student_marks.standard_id', $standardId)
+            ->where('student_marks.division_id', $divisionId)
+            ->where('student_marks.is_optional', 0)
+            ->when($examId, fn($q) => $q->where('student_marks.exam_master_id', $examId))
+            ->where(function ($q) use ($subjectId, $swsIds) {
+                $q->where('student_marks.subject_id', $subjectId);
+                if (!empty($swsIds)) {
+                    $q->orWhereIn('student_marks.subject_id', $swsIds);
+                }
+            });
+
+        if (!empty($allowedSubjectIds)) {
+            $rowsQuery->whereIn(
+                DB::raw('(' . $this->resolvedSubjectIdSql() . ')'),
+                $allowedSubjectIds
+            );
+        }
+
+        $rows = $rowsQuery
+            ->select(
+                'student_marks.student_id',
+                DB::raw("SUM(COALESCE(student_marks.theory_obtained_marks,0)
+                            + COALESCE(student_marks.oral_obtained_marks,0)
+                            + COALESCE(student_marks.practical_obtained_marks,0)) as obtained")
+            )
+            ->groupBy('student_marks.student_id')
+            ->get()
+            ->map(function ($r) use ($subjectMaxTotal, $subjectPassingTotal) {
+                $r->max_marks = $subjectMaxTotal;
+                $r->passing   = $subjectPassingTotal;
+                $r->percent   = $subjectMaxTotal > 0
+                    ? round(($r->obtained / $subjectMaxTotal) * 100, 2)
+                    : 0;
+                return $r;
+            });
+
+        $studentMap = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId)
+            ->keyBy('Studentid');
+
+        $rows = $rows->map(function ($r) use ($studentMap) {
+            $s = $studentMap->get($r->student_id);
+            $r->student_name = $s ? $s->full_name : 'Unknown Student';
             return $r;
         });
 
-    /* ----------------------------------------------------------------
-     | Attach ERP names
-     ---------------------------------------------------------------- */
-    $studentMap = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId)
-        ->keyBy('Studentid');
+        $totalCount = $rows->count();
+        $passed     = $rows->filter(fn($r) => $r->obtained >= $subjectPassingTotal)->count();
+        $failed     = $totalCount - $passed;
+        $passPct    = $totalCount > 0 ? round(($passed / $totalCount) * 100, 1) : 0;
+        $classAvg   = $totalCount > 0 ? round($rows->avg('obtained'), 2) : 0;
 
-    $rows = $rows->map(function ($r) use ($studentMap) {
-        $s = $studentMap->get($r->student_id);
-        $r->student_name = $s ? $s->full_name : 'Unknown Student';
-        return $r;
-    });
+        $toppers = $rows->sortByDesc('obtained')->take(10)->values();
+        $weak    = $rows->where('percent', '<', 40)->sortBy('obtained')->values();
 
-    /* ----------------------------------------------------------------
-     | Buckets (pass/fail uses the correct max)
-     ---------------------------------------------------------------- */
-    $totalCount = $rows->count();
-    $passed     = $rows->filter(fn($r) => $r->obtained >= $subjectPassingTotal)->count();
-    $failed     = $totalCount - $passed;
-    $passPct    = $totalCount > 0 ? round(($passed / $totalCount) * 100, 1) : 0;
-    $classAvg   = $totalCount > 0 ? round($rows->avg('obtained'), 2) : 0;
-
-    $toppers = $rows->sortByDesc('obtained')->take(10)->values();
-    $weak    = $rows->where('percent', '<', 40)->sortBy('obtained')->values();
-
-    return view('analytics.subject', compact(
-        'subjectId','subjectName',
-        'yearId','yearName','standardId','standardName',
-        'divisionId','divisionName','examId','examName',
-        'rows','toppers','weak',
-        'totalCount','passed','failed','passPct','classAvg'
-    ));
-}
+        return view('analytics.subject', compact(
+            'subjectId','subjectName',
+            'yearId','yearName','standardId','standardName',
+            'divisionId','divisionName','examId','examName',
+            'rows','toppers','weak',
+            'totalCount','passed','failed','passPct','classAvg'
+        ));
+    }
 
 
     /* =====================================================================
@@ -832,5 +800,542 @@ class AnalyticsController extends Controller
             'subjectStats'    => collect(),
             'standardComparison' => collect(),
         ]);
+    }
+
+
+    /* =====================================================================
+     |  COMPARISON — Compare two exams (percentage based)
+     | ===================================================================== */
+    public function comparison(Request $request)
+    {
+        $academicYears = AcademicYear::orderByDesc('year_name')->get();
+        $standards     = Standard::orderBy('display_order')->get();
+        $divisions     = Division::orderBy('display_order')->get();
+        $exams         = ExamMaster::orderByDesc('id')->get();
+
+        $hasFilters = $request->filled([
+            'standard_id', 'division_id',
+            'year1_id', 'exam1_id',
+            'year2_id', 'exam2_id',
+        ]);
+
+        if (!$hasFilters) {
+            return view('analytics.comparison', compact(
+                'academicYears', 'standards', 'divisions', 'exams'
+            ) + ['hasFilters' => false]);
+        }
+
+        $standardId = (int) $request->standard_id;
+        $divisionId = (int) $request->division_id;
+        $year1Id    = (int) $request->year1_id;
+        $exam1Id    = (int) $request->exam1_id;
+        $year2Id    = (int) $request->year2_id;
+        $exam2Id    = (int) $request->exam2_id;
+
+        $year1Model = AcademicYear::find($year1Id);
+        $year2Model = AcademicYear::find($year2Id);
+        $exam1Model = ExamMaster::find($exam1Id);
+        $exam2Model = ExamMaster::find($exam2Id);
+
+        $exam1Name = $exam1Model->exam_name ?? 'Exam 1';
+        $exam2Name = $exam2Model->exam_name ?? 'Exam 2';
+
+        /* ---- Students of the class (from year 1 as anchor) ---- */
+        $studentMap = collect();
+        try {
+            $erpStudents = StudentHelper::getStudentsDirectERP($year1Id, $standardId, $divisionId);
+            foreach ($erpStudents as $s) {
+                $studentMap->put((string) $s->Studentid, [
+                    'id'   => (string) $s->Studentid,
+                    'name' => $s->full_name ?? trim(($s->studname ?? '') . ' ' . ($s->fathername ?? '')),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        /* Also include any student that has marks in either exam */
+        $unionStudentIds = StudentMark::where(function ($q) use ($exam1Id, $exam2Id) {
+                $q->where('exam_master_id', $exam1Id)
+                  ->orWhere('exam_master_id', $exam2Id);
+            })
+            ->where('standard_id', $standardId)
+            ->where('division_id', $divisionId)
+            ->distinct('student_id')
+            ->pluck('student_id')
+            ->map(fn($v) => (string) $v)
+            ->all();
+
+        foreach ($unionStudentIds as $sid) {
+            if (!$studentMap->has($sid)) {
+                $studentMap->put($sid, ['id' => $sid, 'name' => 'Student ' . $sid]);
+            }
+        }
+
+        $studentIds = $studentMap->keys()->all();
+
+        if (empty($studentIds)) {
+            return view('analytics.comparison', compact(
+                'academicYears', 'standards', 'divisions', 'exams'
+            ) + [
+                'hasFilters' => true,
+                'emptyMsg'   => 'No students found in this class.',
+            ]);
+        }
+
+        /* ---- Fetch marks for both exams ---- */
+        $allowed1 = $this->allowedSubjectIds($exam1Id, $standardId);
+        $allowed2 = $this->allowedSubjectIds($exam2Id, $standardId);
+
+        $fetchMarks = function ($examId, $allowed) use ($studentIds, $standardId) {
+            $q = StudentMark::where('student_marks.exam_master_id', $examId)
+                ->where('student_marks.standard_id', $standardId)
+                ->whereIn('student_marks.student_id', $studentIds)
+                ->where('student_marks.is_optional', 0)
+                ->join('subjects', 'subjects.id', '=', DB::raw('(' . $this->resolvedSubjectIdSql() . ')'))
+                ->select(
+                    'student_marks.student_id',
+                    'subjects.id as subject_id',
+                    'subjects.subject_name',
+                    'student_marks.theory_obtained_marks',
+                    'student_marks.oral_obtained_marks',
+                    'student_marks.practical_obtained_marks',
+                    'student_marks.theory_max_marks',
+                    'student_marks.oral_max_marks',
+                    'student_marks.practical_max_marks'
+                );
+
+            if (!empty($allowed)) {
+                $q->whereIn('subjects.id', $allowed);
+            }
+
+            return $q->get();
+        };
+
+        $marks1Raw = $fetchMarks($exam1Id, $allowed1);
+        $marks2Raw = $fetchMarks($exam2Id, $allowed2);
+
+        $marks1 = $this->attachStructureMaxes($marks1Raw, $standardId, $exam1Name)
+            ->unique(fn($r) => $r->student_id . '|' . $r->subject_id)
+            ->groupBy('student_id');
+
+        $marks2 = $this->attachStructureMaxes($marks2Raw, $standardId, $exam2Name)
+            ->unique(fn($r) => $r->student_id . '|' . $r->subject_id)
+            ->groupBy('student_id');
+
+        /* ---- Per-student comparison ---- */
+        $studentComparison = collect();
+
+        foreach ($studentMap as $sid => $info) {
+            $rows1 = $marks1[$sid] ?? collect();
+            $rows2 = $marks2[$sid] ?? collect();
+
+            $t1Obtained = $rows1->sum('obtained');
+            $t1Max      = $rows1->sum('max');
+            $t2Obtained = $rows2->sum('obtained');
+            $t2Max      = $rows2->sum('max');
+
+            $e1Pct = $t1Max > 0 ? round(($t1Obtained / $t1Max) * 100, 2) : null;
+            $e2Pct = $t2Max > 0 ? round(($t2Obtained / $t2Max) * 100, 2) : null;
+
+            $delta = ($e1Pct !== null && $e2Pct !== null) ? round($e2Pct - $e1Pct, 2) : null;
+
+            $status = 'same';
+            if ($delta !== null) {
+                if ($delta > 0.5)      $status = 'improved';
+                elseif ($delta < -0.5) $status = 'declined';
+            }
+
+            $studentComparison->push((object) [
+                'id'         => $sid,
+                'name'       => $info['name'],
+                'e1_total'   => round($t1Obtained, 2),
+                'e1_max'     => round($t1Max, 2),
+                'e1_pct'     => $e1Pct,
+                'e2_total'   => round($t2Obtained, 2),
+                'e2_max'     => round($t2Max, 2),
+                'e2_pct'     => $e2Pct,
+                'delta'      => $delta,
+                'status'     => $status,
+                'both_exams' => ($rows1->isNotEmpty() && $rows2->isNotEmpty()),
+            ]);
+        }
+
+        $studentComparison = $studentComparison
+            ->sortByDesc(fn($s) => $s->e2_pct ?? -1)
+            ->values();
+
+        /* ---- Subject-wise comparison ---- */
+        $allSubjectIds = collect($allowed1)->merge($allowed2)->unique()->values();
+        $allSubjects   = \App\Models\Subject::whereIn('id', $allSubjectIds)
+            ->orderBy('subject_name')->get();
+
+        $subjectComparison = collect();
+
+        foreach ($allSubjects as $sub) {
+            $sid = $sub->id;
+
+            $r1 = $marks1Raw->where('subject_id', $sid);
+            $r2 = $marks2Raw->where('subject_id', $sid);
+
+            $sum1 = $r1->sum(fn($r) =>
+                (float) ($r->theory_obtained_marks ?? 0)
+              + (float) ($r->oral_obtained_marks ?? 0)
+              + (float) ($r->practical_obtained_marks ?? 0));
+
+            $sum2 = $r2->sum(fn($r) =>
+                (float) ($r->theory_obtained_marks ?? 0)
+              + (float) ($r->oral_obtained_marks ?? 0)
+              + (float) ($r->practical_obtained_marks ?? 0));
+
+            $corrected1 = $this->attachStructureMaxes($r1, $standardId, $exam1Name)
+                ->unique(fn($r) => $r->student_id . '|' . $r->subject_id);
+            $corrected2 = $this->attachStructureMaxes($r2, $standardId, $exam2Name)
+                ->unique(fn($r) => $r->student_id . '|' . $r->subject_id);
+
+            $max1  = $corrected1->sum('max');
+            $max2  = $corrected2->sum('max');
+            $pass1 = $corrected1->filter(fn($r) => $r->obtained >= $r->passing)->count();
+            $pass2 = $corrected2->filter(fn($r) => $r->obtained >= $r->passing)->count();
+
+            $avg1Pct = $max1 > 0 ? round(($sum1 / $max1) * 100, 2) : null;
+            $avg2Pct = $max2 > 0 ? round(($sum2 / $max2) * 100, 2) : null;
+            $delta   = ($avg1Pct !== null && $avg2Pct !== null) ? round($avg2Pct - $avg1Pct, 2) : null;
+
+            $subjectComparison->push((object) [
+                'subject_id'   => $sid,
+                'subject_name' => $sub->subject_name,
+                'max1'  => $max1,
+                'max2'  => $max2,
+                'pass1' => $corrected1->first()->passing ?? null,
+                'pass2' => $corrected2->first()->passing ?? null,
+                'avg1_pct'  => $avg1Pct,
+                'avg2_pct'  => $avg2Pct,
+                'pass1_pct' => $corrected1->count() > 0 ? round(($pass1 / $corrected1->count()) * 100, 1) : null,
+                'pass2_pct' => $corrected2->count() > 0 ? round(($pass2 / $corrected2->count()) * 100, 1) : null,
+                'delta'     => $delta,
+                'students1' => $corrected1->count(),
+                'students2' => $corrected2->count(),
+            ]);
+        }
+
+        /* ---- KPI ---- */
+        $exam1Pcts = $studentComparison->pluck('e1_pct')->filter(fn($v) => $v !== null);
+        $exam2Pcts = $studentComparison->pluck('e2_pct')->filter(fn($v) => $v !== null);
+        $passThreshold = 35;
+
+        $kpi = [
+            'exam1' => [
+                'label'      => $exam1Name,
+                'year_label' => $year1Model->year_name ?? '',
+                'total'      => $exam1Pcts->count(),
+                'avg_pct'    => $exam1Pcts->avg() ?? 0,
+                'highest'    => $exam1Pcts->max() ?? 0,
+                'lowest'     => $exam1Pcts->min() ?? 0,
+                'pass_count' => $exam1Pcts->filter(fn($p) => $p >= $passThreshold)->count(),
+            ],
+            'exam2' => [
+                'label'      => $exam2Name,
+                'year_label' => $year2Model->year_name ?? '',
+                'total'      => $exam2Pcts->count(),
+                'avg_pct'    => $exam2Pcts->avg() ?? 0,
+                'highest'    => $exam2Pcts->max() ?? 0,
+                'lowest'     => $exam2Pcts->min() ?? 0,
+                'pass_count' => $exam2Pcts->filter(fn($p) => $p >= $passThreshold)->count(),
+            ],
+        ];
+
+        $kpi['exam1']['pass_pct'] = $kpi['exam1']['total'] > 0
+            ? round(($kpi['exam1']['pass_count'] / $kpi['exam1']['total']) * 100, 1) : 0;
+        $kpi['exam2']['pass_pct'] = $kpi['exam2']['total'] > 0
+            ? round(($kpi['exam2']['pass_count'] / $kpi['exam2']['total']) * 100, 1) : 0;
+
+        $kpi['delta'] = [
+            'avg_pct'  => round($kpi['exam2']['avg_pct']  - $kpi['exam1']['avg_pct'], 2),
+            'highest'  => round($kpi['exam2']['highest']  - $kpi['exam1']['highest'], 2),
+            'lowest'   => round($kpi['exam2']['lowest']   - $kpi['exam1']['lowest'],  2),
+            'pass_pct' => round($kpi['exam2']['pass_pct'] - $kpi['exam1']['pass_pct'], 2),
+        ];
+
+        /* ---- Improvers / Decliners ---- */
+        $improvers = $studentComparison->where('both_exams', true)
+            ->whereNotNull('delta')->sortByDesc('delta')->take(10)->values();
+        $decliners = $studentComparison->where('both_exams', true)
+            ->whereNotNull('delta')->sortBy('delta')->take(10)->values();
+
+        /* ---- Chart data ---- */
+        $chartSubjectLabels = $subjectComparison->pluck('subject_name')->all();
+        $chartSubjectPct1   = $subjectComparison->map(fn($s) => $s->avg1_pct ?? 0)->all();
+        $chartSubjectPct2   = $subjectComparison->map(fn($s) => $s->avg2_pct ?? 0)->all();
+
+        $improvedCount = $studentComparison->where('status', 'improved')->count();
+        $declinedCount = $studentComparison->where('status', 'declined')->count();
+        $sameCount     = $studentComparison->where('status', 'same')->count();
+
+        return view('analytics.comparison', compact(
+            'academicYears', 'standards', 'divisions', 'exams',
+            'year1Id', 'year2Id', 'exam1Id', 'exam2Id',
+            'standardId', 'divisionId',
+            'studentComparison', 'subjectComparison', 'kpi',
+            'improvers', 'decliners',
+            'chartSubjectLabels', 'chartSubjectPct1', 'chartSubjectPct2',
+            'improvedCount', 'declinedCount', 'sameCount'
+        ) + ['hasFilters' => true]);
+    }
+
+
+    /* =====================================================================
+     |  COMPARISON STUDENT DETAIL — modal JSON
+     | ===================================================================== */
+    public function comparisonStudentDetail(Request $request, $studentId)
+    {
+        $exam1Id    = (int) $request->input('exam1_id');
+        $exam2Id    = (int) $request->input('exam2_id');
+        $standardId = (int) $request->input('standard_id');
+
+        $exam1Model = ExamMaster::find($exam1Id);
+        $exam2Model = ExamMaster::find($exam2Id);
+        $exam1Name  = $exam1Model->exam_name ?? '';
+        $exam2Name  = $exam2Model->exam_name ?? '';
+
+        $allowed1 = $this->allowedSubjectIds($exam1Id, $standardId);
+        $allowed2 = $this->allowedSubjectIds($exam2Id, $standardId);
+
+        $fetch = function ($examId, $allowed) use ($studentId, $standardId) {
+            $q = StudentMark::where('student_marks.exam_master_id', $examId)
+                ->where('student_marks.standard_id', $standardId)
+                ->where('student_marks.student_id', $studentId)
+                ->where('student_marks.is_optional', 0)
+                ->join('subjects', 'subjects.id', '=', DB::raw('(' . $this->resolvedSubjectIdSql() . ')'))
+                ->select(
+                    'subjects.id as subject_id',
+                    'subjects.subject_name',
+                    'student_marks.theory_obtained_marks',
+                    'student_marks.oral_obtained_marks',
+                    'student_marks.practical_obtained_marks',
+                    'student_marks.theory_max_marks',
+                    'student_marks.oral_max_marks',
+                    'student_marks.practical_max_marks'
+                );
+
+            if (!empty($allowed)) {
+                $q->whereIn('subjects.id', $allowed);
+            }
+
+            return $q->get();
+        };
+
+        $raw1 = $this->attachStructureMaxes($fetch($exam1Id, $allowed1), $standardId, $exam1Name)
+            ->unique('subject_id')->keyBy('subject_id');
+
+        $raw2 = $this->attachStructureMaxes($fetch($exam2Id, $allowed2), $standardId, $exam2Name)
+            ->unique('subject_id')->keyBy('subject_id');
+
+        $allSubjectIds = $raw1->keys()->merge($raw2->keys())->unique()->values();
+        $allSubjects   = \App\Models\Subject::whereIn('id', $allSubjectIds)
+            ->orderBy('subject_name')->get();
+
+        $rows = [];
+        foreach ($allSubjects as $sub) {
+            $r1 = $raw1[$sub->id] ?? null;
+            $r2 = $raw2[$sub->id] ?? null;
+
+            $rows[] = [
+                'subject' => $sub->subject_name,
+                'max1'    => $r1->max          ?? null,
+                'pass1'   => $r1->passing      ?? null,
+                'obt1'    => $r1->obtained     ?? null,
+                'max2'    => $r2->max          ?? null,
+                'pass2'   => $r2->passing      ?? null,
+                'obt2'    => $r2->obtained     ?? null,
+            ];
+        }
+
+        return response()->json(['rows' => $rows]);
+    }
+
+
+    /* =====================================================================
+     |  YEAR-WISE EXAM ANALYSIS
+     | ===================================================================== */
+    public function yearWise(Request $request)
+    {
+        $academicYears = AcademicYear::orderByDesc('year_name')->get();
+        $standards     = Standard::orderBy('display_order')->get();
+        $divisions     = Division::orderBy('display_order')->get();
+
+        $hasFilters = $request->filled(['academic_year_id', 'standard_id', 'division_id']);
+
+        if (!$hasFilters) {
+            return view('analytics.year-wise', compact(
+                'academicYears', 'standards', 'divisions'
+            ) + ['hasFilters' => false]);
+        }
+
+        $yearId     = (int) $request->academic_year_id;
+        $standardId = (int) $request->standard_id;
+        $divisionId = (int) $request->division_id;
+
+        $yearModel    = AcademicYear::find($yearId);
+        $standardName = Standard::find($standardId)->standard_name ?? '-';
+        $divisionName = Division::find($divisionId)->division_name ?? '-';
+
+        /* ---- Students ---- */
+        $studentMap = collect();
+        try {
+            $erpStudents = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
+            foreach ($erpStudents as $s) {
+                $studentMap->put((string) $s->Studentid, [
+                    'id'   => (string) $s->Studentid,
+                    'name' => $s->full_name ?? trim(($s->studname ?? '') . ' ' . ($s->fathername ?? '')),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        if ($studentMap->isEmpty()) {
+            return view('analytics.year-wise', compact(
+                'academicYears', 'standards', 'divisions'
+            ) + [
+                'hasFilters' => true,
+                'emptyMsg'   => 'No students found for the selected class.',
+            ]);
+        }
+
+        $studentIds = $studentMap->keys()->all();
+
+        /* ---- All exams for this year + standard ---- */
+        $exams = ExamMaster::where('academic_year_id', $yearId)
+            ->where('standard_id', $standardId)
+            ->orderBy('display_order')
+            ->orderBy('id')
+            ->get();
+
+        if ($exams->isEmpty()) {
+            return view('analytics.year-wise', compact(
+                'academicYears', 'standards', 'divisions'
+            ) + [
+                'hasFilters' => true,
+                'emptyMsg'   => 'No exams found for the selected Year + Standard.',
+            ]);
+        }
+
+        /* ---- Per-exam KPI ---- */
+        $examKPI = [];
+        foreach ($exams as $exam) {
+            $allowed = $this->allowedSubjectIds($exam->id, $standardId);
+
+            $q = StudentMark::where('student_marks.exam_master_id', $exam->id)
+                ->where('student_marks.standard_id', $standardId)
+                ->where('student_marks.division_id', $divisionId)
+                ->whereIn('student_marks.student_id', $studentIds)
+                ->where('student_marks.is_optional', 0)
+                ->join('subjects', 'subjects.id', '=', DB::raw('(' . $this->resolvedSubjectIdSql() . ')'))
+                ->select(
+                    'student_marks.student_id',
+                    'subjects.id as subject_id',
+                    'subjects.subject_name',
+                    'student_marks.theory_obtained_marks',
+                    'student_marks.oral_obtained_marks',
+                    'student_marks.practical_obtained_marks',
+                    'student_marks.theory_max_marks',
+                    'student_marks.oral_max_marks',
+                    'student_marks.practical_max_marks'
+                );
+
+            if (!empty($allowed)) {
+                $q->whereIn('subjects.id', $allowed);
+            }
+
+            $marks = $q->get();
+
+            $marks = $this->attachStructureMaxes($marks, $standardId, $exam->exam_name)
+                ->unique(fn($r) => $r->student_id . '|' . $r->subject_id)
+                ->values();
+
+            $subjectStats = [];
+            foreach ($marks->groupBy('subject_id') as $subId => $rows) {
+                $subName = $rows->first()->subject_name;
+                $subjectStats[$subId] = [
+                    'subject_name' => $subName,
+                    'sum'          => $rows->sum('obtained'),
+                    'max'          => $rows->sum('max'),
+                    'cnt'          => $rows->count(),
+                    'pass_cnt'     => $rows->filter(fn($r) => $r->obtained >= $r->passing)->count(),
+                ];
+            }
+
+            $studentPcts = [];
+            foreach ($marks->groupBy('student_id') as $sid => $rows) {
+                $obt = $rows->sum('obtained');
+                $mx  = $rows->sum('max');
+                if ($mx > 0) {
+                    $studentPcts[(string) $sid] = round(($obt / $mx) * 100, 2);
+                }
+            }
+
+            $cnt = count($studentPcts);
+            $examKPI[$exam->id] = [
+                'exam_name' => $exam->exam_name,
+                'total'     => $cnt,
+                'avg_pct'   => $cnt > 0 ? round(array_sum($studentPcts) / $cnt, 2) : 0,
+                'highest'   => $cnt > 0 ? max($studentPcts) : 0,
+                'lowest'    => $cnt > 0 ? min($studentPcts) : 0,
+                'pass_pct'  => $cnt > 0
+                    ? round((count(array_filter($studentPcts, fn($p) => $p >= 35)) / $cnt) * 100, 1)
+                    : 0,
+                'subject_stats' => $subjectStats,
+                'student_pcts'  => $studentPcts,
+            ];
+        }
+
+        /* ---- Subject × Exam matrix ---- */
+        $subjectNames = [];
+        foreach ($examKPI as $k) {
+            foreach ($k['subject_stats'] as $sid => $info) {
+                $subjectNames[$sid] = $info['subject_name'];
+            }
+        }
+        ksort($subjectNames);
+
+        $subjectExamMatrix = [];
+        foreach ($subjectNames as $sid => $name) {
+            $subjectExamMatrix[$sid] = [];
+            foreach ($exams as $exam) {
+                $stats = $examKPI[$exam->id]['subject_stats'][$sid] ?? null;
+                if ($stats && $stats['cnt'] > 0 && $stats['max'] > 0) {
+                    $subjectExamMatrix[$sid][$exam->id] =
+                        round(($stats['sum'] / $stats['max']) * 100, 2);
+                } else {
+                    $subjectExamMatrix[$sid][$exam->id] = null;
+                }
+            }
+        }
+
+        /* ---- Student × Exam matrix ---- */
+        $studentExamMatrix = [];
+        foreach ($studentMap as $sid => $info) {
+            $studentExamMatrix[$sid] = ['name' => $info['name'], 'exams' => []];
+            foreach ($exams as $exam) {
+                $studentExamMatrix[$sid]['exams'][$exam->id] =
+                    $examKPI[$exam->id]['student_pcts'][$sid] ?? null;
+            }
+        }
+
+        /* ---- Chart data ---- */
+        $chartExamLabels  = $exams->pluck('exam_name')->all();
+        $chartExamAvgPct  = collect($exams)->map(fn($e) => $examKPI[$e->id]['avg_pct']  ?? 0)->all();
+        $chartExamPassPct = collect($exams)->map(fn($e) => $examKPI[$e->id]['pass_pct'] ?? 0)->all();
+
+        return view('analytics.year-wise', compact(
+            'academicYears', 'standards', 'divisions',
+            'yearId', 'standardId', 'divisionId',
+            'yearModel', 'standardName', 'divisionName',
+            'exams', 'examKPI',
+            'subjectNames', 'subjectExamMatrix',
+            'studentExamMatrix',
+            'chartExamLabels', 'chartExamAvgPct', 'chartExamPassPct'
+        ) + ['hasFilters' => true]);
     }
 }

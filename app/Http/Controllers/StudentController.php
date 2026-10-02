@@ -61,15 +61,11 @@ class StudentController extends Controller
             $request->filled('division_id')
         ) {
 
-            $students = StudentHelper::getStudentsDirectERP(
-
-                $request->academic_year_id,
-
-                $request->standard_id,
-
-                $request->division_id
-
-            );
+            $students = StudentHelper::getStudentsDirectERPWithCaste(
+    $request->academic_year_id,
+    $request->standard_id,
+    $request->division_id
+);
 
             $students = $students
                 ->sort(function ($a, $b) {

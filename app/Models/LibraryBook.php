@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class LibraryBook extends Model
+{
+    protected $table = 'library_books';
+
+    protected $fillable = [
+        'book_code',
+        'book_name',
+        'author',
+        'publisher',
+        'category_id',
+        'total_copies',
+        'available_copies',
+        'shelf_location',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active'        => 'boolean',
+        'total_copies'     => 'integer',
+        'available_copies' => 'integer',
+    ];
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(LibraryBookCategory::class, 'category_id');
+    }
+}

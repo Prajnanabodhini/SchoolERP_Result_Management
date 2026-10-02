@@ -19,16 +19,18 @@ class StudentProfileController extends Controller
 
             $studentQuery->where(function ($q) use ($search) {
 
-                $q->where('studname', 'like', "%{$search}%")
-                    ->orWhere('fathername', 'like', "%{$search}%");
+                // Text columns — safe as strings
+                $q->where('studname',   'like', "%{$search}%")
+                  ->orWhere('fathername', 'like', "%{$search}%");
 
-                if (is_numeric($search)) {
-
-                    $q->orWhere('Studentid', (int)$search)
-                        ->orWhere('saralid', (int)$search)
-                        ->orWhere('fathermobile', $search)
-                        ->orWhere('mothermobile', $search);
-                }
+                // Numeric-ish columns stored as NVARCHAR in SQL Server.
+                // Use LIKE so both sides are treated as strings — this
+                // prevents SQL Server from casting the column to INT and
+                // overflowing on large values like '2011272509174050015'.
+                $q->orWhere('Studentid',    'like', "%{$search}%")
+                  ->orWhere('saralid',      'like', "%{$search}%")
+                  ->orWhere('fathermobile', 'like', "%{$search}%")
+                  ->orWhere('mothermobile', 'like', "%{$search}%");
             });
 
             $student = $studentQuery->first();

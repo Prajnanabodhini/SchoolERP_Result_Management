@@ -80,10 +80,20 @@
 
     /* ---------------- BUTTONS ---------------- */
     .admin-erp-btn {
-        height: 30px; padding: 4px 12px; border: 0; border-radius: 4px;
-        font-size: 11px; font-weight: 600; cursor: pointer;
-        display: inline-flex; align-items: center; justify-content: center;
-        text-decoration: none; white-space: nowrap;
+        height: 36px;
+        min-width: 110px;              /* forces Load Marks + Reset to same width */
+        padding: 4px 14px;
+        border: 0;
+        border-radius: 4px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        white-space: nowrap;
+        box-sizing: border-box;
     }
     .admin-btn-blue  { background: #2563eb; color: #fff; }
     .admin-btn-blue:hover  { background: #1d4ed8; }
@@ -138,10 +148,7 @@
         border-radius: 3px; font-size: 11px; font-weight: 700; white-space: nowrap;
     }
 
-    /* ---------------- COMPACT MARKS TABLE ----------------
-       table-layout: fixed + percentage widths → no horizontal scroll
-       on any window ≥ 900px.
-    */
+    /* ---------------- COMPACT MARKS TABLE ---------------- */
     .admin-marks-table-wrapper {
         overflow-x: auto;
         border: 1px solid #d1d5db;
@@ -188,7 +195,6 @@
     .admin-marks-table tbody tr:hover { background: #f8fafc; }
     .admin-marks-table .admin-center  { text-align: center; }
 
-    /* ---------- STUDENT NAME — bold 600, matches view blade ---------- */
     .admin-marks-table .admin-student-name {
         text-align: left !important;
         white-space: normal !important;
@@ -196,7 +202,6 @@
         line-height: 1.2;
     }
 
-    /* Prevent <strong> inside the name cell from pushing weight to 700 */
     .admin-marks-table .admin-student-name strong {
         font-weight: 600;
     }
@@ -386,10 +391,13 @@
                             {{ !$selectedTsaId ? 'disabled' : '' }}>
                         Load Marks
                     </button>
-                    <a href="{{ route('result-generation.admin-marks.edit') }}"
-                       class="admin-erp-btn admin-btn-gray">
+
+                    {{-- Reset is now a <button> so it renders identically to Load Marks --}}
+                    <button type="button"
+                            onclick="window.location.href='{{ route('result-generation.admin-marks.edit') }}';"
+                            class="admin-erp-btn admin-btn-gray">
                         Reset
-                    </a>
+                    </button>
                 </div>
             </div>
         </form>
@@ -575,12 +583,10 @@
                                 </td>
                                 <td class="admin-center">{{ $record->rollno ?? '-' }}</td>
 
-                                {{-- STUDENT NAME — bold 600, matches view blade --}}
                                 <td class="admin-student-name">
                                     <strong>{{ $studentFullName ?: '-' }}</strong>
                                 </td>
 
-                                {{-- Attendance --}}
                                 <td class="admin-center">
                                     <input type="hidden"
                                            name="is_absent[{{ $studentId }}]"
@@ -594,7 +600,6 @@
                                     </button>
                                 </td>
 
-                                {{-- Optional --}}
                                 @if($showOptionalColumn)
                                     <td class="admin-center">
                                         <input type="hidden"
@@ -610,7 +615,6 @@
                                     </td>
                                 @endif
 
-                                {{-- Theory --}}
                                 @if($showTheory)
                                     <td class="admin-center">{{ (int) $theoryMaxMarks }}</td>
                                     <td class="admin-center">{{ (int) $theoryPassingMarks }}</td>
@@ -629,7 +633,6 @@
                                     </td>
                                 @endif
 
-                                {{-- Oral --}}
                                 @if($showOral)
                                     <td class="admin-center">{{ (int) $oralMaxMarks }}</td>
                                     <td class="admin-center">{{ (int) $oralPassingMarks }}</td>
@@ -648,7 +651,6 @@
                                     </td>
                                 @endif
 
-                                {{-- Practical --}}
                                 @if($showPractical)
                                     <td class="admin-center">{{ (int) $practicalMaxMarks }}</td>
                                     <td class="admin-center">{{ (int) $practicalPassingMarks }}</td>
@@ -667,7 +669,6 @@
                                     </td>
                                 @endif
 
-                                {{-- Status --}}
                                 <td class="admin-center">
                                     <span id="admin_status_{{ $studentId }}"
                                           class="{{ $isOptional ? 'admin-status-optional' : ($isAbsent ? 'admin-status-absent' : 'admin-status-present') }}">

@@ -14,6 +14,7 @@ use App\Models\AcademicYear;
 use App\Models\ExamSubject;
 
 use App\Helpers\ExamStructureHelper;
+use App\Helpers\AllocationStatusHelper;
 
 class ExamMasterController extends Controller
 {
@@ -109,10 +110,6 @@ class ExamMasterController extends Controller
         ];
     }
 
-    /**
-     * Sync stale max marks on student_marks after Exam Master changes.
-     * Scoped to a single exam + standard → fast and safe.
-     */
     private function syncStudentMarks(int $examMasterId, int $standardId): void
     {
         try {
@@ -121,7 +118,6 @@ class ExamMasterController extends Controller
                 '--standard-id' => $standardId,
             ]);
         } catch (\Throwable $e) {
-            // Never let a sync failure break the Exam Master save
             report($e);
         }
     }
@@ -129,7 +125,7 @@ class ExamMasterController extends Controller
     /* ================================================================
      | INDEX
      * ================================================================ */
-    public function index(Request $request)
+        public function index(Request $request)
     {
         $academicYearId = $request->input('academic_year_id');
 
@@ -139,7 +135,13 @@ class ExamMasterController extends Controller
 
         $academicYears = AcademicYear::where('is_active',1)->orderByDesc('id')->get();
 
-        return view('exam-masters.index', compact('examMasters','academicYears','academicYearId'));
+        $examIds       = $examMasters->pluck('id')->toArray();
+        $pendingCounts = AllocationStatusHelper::pendingCountForExams($examIds);
+        $breakdowns    = AllocationStatusHelper::pendingBreakdownForExams($examIds);
+
+        return view('exam-masters.index', compact(
+            'examMasters','academicYears','academicYearId','pendingCounts','breakdowns'
+        ));
     }
 
     /* ================================================================
@@ -255,8 +257,6 @@ class ExamMasterController extends Controller
                 }
             });
 
-            /* Sync student_marks (safe — no historical data yet for a new exam,
-               but harmless if the exam name is reused after deletion) */
             if ($examMaster) {
                 $this->syncStudentMarks($examMaster->id, $standardId);
             }
@@ -434,7 +434,6 @@ class ExamMasterController extends Controller
                 }
             });
 
-            /* Sync historical student_marks for this exam + standard */
             $this->syncStudentMarks($examMaster->id, $standardId);
 
             return redirect()->route('exam-masters.index')->with('success','Exam Updated Successfully.');

@@ -77,39 +77,11 @@ return [
             'route' => 'exam-masters.index'
         ],
 
-        // [
-        //     'name'  => 'Exam Pattern',
-        //     'route' => 'exam-patterns.index'
-        // ],
-
-        // [
-        //     'name'  => 'Exam Pattern Subject Allocation',
-        //     'route' => 'exam-pattern-details.index'
-        // ],
-
-        // [
-        //     'name'  => 'Exam Subject Configuration',
-        //     'route' => 'exam-subjects.index'
-        // ],
-        //     [
-        //         'name'  => 'Teacher Class Allocation',
-        //         'route' => 'teacher-class-allocation.index'
-        //     ],
-
-        //     [
-        //         'name'  => 'Teacher Subject Allocation',
-        //         'route' => 'teacher-subject-allocation.index'
-        //     ],
-
         [
             'name'  => 'Teacher Bulk Allocation',
             'route' => 'teacher-bulk-allocation.index'
         ],
 
-        // [
-        //     'name'  => 'Teacher Bulk Allocation',
-        //     'route' => 'teacher-bulk-allocation.create'
-        // ],
         [
             'name'  => 'Student Skill Subject Allocation',
             'route' => 'student-skill-subject-allocation.index'
@@ -120,10 +92,27 @@ return [
             'route' => 'marks-entry.index'
         ],
 
-        // --- NEW MENU ITEM ADDED HERE ---
         [
             'name'  => 'Skill Subject Marks Entry',
             'route' => 'student-skill-marks.index'
+        ]
+    ],
+
+    'Library' => [
+
+        [
+            'name'  => 'Book Issue / Return',
+            'route' => 'library.index'
+        ],
+
+        [
+            'name'  => 'Book Categories',
+            'route' => 'library.categories.index'
+        ],
+
+        [
+            'name'  => 'Books Master',
+            'route' => 'library.books.index'
         ]
     ],
 
@@ -134,11 +123,6 @@ return [
             'route' => 'result-generation.admin-marks.index'
         ],
 
-        // [
-        //     'name'  => 'Result Generation',
-        //     'route' => 'administrator.result-generation.index'
-        // ],
-
         [
             'name'  => 'Result Sheet',
             'route' => 'result-sheet.index'
@@ -147,6 +131,16 @@ return [
         [
             'name'  => 'Result Analytics',
             'route' => 'analytics.index'
+        ],
+
+        [
+            'name'  => 'Exam Comparison',
+            'route' => 'analytics.comparison'
+        ],
+
+        [
+            'name'  => 'Year-wise Analysis',
+            'route' => 'analytics.year-wise'
         ],
 
         [

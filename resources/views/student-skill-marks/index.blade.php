@@ -16,116 +16,130 @@
             @endif
 
             <!-- Filter Form -->
-            <form method="GET" action="{{ route('student-skill-marks.index') }}">
-                <div class="flex flex-wrap items-end gap-2 mb-4">
+<form method="GET" action="{{ route('student-skill-marks.index') }}">
+    <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-bottom:16px;">
 
-                    <!-- Academic Year -->
-                    <div class="w-32">
-                        <label class="block text-sm font-bold text-gray-800 mb-1">
-                            Academic Year <span class="text-red-500">*</span>
-                        </label>
-                        <select name="academic_year_id" class="w-full border border-gray-300 rounded px-2 h-8 text-xs focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Select</option>
-                            @foreach($academicYears as $year)
-                                <option value="{{ $year->id }}" {{ request('academic_year_id') == $year->id ? 'selected' : '' }}>
-                                    {{ $year->year_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+        <!-- Academic Year -->
+        <div style="width:130px;">
+            <label class="block text-sm font-bold text-gray-800 mb-1">
+                Academic Year <span class="text-red-500">*</span>
+            </label>
+            <select name="academic_year_id"
+                    style="width:100%;height:32px;box-sizing:border-box;"
+                    class="border border-gray-300 rounded px-2 text-xs focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Select</option>
+                @foreach($academicYears as $year)
+                    <option value="{{ $year->id }}" {{ request('academic_year_id') == $year->id ? 'selected' : '' }}>
+                        {{ $year->year_name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
 
-                    <!-- Exam -->
-                    <div class="w-44">
-                        <label class="block text-sm font-bold text-gray-800 mb-1">
-                            Exam <span class="text-red-500">*</span>
-                        </label>
-                        <select name="exam_master_id" class="w-full border border-gray-300 rounded px-2 h-8 text-xs focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Select Exam</option>
-                            @foreach($exams as $exam)
-                                <option value="{{ $exam->id }}" {{ request('exam_master_id') == $exam->id ? 'selected' : '' }}>
-                                    {{ $exam->exam_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+        <!-- Exam -->
+        <div style="width:180px;">
+            <label class="block text-sm font-bold text-gray-800 mb-1">
+                Exam <span class="text-red-500">*</span>
+            </label>
+            <select name="exam_master_id"
+                    style="width:100%;height:32px;box-sizing:border-box;"
+                    class="border border-gray-300 rounded px-2 text-xs focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Select Exam</option>
+                @foreach($exams as $exam)
+                    <option value="{{ $exam->id }}" {{ request('exam_master_id') == $exam->id ? 'selected' : '' }}>
+                        {{ $exam->exam_name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
 
-                    <!-- Division -->
-                    <div class="w-20">
-                        <label class="block text-sm font-bold text-gray-800 mb-1">
-                            Division <span class="text-red-500">*</span>
-                        </label>
-                        <select name="division_id" class="w-full border border-gray-300 rounded px-2 h-8 text-xs focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Select</option>
-                            @foreach($divisions as $division)
-                                <option value="{{ $division->id }}" {{ request('division_id') == $division->id ? 'selected' : '' }}>
-                                    {{ $division->division_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+        <!-- Division -->
+        <div style="width:130px;">
+            <label class="block text-sm font-bold text-gray-800 mb-1">
+                Division <span class="text-red-500">*</span>
+            </label>
+            <select name="division_id"
+                    style="width:100%;height:32px;box-sizing:border-box;"
+                    class="border border-gray-300 rounded px-2 text-xs focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Select</option>
+                @foreach($divisions as $division)
+                    <option value="{{ $division->id }}" {{ request('division_id') == $division->id ? 'selected' : '' }}>
+                        {{ $division->division_name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
 
-                    <!-- Skill Subject -->
-                    <div class="w-40">
-                        <label class="block text-sm font-bold text-gray-800 mb-1">
-                            Skill Subject <span class="text-red-500">*</span>
-                        </label>
-                        <select name="subject_id" class="w-full border border-gray-300 rounded px-2 h-8 text-xs focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Select</option>
-                            @foreach($skillSubjects as $subject)
-                                <option value="{{ $subject->id }}" {{ request('subject_id') == $subject->id ? 'selected' : '' }}>
-                                    {{ $subject->subject_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+        <!-- Skill Subject -->
+        <div style="width:160px;">
+            <label class="block text-sm font-bold text-gray-800 mb-1">
+                Skill Subject <span class="text-red-500">*</span>
+            </label>
+            <select name="subject_id"
+                    style="width:100%;height:32px;box-sizing:border-box;"
+                    class="border border-gray-300 rounded px-2 text-xs focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Select</option>
+                @foreach($skillSubjects as $subject)
+                    <option value="{{ $subject->id }}" {{ request('subject_id') == $subject->id ? 'selected' : '' }}>
+                        {{ $subject->subject_name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
 
-                    <!-- Max Marks -->
-                    <div class="w-16">
-                        <label class="block text-sm font-bold text-gray-800 mb-1">
-                            Max <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text"
-                               inputmode="numeric"
-                               pattern="[0-9]*"
-                               name="max_marks"
-                               id="filter_max_marks"
-                               value="{{ (int) $maxMarks }}"
-                               class="no-spinner w-full border border-gray-300 rounded px-1 h-8 text-xs text-center focus:ring-blue-500 focus:border-blue-500">
-                    </div>
+        <!-- Max Marks -->
+        <div style="width:75px;">
+            <label class="block text-sm font-bold text-gray-800 mb-1 whitespace-nowrap">
+                Max Marks <span class="text-red-500">*</span>
+            </label>
+            <input type="text"
+                   inputmode="numeric"
+                   pattern="[0-9]*"
+                   name="max_marks"
+                   id="filter_max_marks"
+                   value="{{ (int) $maxMarks }}"
+                   style="width:100%;height:32px;box-sizing:border-box;"
+                   class="no-spinner border border-gray-300 rounded px-1 text-xs text-center focus:ring-blue-500 focus:border-blue-500">
+        </div>
 
-                    <!-- Passing Marks -->
-                    <div class="w-16">
-                        <label class="block text-sm font-bold text-gray-800 mb-1">
-                            Pass <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text"
-                               inputmode="numeric"
-                               pattern="[0-9]*"
-                               name="passing_marks"
-                               id="filter_passing_marks"
-                               value="{{ (int) $passingMarks }}"
-                               class="no-spinner w-full border border-gray-300 rounded px-1 h-8 text-xs text-center focus:ring-blue-500 focus:border-blue-500">
-                    </div>
+        <!-- Passing Mark -->
+        <div style="width:85px;">
+            <label class="block text-sm font-bold text-gray-800 mb-1 whitespace-nowrap">
+                Passing Mark <span class="text-red-500">*</span>
+            </label>
+            <input type="text"
+                   inputmode="numeric"
+                   pattern="[0-9]*"
+                   name="passing_marks"
+                   id="filter_passing_marks"
+                   value="{{ (int) $passingMarks }}"
+                   style="width:100%;height:32px;box-sizing:border-box;"
+                   class="no-spinner border border-gray-300 rounded px-1 text-xs text-center focus:ring-blue-500 focus:border-blue-500">
+        </div>
 
-                    <!-- Load Button -->
-                    <div class="w-32">
-                        <label class="block text-sm font-bold text-transparent mb-1 select-none">&nbsp;</label>
-                        <button type="submit" class="w-32 h-8 bg-green-600 hover:bg-green-700 text-white font-semibold rounded text-xs transition">
-                            Load Students
-                        </button>
-                    </div>
+            <!-- Buttons — grid guarantees identical width AND font -->
+<div style="display:grid;grid-template-columns:130px 130px;gap:8px;align-items:end;">
+    <div>
+        <label class="block text-sm font-bold text-transparent mb-1 select-none">&nbsp;</label>
+        <button type="submit"
+                style="width:100%;height:32px;box-sizing:border-box;padding:0;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;font-weight:800;line-height:1;"
+                class="bg-green-600 hover:bg-green-700 text-white rounded transition">
+            Load Students
+        </button>
+    </div>
+    <div>
+        <label class="block text-sm font-bold text-transparent mb-1 select-none">&nbsp;</label>
+        <button type="button"
+                onclick="window.location.href='{{ route('student-skill-marks.index') }}';"
+                style="width:100%;height:36px;box-sizing:border-box;padding:0;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;font-weight:800;line-height:1;"
+                class="bg-blue-600 hover:bg-blue-700 text-white rounded transition">
+            Reset
+        </button>
+    </div>
+</div>
 
-                    <!-- Reset Button -->
-                    <div class="w-32">
-                        <label class="block text-sm font-bold text-transparent mb-1 select-none">&nbsp;</label>
-                        <a href="{{ route('student-skill-marks.index') }}"
-                           class="w-32 h-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-xs transition flex items-center justify-center">
-                            Reset
-                        </a>
-                    </div>
-
-                </div>
-            </form>
+    </div>
+</form>
 
             <!-- Marks Entry Table -->
             @if(count($students))
@@ -225,7 +239,9 @@
 
                     <!-- Save Marks Button -->
                     <div class="mt-3 flex justify-end">
-                        <button type="submit" class="w-32 h-8 bg-green-600 hover:bg-green-700 text-white font-semibold rounded text-xs transition">
+                        <button type="submit"
+                                style="width:130px;height:32px;padding:0;box-sizing:border-box;border:0;"
+                                class="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold rounded text-xs transition cursor-pointer">
                             Save Marks
                         </button>
                     </div>
