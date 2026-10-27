@@ -28,18 +28,18 @@
                 <option value="">-- Select School --</option>
 
                 <option
-            value="chikhali"
-            {{ old('school') === 'chikhali' ? 'selected' : '' }}
-        >
-            CHIKHALI
-        </option>
+                    value="chikhali"
+                    {{ old('school') === 'chikhali' ? 'selected' : '' }}
+                >
+                    CHIKHALI
+                </option>
 
-        <option
-            value="shirgaon"
-            {{ old('school') === 'shirgaon' ? 'selected' : '' }}
-        >
-            SHIRGAON
-        </option>
+                <option
+                    value="shirgaon"
+                    {{ old('school') === 'shirgaon' ? 'selected' : '' }}
+                >
+                    SHIRGAON
+                </option>
             </select>
 
             <x-input-error
@@ -52,23 +52,23 @@
         <!-- Username -->
         <div class="mt-4">
             <x-input-label
-                for="name"
+                for="username"
                 :value="__('Username')"
             />
 
             <x-text-input
-                id="name"
+                id="username"
                 class="block mt-1 w-full"
                 type="text"
-                name="name"
-                :value="old('name')"
+                name="username"
+                :value="old('username')"
                 required
                 autofocus
                 autocomplete="username"
             />
 
             <x-input-error
-                :messages="$errors->get('name')"
+                :messages="$errors->get('username')"
                 class="mt-2"
             />
         </div>
@@ -180,5 +180,46 @@
         </script>
 
     @endif
+
+    <!-- DYNAMIC HEADER SCRIPT -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const schoolSelect = document.getElementById('school');
+            const headerTitle = document.getElementById('login_header_title');
+            const headerAddress = document.getElementById('login_header_address');
+
+            // Only run if the header elements exist on the page
+            if (schoolSelect && headerTitle && headerAddress) {
+                const schools = {
+                    'chikhali': {
+                        title: 'PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI',
+                        address: 'S.No. 1517/1, Sonwane Vasti, Chikhali, Tal. Haveli, Dist. Pune, Maharashtra 411062'
+                    },
+                    'shirgaon': {
+                        title: 'PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE',
+                        address: 'SHIRGAON · Tal. Maval, Dist. Pune, Maharashtra - 410506'
+                    }
+                };
+
+                schoolSelect.addEventListener('change', function() {
+                    const selected = this.value;
+
+                    if (schools[selected]) {
+                        headerTitle.textContent = schools[selected].title;
+                        headerAddress.textContent = schools[selected].address;
+                    } else {
+                        // Default state
+                        headerTitle.textContent = 'PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE';
+                        headerAddress.textContent = 'SHIRGAON / CHIKHALI';
+                    }
+                });
+
+                // Trigger the change event on page load in case old('school') was pre-selected
+                if (schoolSelect.value) {
+                    schoolSelect.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+    </script>
 
 </x-guest-layout>

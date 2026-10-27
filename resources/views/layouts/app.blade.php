@@ -114,6 +114,15 @@
             font-weight: 700;
         }
 
+        /* Address Styling */
+        .school-address {
+            margin-top: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #f3f4f6; /* Slightly off-white */
+            letter-spacing: 0.5px;
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -186,6 +195,11 @@
             .school-name p {
                 font-size: 13px;
             }
+            
+            /* Mobile address font size */
+            .school-address {
+                font-size: 10px;
+            }
         }
 
     </style>
@@ -204,6 +218,7 @@
          ============================================================== -->
 
     @php
+        // Fetch the school code from session. Defaults to 'shirgaon'.
         $schoolCode = session('school_code', 'shirgaon');
     @endphp
 
@@ -221,13 +236,18 @@
 
             <div class="school-name">
 
-
+                {{-- Condition 1: Chikhali School --}}
                 @if($schoolCode === 'chikhali')
 
                     <h1>
                         PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI
                     </h1>
+                    
+                    <div class="school-address">
+                        S.No. 1517/1, Sonwane Vasti, Chikhali, Tal. Haveli, Dist. Pune, Maharashtra 411062
+                    </div>
 
+                {{-- Condition 2: Shirgaon School (Default) --}}
                 @else
 
                     <h1>
@@ -237,6 +257,10 @@
                     <p>
                         SHIRGAON
                     </p>
+                    
+                    <div class="school-address">
+                        Tal. Maval, Dist. Pune, Maharashtra - 410506
+                    </div>
 
                 @endif
 

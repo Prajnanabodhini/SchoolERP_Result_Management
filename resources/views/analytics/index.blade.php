@@ -51,6 +51,30 @@
     .filter-std  { width: 130px; }
     .filter-div  { width: 100px; }
 
+    /* ---------- PDF export button ---------- */
+    .btn-pdf {
+        height: 34px;
+        padding: 0 16px;
+        background: #dc2626;
+        color: #fff;
+        border: 1px solid #b91c1c;
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        text-decoration: none;
+        transition: background .15s;
+    }
+    .btn-pdf:hover      { background: #b91c1c; }
+    .btn-pdf:disabled   { background: #9ca3af; border-color: #6b7280; cursor: not-allowed; }
+
+    /* ---------- Hide during PDF export ---------- */
+    body.pdf-export-mode .no-pdf { display: none !important; }
+
     /* ---------- Placeholder ---------- */
     .analytics-placeholder {
         border: 2px dashed #bfdbfe; background: #eff6ff; color: #1e40af;
@@ -148,9 +172,12 @@
 
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 1000px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* ---------- Print-friendly page breaks ---------- */
+    .erp-card { page-break-inside: avoid; }
 </style>
 
-<div class="erp-page">
+<div class="erp-page" id="analyticsRoot">
 
     {{-- FILTERS --}}
     <div class="erp-card">
@@ -217,16 +244,25 @@
                     </div>
                 </div>
 
-                <button type="submit" class="erp-btn erp-btn-save" style="height:34px;">
+                <button type="submit" class="erp-btn erp-btn-save no-pdf" style="height:34px;">
                     Load Analytics
                 </button>
 
                 @if($hasFilters)
                     <a href="{{ route('analytics.index') }}"
-                       class="erp-btn"
+                       class="erp-btn no-pdf"
                        style="height:34px;background:#e5e7eb;color:#374151;text-decoration:none;">
                         Reset
                     </a>
+
+                    @if($hasFilters)
+    <a href="{{ route('analytics.print', request()->only(['academic_year_id','standard_id','division_id','exam_master_id'])) }}"
+       target="_blank"
+       class="erp-btn"
+       style="height:34px;background:#1d4ed8;color:#fff;text-decoration:none;display:inline-flex;align-items:center;padding:0 16px;">
+        🖨 Print Report
+    </a>
+@endif
                 @endif
 
             </div>
@@ -600,6 +636,90 @@
             }
         }
     });
+    </script>
+
+    {{-- ================================================================
+         PDF EXPORT
+         ================================================================ --}}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+    (function () {
+        const btn = document.getElementById('exportPdfBtn');
+        if (!btn) return;
+
+        btn.addEventListener('click', async function () {
+
+            const root = document.getElementById('analyticsRoot');
+            if (!root) return;
+
+            const originalLabel = btn.innerHTML;
+
+            btn.disabled  = true;
+            btn.innerHTML = '⏳ Generating PDF…';
+
+            try {
+                /* -----------------------------------------------------
+                 | Build a readable filename from current filters
+                 * ----------------------------------------------------- */
+                const getSelText = function (sel) {
+                    const el = document.querySelector(sel);
+                    if (!el || el.selectedIndex < 0) return '';
+                    const txt = el.options[el.selectedIndex]?.textContent || '';
+                    return txt.trim();
+                };
+
+                const ay    = getSelText('select[name="academic_year_id"]') || 'Year';
+                const std   = getSelText('select[name="standard_id"]')      || 'Standard';
+                const div   = getSelText('select[name="division_id"]')      || 'Division';
+                const exam  = getSelText('select[name="exam_master_id"]')   || 'All-Exams';
+                const today = new Date().toISOString().slice(0, 10);
+
+                const rawName = 'Analytics_' + std + '_' + div + '_' + exam + '_' + today;
+                const fname   = rawName.replace(/[^A-Za-z0-9_.\-]+/g, '_') + '.pdf';
+
+                /* -----------------------------------------------------
+                 | Enter PDF-export mode → hides .no-pdf elements
+                 * ----------------------------------------------------- */
+                document.body.classList.add('pdf-export-mode');
+
+                /* Give the browser a moment to settle (charts + hidden buttons) */
+                await new Promise(function (r) { setTimeout(r, 400); });
+
+                const options = {
+                    margin:      [6, 6, 6, 6],
+                    filename:    fname,
+                    image:       { type: 'jpeg', quality: 0.95 },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        scrollX: 0,
+                        scrollY: 0,
+                        windowWidth:  root.scrollWidth,
+                        windowHeight: root.scrollHeight,
+                    },
+                    jsPDF: {
+                        unit:        'mm',
+                        format:      'a4',
+                        orientation: 'landscape',
+                    },
+                    pagebreak: {
+                        mode: ['avoid-all', 'css', 'legacy'],
+                    },
+                };
+
+                await html2pdf().set(options).from(root).save();
+
+            } catch (err) {
+                console.error('PDF export failed:', err);
+                alert('PDF export failed: ' + (err && err.message ? err.message : err));
+            } finally {
+                document.body.classList.remove('pdf-export-mode');
+                btn.disabled  = false;
+                btn.innerHTML = originalLabel;
+            }
+        });
+    })();
     </script>
 
 @endif

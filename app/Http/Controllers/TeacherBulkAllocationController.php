@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Helpers\TeacherBulkHelper;
 use App\Helpers\AllocationStatusHelper;
+use App\Helpers\StudentHelper;
+use App\Models\AcademicYear;
 use App\Models\Division;
 use App\Models\ExamMaster;
 use App\Models\Standard;
@@ -13,17 +15,30 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-
 class TeacherBulkAllocationController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | INDEX
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | INDEX
+     ===================================================================== */
 
     public function index(Request $request)
     {
+        if ($request->filled('reset')) {
+            return redirect()->route('teacher-bulk-allocation.index');
+        }
+
+        $hasAnyFilterValue =
+            $request->filled('academic_year_id') ||
+            $request->filled('standard_id')      ||
+            $request->filled('division_id')      ||
+            $request->filled('exam_master_id');
+
+        $hasQueryString = count($request->query()) > 0;
+
+        if ($hasQueryString && !$hasAnyFilterValue && !$request->filled('page')) {
+            return redirect()->route('teacher-bulk-allocation.index');
+        }
+
         $academicYearId = $request->input('academic_year_id', '');
         $standardId     = $request->input('standard_id', '');
         $divisionId     = $request->input('division_id', '');
@@ -40,7 +55,8 @@ class TeacherBulkAllocationController extends Controller
             )
             ->select(
                 'tca.id as allocation_id',
-                DB::raw('COALESCE(tsa.exam_master_id, 0) as exam_master_id')
+                DB::raw('COALESCE(tsa.exam_master_id, 0) as exam_master_id'),
+                DB::raw('MIN(tsa.id) as first_tsa_id')
             )
             ->groupBy(
                 'tca.id',
@@ -60,18 +76,11 @@ class TeacherBulkAllocationController extends Controller
             $pairQuery->where('tsa.exam_master_id', (int) $examMasterId);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Latest created allocation first (descending by tca.id).
-        | Rows sharing the same allocation_id (multiple exams for one allocation)
-        | stay grouped because they share the same tca.id.
-        |--------------------------------------------------------------------------
-        */
-        $pairQuery->orderByDesc('tca.id');
+        $pairQuery
+            ->orderByRaw('MIN(tsa.id) DESC')
+            ->orderByDesc('tca.id');
 
-        $pairs = $pairQuery
-            ->paginate(25)
-            ->withQueryString();
+        $pairs = $pairQuery->paginate(25)->withQueryString();
 
         $allocationIds = collect($pairs->items())
             ->pluck('allocation_id')
@@ -93,7 +102,6 @@ class TeacherBulkAllocationController extends Controller
         $rows = collect();
 
         foreach ($pairs->items() as $pair) {
-
             $alloc = $allocationModels->get($pair->allocation_id);
             if (!$alloc) continue;
 
@@ -110,6 +118,7 @@ class TeacherBulkAllocationController extends Controller
             );
 
             $clone->displayExamMasterId = (int) $pair->exam_master_id;
+            $clone->displayRowId        = (int) $pair->first_tsa_id;
 
             $rows->push($clone);
         }
@@ -126,9 +135,14 @@ class TeacherBulkAllocationController extends Controller
             $pendingExam = ExamMaster::find((int) $examMasterId);
 
             if ($pendingExam) {
-                $count = AllocationStatusHelper::pendingCountForExam((int) $examMasterId);
-                $pendingCount  = max(0, $count);
-                $subjectStatus = AllocationStatusHelper::subjectStatusForExam((int) $examMasterId);
+                $pendingCount  = max(0, (int) AllocationStatusHelper::pendingCountForExam((int) $examMasterId));
+                $subjectStatus = collect(
+                    AllocationStatusHelper::subjectStatusForExam((int) $examMasterId)
+                )
+                    ->map(fn ($r) => is_object($r) ? (array) $r : $r)
+                    ->map(fn ($r) => (object) $r)
+                    ->values()
+                    ->all();
             }
         }
 
@@ -136,125 +150,152 @@ class TeacherBulkAllocationController extends Controller
         $totalPending   = 0;
 
         if ($examMasterId === '') {
-            $yearFilter     = $academicYearId !== '' ? (int) $academicYearId : null;
-            $pendingSummary = AllocationStatusHelper::summaryForAcademicYear($yearFilter);
-            $totalPending   = array_sum(array_column($pendingSummary, 'pending'));
+            $yearFilter = $academicYearId !== '' ? (int) $academicYearId : null;
+
+            $pendingSummaryRows = AllocationStatusHelper::summaryForAcademicYear($yearFilter);
+
+            $pendingSummaryRows = collect($pendingSummaryRows)
+                ->map(fn ($r) => is_object($r) ? (array) $r : $r)
+                ->values()
+                ->all();
+
+            $totalPending = array_sum(array_column($pendingSummaryRows, 'pending'));
+
+            $pendingSummary = array_map(fn ($r) => (object) $r, $pendingSummaryRows);
         }
 
-        return view('administrator.teacher-bulk-allocation.index', [
-            'allocations'    => $pairs,
-            'standards'      => TeacherBulkHelper::standards(),
-            'academicYears'  => TeacherBulkHelper::academicYears(),
-            'divisions'      => TeacherBulkHelper::divisions(),
-            'exams'          => $exams,
-            'academicYearId' => $academicYearId,
-            'standardId'     => $standardId,
-            'divisionId'     => $divisionId,
-            'examMasterId'   => $examMasterId,
-            'pendingCount'   => $pendingCount,
-            'subjectStatus'  => $subjectStatus,
-            'pendingExam'    => $pendingExam,
-            'pendingSummary' => $pendingSummary,
-            'totalPending'   => $totalPending,
-        ]);
+        return response()
+            ->view('administrator.teacher-bulk-allocation.index', [
+                'allocations'    => $pairs,
+                'standards'      => TeacherBulkHelper::standards(),
+                'academicYears'  => TeacherBulkHelper::academicYears(),
+                'divisions'      => TeacherBulkHelper::divisions(),
+                'exams'          => $exams,
+                'academicYearId' => $academicYearId,
+                'standardId'     => $standardId,
+                'divisionId'     => $divisionId,
+                'examMasterId'   => $examMasterId,
+                'pendingCount'   => $pendingCount,
+                'subjectStatus'  => $subjectStatus,
+                'pendingExam'    => $pendingExam,
+                'pendingSummary' => $pendingSummary,
+                'totalPending'   => $totalPending,
+            ])
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | CREATE
+     ===================================================================== */
 
     public function create(Request $request)
     {
         $selectedAcademicYearId = $request->input('academic_year_id');
 
         return view('administrator.teacher-bulk-allocation.create', [
-            'teachers'      => TeacherBulkHelper::teachers(),
-            'academicYears' => TeacherBulkHelper::academicYears(),
-            'sections'      => TeacherBulkHelper::sections(),
-            'standards'     => TeacherBulkHelper::standards(),
-            'divisions'     => TeacherBulkHelper::divisions(),
-            'exams'         => TeacherBulkHelper::exams($selectedAcademicYearId),
+            'teachers'               => TeacherBulkHelper::teachers(),
+            'academicYears'          => TeacherBulkHelper::academicYears(),
+            'sections'               => TeacherBulkHelper::sections(),
+            'standards'              => TeacherBulkHelper::standards(),
+            'divisions'              => TeacherBulkHelper::divisions(),
+            'divisionsByStandard'    => [],
+            'exams'                  => TeacherBulkHelper::exams($selectedAcademicYearId),
             'selectedAcademicYearId' => $selectedAcademicYearId,
         ]);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET EXAM DETAILS
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | GET EXAM DETAILS
+     ===================================================================== */
 
     public function getExamDetails(Request $request)
     {
-        $request->validate([
-            'exam_master_id'   => 'required|exists:exam_masters,id',
-            'academic_year_id' => 'nullable|exists:academic_years,id',
-        ]);
+        try {
+            $request->validate([
+                'exam_master_id'   => 'required|exists:exam_masters,id',
+                'academic_year_id' => 'nullable|exists:academic_years,id',
+            ]);
 
-        $exam = ExamMaster::findOrFail($request->exam_master_id);
-        $examAcademicYearId = (int) ($exam->academic_year_id ?? 0);
+            $exam = ExamMaster::findOrFail($request->exam_master_id);
+            $examAcademicYearId = (int) ($exam->academic_year_id ?? 0);
 
-        if ($examAcademicYearId <= 0) {
+            if ($examAcademicYearId <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected Exam does not have an Academic Year assigned.',
+                    'standard' => null, 'section' => null, 'divisions' => [], 'subjects' => [],
+                ], 422);
+            }
+
+            $standard = Standard::where('id', $exam->standard_id)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$standard) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No Standard is assigned to this Exam.',
+                    'standard' => null, 'section' => null, 'divisions' => [], 'subjects' => [],
+                ], 422);
+            }
+
+            $section = $standard->section_id
+                ? \App\Models\Section::find($standard->section_id)
+                : null;
+
+            $erpDivisions = StudentHelper::getERPDivisionsForStandard(
+                $examAcademicYearId,
+                (int) $standard->id
+            );
+
+            $divisions = collect($erpDivisions ?? [])->values();
+
+            $subjects = collect(TeacherBulkHelper::getExamMappedSubjects($exam->id, $standard->id));
+
             return response()->json([
-                'success'  => false,
-                'message'  => 'Selected Exam does not have an Academic Year assigned.',
-                'standard' => null, 'section' => null, 'divisions'=> [], 'subjects' => [],
-            ], 422);
-        }
-
-        $standard = Standard::where('id', $exam->standard_id)
-            ->where('is_active', 1)->first();
-
-        if (!$standard) {
-            return response()->json([
-                'success'  => false,
-                'message'  => 'No Standard is assigned to this Exam.',
-                'standard' => null, 'section' => null, 'divisions'=> [], 'subjects' => [],
-            ], 422);
-        }
-
-        $section   = $standard->section_id ? \App\Models\Section::find($standard->section_id) : null;
-        $divisions = TeacherBulkHelper::divisions();
-        $subjects  = TeacherBulkHelper::getExamMappedSubjects($exam->id, $standard->id);
-
-        return response()->json([
-            'success'          => true,
-            'academic_year_id' => $examAcademicYearId,
-            'exam'             => [
-                'id'               => (int) $exam->id,
-                'exam_name'        => $exam->exam_name,
+                'success'          => true,
                 'academic_year_id' => $examAcademicYearId,
-            ],
-            'standard'         => [
-                'id'            => (int) $standard->id,
-                'standard_name' => $standard->standard_name,
-            ],
-            'section'          => $section ? [
-                'id'           => (int) $section->id,
-                'section_name' => $section->section_name,
-            ] : null,
-            'divisions'        => $divisions,
-            'subjects'         => $subjects->map(fn ($subject) => [
-                'subject_id'       => (int) $subject->subject_id,
-                'subject_name'     => $subject->subject_name ?: '-',
-                'subject_code'     => $subject->subject_code ?: '',
-                'short_name'       => $subject->short_name ?: '',
-                'is_optional'      => (int) $subject->is_optional,
-                'exam_subject_id'  => (int) $subject->exam_subject_id,
-                'max_marks'        => $subject->max_marks,
-                'passing_marks'    => $subject->passing_marks,
-                'display_order'    => $subject->display_order,
-            ])->values(),
-        ]);
+                'exam'             => [
+                    'id'               => (int) $exam->id,
+                    'exam_name'        => $exam->exam_name,
+                    'academic_year_id' => $examAcademicYearId,
+                ],
+                'standard'         => [
+                    'id'            => (int) $standard->id,
+                    'standard_name' => $standard->standard_name,
+                ],
+                'section'          => $section ? [
+                    'id'           => (int) $section->id,
+                    'section_name' => $section->section_name,
+                ] : null,
+                'divisions'        => $divisions,
+                'subjects'         => $subjects->map(fn ($subject) => [
+                    'subject_id'      => (int) ($subject->subject_id ?? 0),
+                    'subject_name'    => $subject->subject_name ?? '-',
+                    'subject_code'    => $subject->subject_code ?? '',
+                    'short_name'      => $subject->short_name ?? '',
+                    'is_optional'     => (int) ($subject->is_optional ?? 0),
+                    'exam_subject_id' => (int) ($subject->exam_subject_id ?? 0),
+                    'max_marks'       => $subject->max_marks ?? 100,
+                    'passing_marks'   => $subject->passing_marks ?? 35,
+                    'display_order'   => $subject->display_order ?? 0,
+                ])->values(),
+            ]);
+        } catch (Throwable $e) {
+            Log::error('getExamDetails Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server Error: ' . $e->getMessage(),
+                'subjects' => []
+            ], 500);
+        }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET STANDARDS
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | GET STANDARDS
+     ===================================================================== */
 
     public function getStandards(Request $request)
     {
@@ -269,92 +310,79 @@ class TeacherBulkAllocationController extends Controller
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET SUBJECTS
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | GET SUBJECTS
+     ===================================================================== */
 
     public function getSubjects(Request $request)
     {
-        $examMasterId = $request->input('exam_master_id');
+        try {
+            $examMasterId = $request->input('exam_master_id');
 
-        if (!$examMasterId) {
+            if (!$examMasterId) {
+                return response()->json(['success' => false, 'message' => 'Exam is required.', 'subjects' => []], 422);
+            }
+
+            $exam = ExamMaster::find($examMasterId);
+            if (!$exam) {
+                return response()->json(['success' => false, 'message' => 'Selected Exam was not found.', 'subjects' => []], 404);
+            }
+
+            $examYearId = (int) ($exam->academic_year_id ?? 0);
+            if ($examYearId <= 0) {
+                return response()->json(['success' => false, 'message' => 'Selected Exam does not have an Academic Year assigned.', 'subjects' => []], 422);
+            }
+
+            $standardId = (int) $exam->standard_id;
+            if (!$standardId) {
+                return response()->json(['success' => false, 'message' => 'No Standard is assigned to this Exam.', 'subjects' => []], 422);
+            }
+
+            $standard = Standard::find($standardId);
+            if (!$standard) {
+                return response()->json(['success' => false, 'message' => 'Standard not found.', 'subjects' => []], 404);
+            }
+
+            $subjects = collect(TeacherBulkHelper::getExamMappedSubjects($examMasterId, $standardId));
+
             return response()->json([
-                'success' => false, 'message' => 'Exam is required.', 'subjects' => [],
-            ], 422);
-        }
-
-        $exam = ExamMaster::find($examMasterId);
-
-        if (!$exam) {
-            return response()->json([
-                'success' => false, 'message' => 'Selected Exam was not found.', 'subjects' => [],
-            ], 404);
-        }
-
-        $examYearId = (int) ($exam->academic_year_id ?? 0);
-
-        if ($examYearId <= 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Selected Exam does not have an Academic Year assigned.',
-                'subjects' => [],
-            ], 422);
-        }
-
-        $standardId = (int) $exam->standard_id;
-
-        if (!$standardId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No Standard is assigned to this Exam.',
-                'subjects' => [],
-            ], 422);
-        }
-
-        $standard = Standard::find($standardId);
-
-        if (!$standard) {
-            return response()->json([
-                'success' => false, 'message' => 'Standard not found.', 'subjects' => [],
-            ], 404);
-        }
-
-        $subjects = TeacherBulkHelper::getExamMappedSubjects($examMasterId, $standardId);
-
-        return response()->json([
-            'success'          => true,
-            'academic_year_id' => $examYearId,
-            'exam'             => [
-                'id'               => (int) $exam->id,
-                'exam_name'        => $exam->exam_name,
+                'success'          => true,
                 'academic_year_id' => $examYearId,
-            ],
-            'standard'         => [
-                'id'            => (int) $standard->id,
-                'standard_name' => $standard->standard_name,
-            ],
-            'subjects'         => $subjects->map(fn ($subject) => [
-                'mapping_id'    => $subject->mapping_id,
-                'subject_id'    => (int) $subject->subject_id,
-                'standard'      => $subject->standard_name,
-                'subject_name'  => $subject->subject_name ?: '-',
-                'subject_code'  => $subject->subject_code ?: '',
-                'short_name'    => $subject->short_name ?: '',
-                'is_optional'   => (int) $subject->is_optional,
-                'max_marks'     => $subject->max_marks,
-                'passing_marks' => $subject->passing_marks,
-                'display_order' => $subject->display_order,
-            ])->values(),
-        ]);
+                'exam'             => [
+                    'id'               => (int) $exam->id,
+                    'exam_name'        => $exam->exam_name,
+                    'academic_year_id' => $examYearId,
+                ],
+                'standard'         => [
+                    'id'            => (int) $standard->id,
+                    'standard_name' => $standard->standard_name,
+                ],
+                'subjects'         => $subjects->map(fn ($subject) => [
+                    'mapping_id'    => $subject->mapping_id ?? null,
+                    'subject_id'    => (int) ($subject->subject_id ?? 0),
+                    'standard'      => $subject->standard_name ?? '',
+                    'subject_name'  => $subject->subject_name ?? '-',
+                    'subject_code'  => $subject->subject_code ?? '',
+                    'short_name'    => $subject->short_name ?? '',
+                    'is_optional'   => (int) ($subject->is_optional ?? 0),
+                    'max_marks'     => $subject->max_marks ?? 100,
+                    'passing_marks' => $subject->passing_marks ?? 35,
+                    'display_order' => $subject->display_order ?? 0,
+                ])->values(),
+            ]);
+        } catch (Throwable $e) {
+            Log::error('getSubjects Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server Error: ' . $e->getMessage(),
+                'subjects' => []
+            ], 500);
+        }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STORE
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | STORE
+     ===================================================================== */
 
     public function store(Request $request)
     {
@@ -371,50 +399,113 @@ class TeacherBulkAllocationController extends Controller
             'rows.*.subjects.*'  => 'required|exists:subjects,id',
         ]);
 
+        $errors = $this->validateDivisionsHaveStudents($request);
+        if (!empty($errors)) {
+            return back()->withInput()->with('error', implode(' ', $errors));
+        }
+
         try {
             DB::transaction(function () use ($request) {
-                TeacherBulkHelper::store($request);
+                foreach ($request->rows as $row) {
+                    $standardId = (int) $row['standards'][0];
+                    $sectionId  = $row['section_id'] ?? null;
+                    
+                    // Prevent duplicate subjects in the array
+                    $uniqueSubjects = array_unique($row['subjects']);
+
+                    foreach ($row['divisions'] as $divisionId) {
+                        $allocation = TeacherClassAllocation::create([
+                            'user_id'          => $request->user_id,
+                            'academic_year_id' => $request->academic_year_id,
+                            'section_id'       => $sectionId,
+                            'standard_id'      => $standardId,
+                            'division_id'      => (int) $divisionId,
+                        ]);
+
+                        foreach ($uniqueSubjects as $subjectId) {
+                            $conflicts = DB::table('teacher_subject_allocations as tsa')
+                                ->join('teacher_class_allocations as tca', 'tsa.teacher_class_allocation_id', '=', 'tca.id')
+                                ->where('tca.academic_year_id', $request->academic_year_id)
+                                ->where('tca.standard_id', $standardId)
+                                ->where('tca.division_id', (int) $divisionId)
+                                ->where('tsa.exam_master_id', $request->exam_master_id)
+                                ->where('tsa.subject_id', (int) $subjectId)
+                                ->select('tsa.id', 'tsa.teacher_class_allocation_id')
+                                ->get();
+
+                            foreach ($conflicts as $conflict) {
+                                DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $conflict->id)->delete();
+                                DB::table('teacher_subject_allocations')->where('id', $conflict->id)->delete();
+                                
+                                $hasOther = DB::table('teacher_subject_allocations')->where('teacher_class_allocation_id', $conflict->teacher_class_allocation_id)->exists();
+                                if (!$hasOther) {
+                                    DB::table('teacher_class_allocations')->where('id', $conflict->teacher_class_allocation_id)->delete();
+                                }
+                            }
+
+                            $tsaId = DB::table('teacher_subject_allocations')->insertGetId([
+                                'teacher_class_allocation_id' => $allocation->id,
+                                'exam_master_id'              => $request->exam_master_id,
+                                'subject_id'                  => (int) $subjectId,
+                                'created_at'                  => now(),
+                                'updated_at'                  => now(),
+                            ]);
+
+                            DB::table('teacher_marks_status')->insert([
+                                'teacher_subject_allocation_id' => $tsaId,
+                                'academic_year_id'              => $request->academic_year_id,
+                                'standard_id'                   => $standardId,
+                                'division_id'                   => (int) $divisionId,
+                                'exam_master_id'                => $request->exam_master_id,
+                                'subject_id'                    => (int) $subjectId,
+                                'teacher_id'                    => $request->user_id,
+                                'status'                        => 'PENDING',
+                                'created_at'                    => now(),
+                                'updated_at'                    => now(),
+                            ]);
+                        }
+                    }
+                }
             });
 
-            return redirect()
-                ->route('teacher-bulk-allocation.index')
-                ->with('success', 'Teacher Bulk Allocation Saved Successfully.');
+            return redirect()->route('teacher-bulk-allocation.index')->with('success', 'Teacher Bulk Allocation Saved Successfully.');
 
         } catch (Throwable $e) {
-            Log::error('Teacher Bulk Allocation Error', [
-                'message' => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-
+            Log::error('Teacher Bulk Allocation Error', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withInput()->with('error', $e->getMessage());
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | EDIT
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | EDIT
+     ===================================================================== */
 
     public function edit($id)
     {
         $data = TeacherBulkHelper::buildEditData($id);
 
+        $academicYearId =
+            $data['allocation']->academic_year_id
+            ?? ($data['allocations'][0]->academic_year_id ?? null);
+
+        $divisionsByStandard = $academicYearId
+            ? StudentHelper::getERPDivisionsByStandard((int) $academicYearId)
+            : [];
+
         return view('administrator.teacher-bulk-allocation.edit', array_merge(
             $data,
             [
-                'teachers'      => TeacherBulkHelper::teachers(),
-                'academicYears' => TeacherBulkHelper::academicYears(),
-                'divisions'     => TeacherBulkHelper::divisions(),
+                'teachers'            => TeacherBulkHelper::teachers(),
+                'academicYears'       => TeacherBulkHelper::academicYears(),
+                'divisions'           => TeacherBulkHelper::divisions(),
+                'divisionsByStandard' => $divisionsByStandard,
             ]
         ));
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | UPDATE
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | UPDATE (FIXED AUTO-MIGRATION)
+     ===================================================================== */
 
     public function update(Request $request, $id)
     {
@@ -426,61 +517,220 @@ class TeacherBulkAllocationController extends Controller
             'exam_master_id'   => 'required|exists:exam_masters,id',
             'subjects'         => 'required|array|min:1',
             'subjects.*'       => 'required|exists:subjects,id',
-        ], [
-            'user_id.required'          => 'Please select Teacher.',
-            'academic_year_id.required' => 'Please select Academic Year.',
-            'standard_id.required'      => 'Standard is required.',
-            'division_id.required'      => 'Division is required.',
-            'exam_master_id.required'   => 'Please select Exam.',
-            'subjects.required'         => 'Please select at least one Subject.',
-            'subjects.min'              => 'Please select at least one Subject.',
         ]);
+
+        $errors = $this->validateUpdateDivisionHasStudents($request);
+        if (!empty($errors)) {
+            return back()->withInput()->with('error', implode(' ', $errors));
+        }
 
         try {
             DB::transaction(function () use ($request, $id) {
-                TeacherBulkHelper::update($request, $id);
+                $allocation = TeacherClassAllocation::findOrFail($id);
+                
+                $allocation->update([
+                    'user_id'          => $request->user_id,
+                    'academic_year_id' => $request->academic_year_id,
+                    'standard_id'      => $request->standard_id,
+                    'division_id'      => $request->division_id,
+                ]);
+
+                $examMasterId = $request->exam_master_id;
+                
+                // Ensure no duplicates in the incoming request
+                $newSubjectIds = array_values(array_unique(array_map('intval', $request->subjects)));
+
+                $existingAllocations = DB::table('teacher_subject_allocations')
+                    ->where('teacher_class_allocation_id', $id)
+                    ->where('exam_master_id', $examMasterId)
+                    ->get();
+
+                $existingSubjectIds = $existingAllocations->pluck('subject_id')->toArray();
+
+                // Fetch subject codes to map renamed subjects (if ID changed)
+                $allSubjectIds = array_merge($existingSubjectIds, $newSubjectIds);
+                $subjectCodes = DB::table('subjects')->whereIn('id', $allSubjectIds)->pluck('subject_code', 'id')->toArray();
+
+                $newIdsByCode = [];
+                foreach ($newSubjectIds as $newId) {
+                    $code = $subjectCodes[$newId] ?? null;
+                    if ($code) $newIdsByCode[$code] = $newId;
+                }
+
+                $processedNewIds = [];
+                
+                foreach ($existingAllocations as $existing) {
+                    $oldId = (int) $existing->subject_id;
+                    $oldCode = $subjectCodes[$oldId] ?? null;
+
+                    // 1. Keep if exact ID is selected
+                    if (in_array($oldId, $newSubjectIds, true)) {
+                        $processedNewIds[] = $oldId;
+                    }
+                    // 2. Auto-Migrate: If ID changed (e.g., renamed subject with same code), update the old records to the new ID
+                    elseif ($oldCode && isset($newIdsByCode[$oldCode])) {
+                        $newId = $newIdsByCode[$oldCode];
+                        
+                        DB::table('teacher_subject_allocations')->where('id', $existing->id)->update(['subject_id' => $newId]);
+                        DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $existing->id)->update(['subject_id' => $newId]);
+                        
+                        // Migrate historical marks so they don't disappear
+                        DB::table('student_marks')
+                            ->where('academic_year_id', $request->academic_year_id)
+                            ->where('standard_id', $request->standard_id)
+                            ->where('division_id', $request->division_id)
+                            ->where('exam_master_id', $examMasterId)
+                            ->where('subject_id', $oldId)
+                            ->update(['subject_id' => $newId]);
+
+                        $processedNewIds[] = $newId;
+                    }
+                    // 3. Remove unchecked subjects
+                    else {
+                        DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $existing->id)->delete();
+                        DB::table('teacher_subject_allocations')->where('id', $existing->id)->delete();
+                    }
+                }
+
+                // 4. Add completely new subjects
+                $subjectsToAdd = array_diff($newSubjectIds, $processedNewIds);
+
+                foreach ($subjectsToAdd as $subId) {
+                    $conflicts = DB::table('teacher_subject_allocations as tsa')
+                        ->join('teacher_class_allocations as tca', 'tsa.teacher_class_allocation_id', '=', 'tca.id')
+                        ->where('tca.academic_year_id', $request->academic_year_id)
+                        ->where('tca.standard_id', $request->standard_id)
+                        ->where('tca.division_id', $request->division_id)
+                        ->where('tsa.exam_master_id', $examMasterId)
+                        ->where('tsa.subject_id', $subId)
+                        ->select('tsa.id', 'tsa.teacher_class_allocation_id')
+                        ->get();
+
+                    foreach ($conflicts as $conflict) {
+                        DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $conflict->id)->delete();
+                        DB::table('teacher_subject_allocations')->where('id', $conflict->id)->delete();
+                        
+                        $hasOther = DB::table('teacher_subject_allocations')->where('teacher_class_allocation_id', $conflict->teacher_class_allocation_id)->exists();
+                        if (!$hasOther) {
+                            DB::table('teacher_class_allocations')->where('id', $conflict->teacher_class_allocation_id)->delete();
+                        }
+                    }
+
+                    $tsaId = DB::table('teacher_subject_allocations')->insertGetId([
+                        'teacher_class_allocation_id' => $id,
+                        'exam_master_id'              => $examMasterId,
+                        'subject_id'                  => $subId,
+                        'created_at'                  => now(),
+                        'updated_at'                  => now(),
+                    ]);
+
+                    DB::table('teacher_marks_status')->insert([
+                        'teacher_subject_allocation_id' => $tsaId,
+                        'academic_year_id'              => $request->academic_year_id,
+                        'standard_id'                   => $request->standard_id,
+                        'division_id'                   => $request->division_id,
+                        'exam_master_id'                => $examMasterId,
+                        'subject_id'                    => $subId,
+                        'teacher_id'                    => $request->user_id,
+                        'status'                        => 'PENDING',
+                        'created_at'                    => now(),
+                        'updated_at'                    => now(),
+                    ]);
+                }
             });
 
-            return redirect()
-                ->route('teacher-bulk-allocation.index')
-                ->with('success', 'Allocation updated successfully. Existing subject allocations and marks have been preserved.');
+            return redirect()->route('teacher-bulk-allocation.index')->with('success', 'Allocation updated successfully. Subject IDs and Marks were auto-migrated.');
 
         } catch (Throwable $e) {
-            Log::error('Teacher Bulk Allocation Update Error', [
-                'allocation_id' => $id,
-                'message'       => $e->getMessage(),
-                'trace'         => $e->getTraceAsString(),
-            ]);
-
+            Log::error('Teacher Bulk Allocation Update Error', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withInput()->with('error', $e->getMessage());
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DESTROY
-    |--------------------------------------------------------------------------
-    */
+    /* =====================================================================
+     | DESTROY
+     ===================================================================== */
 
     public function destroy($id)
     {
         try {
-            TeacherBulkHelper::destroy($id);
+            DB::transaction(function () use ($id) {
+                $exists = DB::table('teacher_class_allocations')->where('id', $id)->exists();
+                if (!$exists) {
+                    throw new \RuntimeException("Allocation #{$id} not found.");
+                }
 
-            return redirect()
-                ->route('teacher-bulk-allocation.index')
-                ->with('success', 'Allocation deleted successfully.');
+                $tsaIds = DB::table('teacher_subject_allocations')->where('teacher_class_allocation_id', $id)->pluck('id')->toArray();
+
+                if (!empty($tsaIds)) {
+                    DB::table('teacher_marks_status')->whereIn('teacher_subject_allocation_id', $tsaIds)->delete();
+                }
+
+                DB::table('teacher_subject_allocations')->where('teacher_class_allocation_id', $id)->delete();
+                DB::table('teacher_class_allocations')->where('id', $id)->delete();
+            });
+
+            return redirect()->route('teacher-bulk-allocation.index')->with('success', 'Allocation deleted successfully.');
 
         } catch (Throwable $e) {
-            Log::error('Teacher Bulk Allocation Delete Error', [
-                'allocation_id' => $id,
-                'message'       => $e->getMessage(),
-                'trace'         => $e->getTraceAsString(),
-            ]);
-
-            return redirect()
-                ->route('teacher-bulk-allocation.index')
-                ->with('error', $e->getMessage());
+            Log::error('Teacher Bulk Allocation Delete Error', ['message' => $e->getMessage()]);
+            return redirect()->route('teacher-bulk-allocation.index')->with('error', 'Delete failed: ' . $e->getMessage());
         }
+    }
+
+    /* =====================================================================
+     | PRIVATE VALIDATION HELPERS
+     ===================================================================== */
+
+    private function validateDivisionsHaveStudents(Request $request): array
+    {
+        $errors = [];
+        $academicYear = AcademicYear::find((int) $request->academic_year_id);
+        if (!$academicYear) return $errors;
+
+        foreach ($request->rows as $row) {
+            $standardId = (int) ($row['standards'][0] ?? 0);
+            if (!$standardId) continue;
+
+            $standard = Standard::find($standardId);
+            $stdName  = $standard->standard_name ?? "Std #{$standardId}";
+
+            $validDivisions = StudentHelper::getERPDivisionsForStandard((int) $academicYear->id, $standardId);
+            $validIds = collect($validDivisions ?? [])->pluck('id')->map(fn ($v) => (int) $v)->all();
+
+            foreach ($row['divisions'] as $divisionId) {
+                $divisionId = (int) $divisionId;
+                if (!in_array($divisionId, $validIds, true)) {
+                    $division = Division::find($divisionId);
+                    $divName  = $division->division_name ?? "Division #{$divisionId}";
+                    $errors[] = "Cannot save: No students found for {$stdName} - {$divName}.";
+                }
+            }
+        }
+        return array_values(array_unique($errors));
+    }
+
+    private function validateUpdateDivisionHasStudents(Request $request): array
+    {
+        $errors = [];
+        $academicYear = AcademicYear::find((int) $request->academic_year_id);
+        if (!$academicYear) return $errors;
+
+        $standardId = (int) $request->standard_id;
+        $divisionId = (int) $request->division_id;
+
+        $standard = Standard::find($standardId);
+        $division = Division::find($divisionId);
+
+        $stdName = $standard->standard_name ?? "Std #{$standardId}";
+        $divName = $division->division_name ?? "Division #{$divisionId}";
+
+        $validDivisions = StudentHelper::getERPDivisionsForStandard((int) $academicYear->id, $standardId);
+        $validIds = collect($validDivisions ?? [])->pluck('id')->map(fn ($v) => (int) $v)->all();
+
+        if (!in_array($divisionId, $validIds, true)) {
+            $errors[] = "Cannot save: No students found for {$stdName} - {$divName}.";
+        }
+        return $errors;
     }
 }

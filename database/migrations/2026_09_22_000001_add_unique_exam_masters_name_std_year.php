@@ -9,6 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('exam_masters', function (Blueprint $table) {
+            // Create the unique index
             $table->unique(
                 ['exam_name', 'standard_id', 'academic_year_id'],
                 'uk_exam_masters_name_std_year'

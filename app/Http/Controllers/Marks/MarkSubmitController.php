@@ -334,6 +334,52 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | AUTO-SAVE MARKS FROM REQUEST
+        |--------------------------------------------------------------------------
+        | This ensures users can click "Submit Final Marks" without clicking
+        | "Save Marks" first. It saves the form data to the database immediately.
+        | Matches input names: is_absent[], is_optional[], theory_marks[],
+        | oral_marks[], practical_marks[]
+        */
+
+        if ($request->has('is_absent') && is_array($request->is_absent)) {
+            foreach ($request->is_absent as $studentId => $isAbsentValue) {
+                
+                // Determine optional and absent flags
+                $isAbsent = $isAbsentValue == 1 ? 1 : 0;
+                $isOptional = isset($request->is_optional[$studentId]) && $request->is_optional[$studentId] == 1 ? 1 : 0;
+
+                // Handle empty inputs gracefully by defaulting to 0
+                $theory = isset($request->theory_marks[$studentId]) && $request->theory_marks[$studentId] !== '' ? $request->theory_marks[$studentId] : 0;
+                $oral = isset($request->oral_marks[$studentId]) && $request->oral_marks[$studentId] !== '' ? $request->oral_marks[$studentId] : 0;
+                $practical = isset($request->practical_marks[$studentId]) && $request->practical_marks[$studentId] !== '' ? $request->practical_marks[$studentId] : 0;
+
+                StudentMark::updateOrCreate(
+                    [
+                        'academic_year_id'              => $allocation->academic_year_id,
+                        'section_id'                    => $allocation->section_id,
+                        'standard_id'                   => $allocation->standard_id,
+                        'division_id'                   => $allocation->division_id,
+                        'exam_master_id'                => $examId,
+                        'teacher_subject_allocation_id' => $tsaId,
+                        'subject_id'                    => $actualSubjectId,
+                        'student_id'                    => $studentId,
+                    ],
+                    [
+                        'theory_obtained_marks'         => $theory,
+                        'oral_obtained_marks'           => $oral,
+                        'practical_obtained_marks'      => $practical,
+                        'is_absent'                     => $isAbsent,
+                        'is_optional'                   => $isOptional,
+                        'updated_by'                    => Auth::id(),
+                    ]
+                );
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | OPTIONAL
         |--------------------------------------------------------------------------
         */
@@ -453,8 +499,9 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | LOAD SAVED MARKS
+        | LOAD SAVED MARKS (From DB)
         |--------------------------------------------------------------------------
+        | This will now retrieve the marks we just auto-saved above.
         */
 
         $marks =
@@ -626,12 +673,6 @@ class MarkSubmitController extends Controller
             |--------------------------------------------------------------------------
             | OPTIONAL STUDENT
             |--------------------------------------------------------------------------
-            |
-            | Optional students do not require marks.
-            |
-            | IMPORTANT:
-            | is_optional is NEVER changed here.
-            |
             */
 
             if (
@@ -768,15 +809,6 @@ class MarkSubmitController extends Controller
                 |--------------------------------------------------------------------------
                 | LOCK MARKS ONLY
                 |--------------------------------------------------------------------------
-                |
-                | DO NOT modify:
-                |
-                | is_optional
-                | is_absent
-                | theory_obtained_marks
-                | oral_obtained_marks
-                | practical_obtained_marks
-                |
                 */
 
                 StudentMark::where(

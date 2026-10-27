@@ -15,43 +15,46 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-gray-900 antialiased bg-gradient-to-br from-red-100 via-yellow-100 to-orange-100">
-        <div style="height:100vh; background:#FFFDE7; border:12px solid #8B4513; margin:5px; border-radius:15px; display:flex; flex-direction:column; align-items:center; overflow-y:auto;">
+        <div style="min-height:100vh; background:#FFFDE7; border:12px solid #8B4513; margin:5px; border-radius:15px; display:flex; flex-direction:column; align-items:center; overflow-y:auto;">
 
+            <div class="w-full mb-4">
 
-<div class="w-full mb-4">
+                <div style="background:#8B4513; color:white; padding:10px; width:100%;">
 
+                    <div class="flex items-center justify-center gap-4">
 
-<div style="background:#8B4513; color:white; padding:10px; width:100%;">
+                        <img src="{{ asset('images/school-logo.png') }}"
+                             alt="School Logo"
+                             style="height:70px; width:auto;">
 
-    <div class="flex items-center justify-center gap-4">
+                        <div class="text-center">
 
-        <img src="{{ asset('images/school-logo.png') }}"
-             alt="School Logo"
-             style="height:70px; width:auto;">
+                            {{-- ADDED id="login_header_title" --}}
+                            <h1 id="login_header_title" class="text-3xl font-extrabold">
+                                PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE
+                            </h1>
 
-        <div class="text-center">
+                            {{-- ADDED id="login_header_address" --}}
+                            <p id="login_header_address" class="text-xl font-bold mt-1">
+                                SHIRGAON / CHIKHALI
+                            </p>
 
-            <h1 class="text-3xl font-extrabold">
-                PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE
-            </h1>
+                        </div>
 
-            <p class="text-xl font-bold">
-                SHIRGAON / CHIKHALI
-            </p>
+                    </div>
 
-        </div>
+                </div>
 
-    </div>
-
-</div>
-
-</div>
+            </div>
 
 
             <div class="w-full sm:max-w-md mt-2 px-8 py-6 shadow-2xl overflow-hidden rounded-xl border-4 border-amber-400"
-     style="background:#FFCC80;">
+                 style="background:#FFCC80;">
                 {{ $slot }}
             </div>
+            
+            <!-- Spacer to ensure the box doesn't touch the bottom border on small screens -->
+            <div class="h-8"></div>
         </div>
     </body>
 </html>

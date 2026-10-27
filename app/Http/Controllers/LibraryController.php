@@ -76,13 +76,19 @@ class LibraryController extends Controller
                                         ->count(),
         ];
 
+        /* ---------- How many rows per page ---------- */
+        $perPage = (int) $request->input('per_page', 50);
+        if (!in_array($perPage, [10, 25, 50, 100, 200], true)) {
+            $perPage = 50;   // safe default
+        }
+
         $issues = $query
             ->orderByDesc('issue_date')
             ->orderByDesc('id')
-            ->paginate(25)
+            ->paginate($perPage)
             ->withQueryString();
 
-        return view('library.index', compact('issues', 'summary'));
+        return view('library.index', compact('issues', 'summary', 'perPage'));
     }
 
     /* ===========================================================
@@ -165,6 +171,43 @@ class LibraryController extends Controller
     }
 
     /* ===========================================================
+     | AJAX — book search (for the "Book Name" search box)
+     | =========================================================== */
+
+    public function booksSearch(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+
+        try {
+            $query = LibraryBook::query()->where('is_active', 1);
+
+            if ($q !== '') {
+                $query->where(function ($w) use ($q) {
+                    $w->where('book_name', 'like', "%{$q}%")
+                      ->orWhere('book_code', 'like', "%{$q}%")
+                      ->orWhere('author',    'like', "%{$q}%");
+                });
+            }
+
+            $books = $query->orderBy('book_name')->limit(50)->get();
+
+            return response()->json($books->map(function ($b) {
+                return [
+                    'id'               => (string) $b->id,
+                    'book_name'        => (string) $b->book_name,
+                    'book_code'        => (string) ($b->book_code ?? ''),
+                    'author'           => (string) ($b->author ?? ''),
+                    'total_copies'     => $b->total_copies     ?? null,
+                    'available_copies' => $b->available_copies ?? null,
+                ];
+            })->values());
+
+        } catch (Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /* ===========================================================
      | STORE
      | =========================================================== */
 
@@ -215,6 +258,10 @@ class LibraryController extends Controller
             'borrower_id'    => 'required|string|max:50',
             'borrower_name'  => 'required|string|max:255',
             'borrower_class' => 'nullable|string|max:50',
+
+            // ⭐ allow storing the selected book id (nullable so edit still works)
+            'book_id'        => 'nullable|integer|exists:library_books,id',
+
             'book_name'      => 'required|string|max:255',
             'book_code'      => 'nullable|string|max:50',
             'author'         => 'nullable|string|max:100',

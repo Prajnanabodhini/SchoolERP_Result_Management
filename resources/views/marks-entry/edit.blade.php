@@ -50,123 +50,422 @@
 @endphp
 
 <style>
+    /* =========================================================
+       PAGE
+       ========================================================= */
     .marks-entry-page,
-    .marks-entry-page * { box-sizing: border-box; font-family: Arial, sans-serif !important; }
+    .marks-entry-page * {
+        box-sizing: border-box;
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+
+    .marks-entry-page {
+        background: #f0f0f0;
+        padding: 20px;
+    }
 
     .marks-entry-card {
-        background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,.06); padding: 12px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        padding: 18px 20px;
+        max-width: 100%;
     }
 
-    .marks-entry-title { margin: 0 0 10px; font-size: 18px; font-weight: 700; color: #2563eb; }
+    .marks-entry-title {
+        margin: 0 0 14px;
+        font-size: 21px;
+        font-weight: 700;
+        color: #1D4ED8;
+        letter-spacing: 0.4px;
+    }
 
-    .filter-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
-    .filter-group { display: flex; flex-direction: column; gap: 3px; }
-    .filter-label { font-size: 11px; font-weight: 600; color: #374151; }
-    .filter-select-wrapper { position: relative; display: inline-block; }
+    /* =========================================================
+       FILTER ROW
+       ========================================================= */
+    .filter-row {
+        display: flex;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .filter-select-wrapper {
+        position: relative;
+        display: inline-block;
+    }
 
     .filter-select {
-        height: 30px; padding: 3px 24px 3px 8px;
-        border: 1px solid #d1d5db; border-radius: 4px;
-        background: #fff; color: #111827; font-size: 11px;
-        outline: none; appearance: none; -webkit-appearance: none; -moz-appearance: none;
+        height: 32px;
+        padding: 3px 28px 3px 10px;
+        border: 1px solid #9CA3AF;
+        border-radius: 6px;
+        background: #fff;
+        color: #111827;
+        font-size: 12px;
+        font-weight: 600;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        transition: border-color .15s, box-shadow .15s;
     }
-    .filter-select:focus { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
+    .filter-select:focus {
+        border-color: #2563EB;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    .filter-select:disabled {
+        background: #F3F4F6;
+        color: #6B7280;
+        cursor: not-allowed;
+    }
 
     .dropdown-arrow {
-        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-        border-left: 4px solid transparent; border-right: 4px solid transparent;
-        border-top: 5px solid #6b7280; pointer-events: none;
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #6b7280;
+        pointer-events: none;
     }
 
-    .academic-year-select { width: 150px; }
-    .exam-select          { width: 220px; }
-    .assignment-select    { width: 280px; }
+    .academic-year-select { width: 160px; }
+    .exam-select          { width: 230px; }
+    .assignment-select    { width: 290px; }
 
+    /* =========================================================
+       BUTTONS
+       ========================================================= */
     .erp-btn {
-        min-height: 30px; min-width: max-content; padding: 5px 12px;
-        border: 0; border-radius: 4px; font-size: 11px; font-weight: 600;
-        cursor: pointer; text-decoration: none;
-        display: inline-flex; align-items: center; justify-content: center;
-        white-space: nowrap; line-height: 1.2;
+        min-height: 32px;
+        min-width: max-content;
+        padding: 0 16px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        line-height: 1;
+        transition: background .15s, border-color .15s;
     }
 
-    /* ---------- BUTTON WIDTH FIX — both buttons same size ---------- */
-    .erp-btn-save       { background: #2563eb; color: #fff; min-width: 150px; }
-    .erp-btn-save:hover { background: #1d4ed8; }
-    .erp-btn-green      { background: #16a34a; color: #fff; min-width: 150px; }
-    .erp-btn-green:hover { background: #15803d; }
-    .erp-btn-green:disabled { background: #9ca3af !important; cursor: not-allowed !important; opacity: .85; }
+    .erp-btn-save {
+        background: #16A34A;
+        color: #fff;
+        border-color: #15803D;
+        min-width: 160px;
+    }
+    .erp-btn-save:hover { background: #15803D; border-color: #166534; }
 
-    .error-box   { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 11px; }
-    .warning-box { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 11px; }
-    .saved-box   { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; font-size: 11px; font-weight: 600; }
-    .success-box { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #ecfdf5; border: 1px solid #86efac; color: #166534; font-size: 11px; font-weight: 600; }
+    .erp-btn-green {
+        background: #16A34A;
+        color: #fff;
+        border-color: #15803D;
+        min-width: 160px;
+    }
+    .erp-btn-green:hover { background: #15803D; border-color: #166534; }
+    .erp-btn-green:disabled {
+        background: #9CA3AF !important;
+        border-color: #6B7280 !important;
+        cursor: not-allowed !important;
+        opacity: .85;
+    }
 
+    /* =========================================================
+       ALERT CARDS
+       ========================================================= */
+    .error-box,
+    .warning-box,
+    .saved-box,
+    .success-box {
+        margin-top: 14px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.5;
+    }
+    .error-box {
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        color: #991b1b;
+    }
+    .warning-box {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        color: #92400e;
+    }
+    .saved-box {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        color: #92400e;
+    }
+    .success-box {
+        background: #dcfce7;
+        border: 1px solid #86efac;
+        color: #166534;
+    }
+    .error-box ul { margin: 6px 0 0 20px; padding: 0; }
+
+    /* =========================================================
+       SELECTED INFO BANNER
+       ========================================================= */
     .selected-info {
-        display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-        margin-top: 12px; padding: 8px 10px; border-radius: 4px;
-        background: #eff6ff; border: 1px solid #bfdbfe;
-        color: #1e3a8a; font-size: 11px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+        padding: 9px 14px;
+        border-radius: 8px;
+        background: #eff6ff;
+        border: 1px solid #93c5fd;
+        color: #1e40af;
+        font-size: 11.5px;
+        font-weight: 600;
     }
-    .selected-info-item      { font-weight: 700; }
+    .selected-info-item {
+        font-weight: 700;
+        color: #1e3a8a;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.3px;
+    }
     .selected-info-separator { color: #93c5fd; }
 
-    .marks-table-wrapper { margin-top: 12px; overflow-x: auto; border: 1px solid #d1d5db; border-radius: 4px; }
-    .marks-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 11px; }
-    .marks-table th {
-        background: #dbeafe; color: #1e3a8a; border: 1px solid #cbd5e1;
-        padding: 5px 4px; text-align: center; line-height: 1.15;
-        font-weight: 700; font-size: 10px;
+    /* =========================================================
+       TABLE WRAPPER (No horizontal scrolling)
+       ========================================================= */
+    .marks-table-wrapper {
+        margin-top: 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        overflow-x: hidden; /* Prevents horizontal scrolling */
+        max-width: 100%;
     }
-    .marks-table td { border: 1px solid #d1d5db; padding: 3px 4px; white-space: nowrap; vertical-align: middle; font-size: 11px; line-height: 1.2; }
-    .marks-table tbody tr:hover { background: #f8fafc; }
 
-    .center            { text-align: center; }
-    .student-name-cell { min-width: 150px; max-width: 220px; white-space: normal !important; font-size: 11px; line-height: 1.25; }
+    /* =========================================================
+       DATA TABLE — IDENTICAL TO VIEW PAGE
+       ========================================================= */
+    .marks-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        font-size: 11px; /* Matches View page */
+        table-layout: fixed; /* Ensures strict column sizing */
+    }
 
+    .marks-table thead tr {
+        background: #1e3a8a;
+    }
+
+    .marks-table th {
+        background: #1e3a8a;
+        color: #ffffff !important;
+        border: 1px solid #1e40af;
+        padding: 6px 4px; /* Spacious padding */
+        text-align: center;
+        line-height: 1.15;
+        font-weight: 700;
+        font-size: 10px; /* Matches View page */
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+    }
+
+    .marks-table td {
+        border: 1px solid #d1d5db;
+        padding: 5px 4px; /* Spacious padding */
+        white-space: nowrap;
+        vertical-align: middle;
+        font-size: 11px; /* Matches View page */
+        line-height: 1.25;
+        color: #111827;
+        overflow: hidden;
+    }
+
+    .marks-table tbody tr:nth-child(even) { background: #f9fafb; }
+    .marks-table tbody tr:hover           { background: #fef9c3; }
+
+    .center { text-align: center; }
+
+    /* =========================================================
+       STUDENT NAME — NOWRAP, TRUNCATE WITH ELLIPSIS
+       ========================================================= */
+    .student-name-cell {
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 11px; /* Matches View page */
+        font-weight: 700;
+    }
+
+    /* =========================================================
+       COLUMN WIDTHS (Calculated precisely to fit 100%)
+       ========================================================= */
+    .marks-table col.c-gr     { width: 4%;  }
+    .marks-table col.c-roll   { width: 4%;  }
+    .marks-table col.c-name   { width: 22%; } /* Takes remaining space */
+    .marks-table col.c-att    { width: 9%;  }
+    .marks-table col.c-opt    { width: 8%;  }
+    .marks-table col.c-max    { width: 5%;  }
+    .marks-table col.c-pass   { width: 5%;  }
+    .marks-table col.c-obt    { width: 5%;  }
+    .marks-table col.c-status { width: 6%;  }
+
+    /* =========================================================
+       MARK INPUTS
+       ========================================================= */
     .mark-input {
-        width: 42px; height: 24px; padding: 1px 2px;
-        border: 1px solid #9ca3af; border-radius: 3px;
-        text-align: center; font-size: 11px;
-        -moz-appearance: textfield; appearance: textfield;
+        width: 100%;     /* Fills the 5% column width */
+        height: 26px;
+        padding: 1px 2px;
+        border: 1px solid #9CA3AF;
+        border-radius: 3px;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 600;
+        -moz-appearance: textfield;
+        appearance: textfield;
+        transition: border-color .15s, box-shadow .15s;
+        margin: 0 auto;
+        display: block;
     }
     .mark-input::-webkit-outer-spin-button,
-    .mark-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .mark-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
-    .mark-input:read-only { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
-
-    .attendance-btn, .optional-btn {
-        min-width: 60px; padding: 3px 5px; border: 0; border-radius: 3px;
-        color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; line-height: 1.2;
+    .mark-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
-    .present-btn      { background: #16a34a; }
-    .present-btn:hover { background: #15803d; }
-    .absent-btn       { background: #dc2626; }
-    .absent-btn:hover  { background: #b91c1c; }
-    .optional-btn     { background: #6b7280; }
-    .optional-btn:hover { background: #4b5563; }
-    .optional-active-btn       { background: #d97706 !important; }
-    .optional-active-btn:hover { background: #b45309 !important; }
+    .mark-input:focus {
+        outline: none;
+        border-color: #2563EB;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    .mark-input:read-only {
+        background: #F3F4F6;
+        color: #6B7280;
+        cursor: not-allowed;
+    }
 
-    .status-present  { color: #16a34a; font-weight: 700; font-size: 10px; }
-    .status-absent   { color: #dc2626; font-weight: 700; font-size: 10px; }
-    .status-optional { color: #d97706; font-weight: 700; font-size: 10px; }
+    /* =========================================================
+       ATTENDANCE / OPTIONAL BUTTONS
+       ========================================================= */
+    .attendance-btn,
+    .optional-btn {
+        width: 100%;     /* Fills the 9% / 8% column width */
+        padding: 5px 2px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        color: #fff;
+        font-size: 9px; /* Fits the column width */
+        font-weight: 700;
+        cursor: pointer;
+        line-height: 1;
+        letter-spacing: 0.2px;
+        text-transform: uppercase;
+        transition: background .15s;
+        margin: 0 auto;
+        display: block;
+        white-space: nowrap;
+    }
 
-    .optional-header { background: #fef3c7 !important; color: #92400e !important; }
+    .present-btn        { background: #16A34A; border-color: #15803D; }
+    .present-btn:hover  { background: #15803D; }
+    .absent-btn         { background: #DC2626; border-color: #B91C1C; }
+    .absent-btn:hover   { background: #B91C1C; }
+    .optional-btn       { background: #6B7280; border-color: #4B5563; }
+    .optional-btn:hover { background: #4B5563; }
+    .optional-active-btn       { background: #D97706 !important; border-color: #B45309 !important; }
+    .optional-active-btn:hover { background: #B45309 !important; }
 
-    .status-cell-wrapper { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    /* =========================================================
+       STATUS TEXT
+       ========================================================= */
+    .status-present  { color: #16A34A; font-weight: 700; font-size: 10px; letter-spacing: 0.3px; }
+    .status-absent   { color: #DC2626; font-weight: 700; font-size: 10px; letter-spacing: 0.3px; }
+    .status-optional { color: #D97706; font-weight: 700; font-size: 10px; letter-spacing: 0.3px; }
 
-    .marks-action-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .student-count { margin-left: auto; background: #dbeafe; color: #1e40af; padding: 5px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+    .optional-header {
+        background: #D97706 !important;
+        color: #ffffff !important;
+        border-color: #B45309 !important;
+    }
 
+    .status-cell-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    /* =========================================================
+       READ-ONLY MARK VALUES (For ABSENT/OPTIONAL display)
+       ========================================================= */
+    .mark-text {
+        font-weight: 700;
+        font-size: 11px;
+        display: none;
+    }
+    .mark-text.readonly-mark.absent   { color: #DC2626 !important; }
+    .mark-text.readonly-mark.optional { color: #D97706 !important; }
+
+    /* =========================================================
+       ACTION ROW
+       ========================================================= */
+    .marks-action-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+    }
+
+    .student-count {
+        margin-left: auto;
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+    }
+
+    /* =========================================================
+       RESPONSIVE
+       ========================================================= */
     @media (max-width: 900px) {
+        .marks-entry-page { padding: 12px; }
+        .marks-entry-card { padding: 14px; }
         .filter-group { width: 100%; }
-        .academic-year-select, .exam-select, .assignment-select { width: 100%; }
+        .academic-year-select,
+        .exam-select,
+        .assignment-select { width: 100%; }
         .student-count { margin-left: 0; }
     }
-
-    {!! $H::tabStyles() !!}
 </style>
 
 <div class="erp-page marks-entry-page">
@@ -188,7 +487,7 @@
         @if($errors->any())
             <div class="error-box">
                 <strong>Please correct the following:</strong>
-                <ul style="margin:6px 0 0 20px;">
+                <ul>
                     @foreach($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
@@ -301,33 +600,51 @@
                     <input type="hidden" name="teacher_subject_allocation_id" value="{{ $selectedTsaId }}">
 
                     <table class="marks-table">
+                        <colgroup>
+                            <col class="c-gr">
+                            <col class="c-roll">
+                            <col class="c-name">
+                            <col class="c-att">
+                            @if($showOptionalColumn) <col class="c-opt"> @endif
+                            @if($showTheory)
+                                <col class="c-max"> <col class="c-pass"> <col class="c-obt">
+                            @endif
+                            @if($showOral)
+                                <col class="c-max"> <col class="c-pass"> <col class="c-obt">
+                            @endif
+                            @if($showPractical)
+                                <col class="c-max"> <col class="c-pass"> <col class="c-obt">
+                            @endif
+                            <col class="c-status">
+                        </colgroup>
+
                         <thead>
                             <tr>
-                                <th>GR No</th>
-                                <th>Roll No</th>
+                                <th>GR<br>No</th>
+                                <th>Roll<br>No</th>
                                 <th>Student Name</th>
-                                <th>Attendance</th>
+                                <th>Atten-<br>dance</th>
 
                                 @if($showOptionalColumn)
-                                    <th class="optional-header">Optional</th>
+                                    <th class="optional-header">Opt-<br>ional</th>
                                 @endif
 
                                 @if($showTheory)
-                                    <th>Theory Max</th>
-                                    <th>Theory Pass</th>
-                                    <th>Theory Obtained</th>
+                                    <th>Theory<br>Max</th>
+                                    <th>Theory<br>Pass</th>
+                                    <th class="th-obtained">Theory<br>Obt.</th>
                                 @endif
 
                                 @if($showOral)
-                                    <th>Oral Max</th>
-                                    <th>Oral Pass</th>
-                                    <th>Oral Obtained</th>
+                                    <th>Oral<br>Max</th>
+                                    <th>Oral<br>Pass</th>
+                                    <th class="th-obtained">Oral<br>Obt.</th>
                                 @endif
 
                                 @if($showPractical)
-                                    <th>Practical Max</th>
-                                    <th>Practical Pass</th>
-                                    <th>Practical Obtained</th>
+                                    <th>Pract.<br>Max</th>
+                                    <th>Pract.<br>Pass</th>
+                                    <th class="th-obtained">Pract.<br>Obt.</th>
                                 @endif
 
                                 <th>Status</th>
@@ -346,7 +663,7 @@
 
                                 <td class="center">{{ $row['roll_no'] }}</td>
 
-                                <td class="student-name-cell">{{ $row['full_name'] ?: '-' }}</td>
+                                <td class="student-name-cell" title="{{ $row['full_name'] }}">{{ $row['full_name'] ?: '-' }}</td>
 
                                 <td class="center">
                                     <input type="hidden"
@@ -495,21 +812,47 @@
     'use strict';
 
     function getElement(id) { return document.getElementById(id); }
+    function getStudentInputs(studentId) { return document.querySelectorAll('.student-' + studentId); }
 
-    function getStudentInputs(studentId) {
-        return document.querySelectorAll('.student-' + studentId);
+    /* =========================================================
+       VISUAL SWAP HELPERS
+       ========================================================= */
+    function showMarkAsText(input, textToShow, className) {
+        const parent = input.parentNode;
+        let span = parent.querySelector('.mark-text');
+        if (!span) {
+            span = document.createElement('span');
+            span.className = 'mark-text';
+            parent.appendChild(span);
+        }
+        span.textContent = textToShow;
+        span.className = 'mark-text ' + className;
+        span.style.display = 'block';
+        input.style.display = 'none';
     }
 
-    function resetInputStyle(input) {
+    function showMarkAsInput(input) {
+        const parent = input.parentNode;
+        const span = parent.querySelector('.mark-text');
+        if (span) { span.style.display = 'none'; }
+        input.style.display = 'block';
+        if (input.value === '0') input.value = '';
+        input.readOnly = false;
+        input.required = true;
         input.style.background = '';
         input.style.border = '1px solid #9ca3af';
     }
 
+    /* =========================================================
+       STATE HANDLERS
+       ========================================================= */
     function setInputEnabled(input) {
         input.readOnly = false;
         input.required = true;
         if (input.value === '0') { input.value = ''; }
-        resetInputStyle(input);
+        input.style.background = '';
+        input.style.border = '1px solid #9ca3af';
+        showMarkAsInput(input);
     }
 
     function updateAttendanceButton(studentId, isAbsent) {
@@ -579,6 +922,7 @@
             input.required = false;
             input.style.background = '#fee2e2';
             input.style.border = '1px solid #fca5a5';
+            showMarkAsText(input, 'AB', 'readonly-mark absent');
         });
     }
 
@@ -597,6 +941,7 @@
             input.required = false;
             input.style.background = '#fff7ed';
             input.style.border = '1px solid #f59e0b';
+            showMarkAsText(input, 'OPT', 'readonly-mark optional');
         });
     }
 
@@ -724,7 +1069,7 @@
             if (isOptional || isAbsent) { return; }
 
             row.querySelectorAll('.mark-input').forEach(function (input) {
-                if (input.readOnly) { return; }
+                if (input.readOnly || input.style.display === 'none') { return; }
                 if (input.value.trim() === '') {
                     hasError = true;
                     input.style.border = '2px solid #dc2626';
@@ -737,7 +1082,7 @@
     function setupMarkValidation() {
         document.querySelectorAll('.mark-input').forEach(function (input) {
             input.addEventListener('input', function () {
-                if (this.readOnly) { return; }
+                if (this.readOnly || this.style.display === 'none') { return; }
                 const max = parseFloat(this.max);
                 const value = this.value.trim();
                 if (value === '') {

@@ -9,9 +9,11 @@
         $showPractical ?? null,
         $existingMarks ?? null
     );
-    $showTheory    = $flags['theory'];
-    $showOral      = $flags['oral'];
-    $showPractical = $flags['practical'];
+
+    /* Controller-provided flags win; fallback to helper only if null */
+    $showTheory    = $showTheory    ?? $flags['theory'];
+    $showOral      = $showOral      ?? $flags['oral'];
+    $showPractical = $showPractical ?? $flags['practical'];
 
     $showOptionalColumn = $H::shouldShowOptionalColumn(
         $isOptionalEnabled ?? false,
@@ -27,6 +29,16 @@
         (bool) ($isOptionalEnabled ?? false),
         (bool) ($marksLocked ?? false)
     );
+
+    $totalMaxMarks     = $totalMaxMarks     ?? 0;
+    $totalPassingMarks = $totalPassingMarks ?? 0;
+
+    $theoryMaxMarks        = $theoryMaxMarks        ?? 0;
+    $theoryPassingMarks    = $theoryPassingMarks    ?? 0;
+    $oralMaxMarks          = $oralMaxMarks          ?? 0;
+    $oralPassingMarks      = $oralPassingMarks      ?? 0;
+    $practicalMaxMarks     = $practicalMaxMarks     ?? 0;
+    $practicalPassingMarks = $practicalPassingMarks ?? 0;
 
     $marksEntryParams = array_filter([
         'exam_master_id'                => request('exam_master_id'),
@@ -50,196 +62,480 @@
 @endphp
 
 <style>
-    .marks-entry-page,
-    .marks-entry-page * { box-sizing: border-box; font-family: Arial, sans-serif !important; }
-
-    .marks-entry-card {
-        background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,.06); padding: 12px;
+    .exam-progress-page,
+    .exam-progress-page * {
+        box-sizing: border-box;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 13px;
     }
 
-    .marks-entry-title { margin: 0 0 10px; font-size: 18px; font-weight: 700; color: #2563eb; }
+    .exam-progress-page {
+        width: 100%;
+        max-width: 100%;
+        background: #f0f0f0;
+        padding: 12px;
+        overflow-x: hidden;
+    }
 
-    .filter-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
-    .filter-group { display: flex; flex-direction: column; gap: 3px; }
-    .filter-label { font-size: 11px; font-weight: 600; color: #374151; }
-    .filter-select-wrapper { position: relative; display: inline-block; }
+    .exam-progress-page h2 {
+        margin: 0 0 10px !important;
+        font-size: 20px !important;
+        font-weight: 700 !important;
+        color: #1D4ED8 !important;
+        letter-spacing: 0.4px;
+    }
+
+    .exam-progress-page .erp-card {
+        width: 100%;
+        max-width: 100%;
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 10px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+        padding: 12px 14px !important;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+
+    .tabs-bar {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e5e7eb;
+        flex-wrap: wrap;
+    }
+
+    .tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 26px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-decoration: none;
+        color: #4b5563;
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all .15s;
+        line-height: 1;
+    }
+    .tab:hover { background: #e5e7eb; color: #1e40af; border-color: #9ca3af; }
+    .tab.active {
+        background: #1e3a8a;
+        color: #ffffff;
+        border-color: #1e3a8a;
+        box-shadow: 0 2px 6px rgba(30, 58, 138, 0.25);
+    }
+
+    .status-banner {
+        margin-top: 12px;
+        margin-bottom: 12px;
+        padding: 12px 16px;
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        color: #92400e;
+    }
+    .status-banner .status-success { color: #166534; }
+    .status-banner .status-warning { color: #92400e; }
+
+    .filter-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        flex: 0 1 auto;
+    }
+
+    .filter-label {
+        font-size: 10.5px !important;
+        font-weight: 700 !important;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+        padding: 0;
+        margin: 0;
+    }
+
+    .select-wrapper { position: relative; display: block; width: 100%; }
 
     .filter-select {
-        height: 30px; padding: 3px 24px 3px 8px;
-        border: 1px solid #d1d5db; border-radius: 4px;
-        background: #fff; color: #111827; font-size: 11px;
-        outline: none; appearance: none; -webkit-appearance: none; -moz-appearance: none;
+        height: 34px;
+        width: 100%;
+        padding: 4px 28px 4px 10px;
+        font-size: 12.5px !important;
+        font-weight: 600;
+        border: 1px solid #9CA3AF;
+        border-radius: 6px;
+        background-color: #ffffff;
+        color: #111827;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B5563' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 9px center;
+        background-size: 12px;
     }
-    .filter-select:focus { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
-
-    .dropdown-arrow {
-        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-        border-left: 4px solid transparent; border-right: 4px solid transparent;
-        border-top: 5px solid #6b7280; pointer-events: none;
+    .filter-select:focus {
+        border-color: #2563EB;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
     }
 
-    .academic-year-select { width: 150px; }
-    .exam-select          { width: 220px; }
-    .assignment-select    { width: 280px; }
+    .filter-group.w-academic-year { width: 140px; }
+    .filter-group.w-exam          { width: 230px; }
+    .filter-group.w-assignment    { width: 380px; }
+    .filter-group.filter-group-btn { flex: 0 0 auto; margin-left: 0; }
 
-    .erp-btn {
-        min-height: 30px; min-width: max-content; padding: 5px 12px;
-        border: 0; border-radius: 4px; font-size: 11px; font-weight: 600;
-        cursor: pointer; text-decoration: none;
-        display: inline-flex; align-items: center; justify-content: center;
-        white-space: nowrap; line-height: 1.2;
+    .erp-btn, .erp-btn-save {
+        height: 34px !important;
+        min-width: 84px;
+        padding: 0 16px !important;
+        font-size: 12.5px !important;
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+        background: #16A34A !important;
+        color: #fff !important;
+        border: 1px solid #15803D !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-decoration: none !important;
+        white-space: nowrap;
+        transition: background .15s, border-color .15s;
+        line-height: 1;
+    }
+    .erp-btn:hover, .erp-btn-save:hover {
+        background: #15803D !important;
+        border-color: #166534 !important;
+    }
+    .erp-btn.erp-btn-reset {
+        background: #6B7280 !important;
+        border-color: #4B5563 !important;
+    }
+    .erp-btn.erp-btn-reset:hover {
+        background: #4B5563 !important;
+        border-color: #374151 !important;
     }
 
-    /* Both action buttons same width */
-    .erp-btn-save       { background: #2563eb; color: #fff; min-width: 150px; }
-    .erp-btn-save:hover { background: #1d4ed8; }
-    .erp-btn-green      { background: #16a34a; color: #fff; min-width: 150px; }
-    .erp-btn-green:hover { background: #15803d; }
-    .erp-btn-green:disabled { background: #9ca3af !important; cursor: not-allowed !important; opacity: .85; }
-
-    .error-box   { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: 11px; }
-    .warning-box { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 11px; }
-    .saved-box   { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; font-size: 11px; font-weight: 600; }
-    .success-box { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #ecfdf5; border: 1px solid #86efac; color: #166534; font-size: 11px; font-weight: 600; }
-
-    .selected-info {
-        display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-        margin-top: 12px; padding: 8px 10px; border-radius: 4px;
-        background: #eff6ff; border: 1px solid #bfdbfe;
-        color: #1e3a8a; font-size: 11px;
+    .summary-row {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
     }
-    .selected-info-item      { font-weight: 700; }
-    .selected-info-separator { color: #93c5fd; }
 
-    .marks-table-wrapper { margin-top: 12px; overflow-x: auto; border: 1px solid #d1d5db; border-radius: 4px; }
-    .marks-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 11px; }
-    .marks-table th {
-        background: #dbeafe; color: #1e3a8a; border: 1px solid #cbd5e1;
-        padding: 5px 4px; text-align: center; line-height: 1.15;
-        font-weight: 700; font-size: 10px;
+    .summary-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px !important;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        white-space: nowrap;
     }
-    .marks-table td { border: 1px solid #d1d5db; padding: 3px 4px; white-space: nowrap; vertical-align: middle; font-size: 11px; line-height: 1.2; }
-    .marks-table tbody tr:hover { background: #f8fafc; }
+    .completed-badge { background: #DCFCE7; color: #166534; border-color: #86EFAC; }
+    .pending-badge   { background: #FEF3C7; color: #92400E; border-color: #FCD34D; }
+    .total-badge     { background: #DBEAFE; color: #1E40AF; border-color: #93C5FD; }
 
-    .center            { text-align: center; }
-    .student-name-cell { min-width: 150px; max-width: 220px; white-space: normal !important; font-size: 11px; line-height: 1.25; }
+    .result-table-wrapper {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .result-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #FFFFFF;
+        font-size: 12.5px !important;
+        table-layout: fixed;
+    }
+    .result-table thead tr { background: #1e3a8a; }
+
+    .result-table th {
+        background: #1e3a8a;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        font-size: 9.5px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.1px;
+        line-height: 1.15;
+        border: 1px solid #1e40af;
+        padding: 6px 3px;
+        white-space: normal;
+        text-align: center;
+        overflow: visible;
+        text-overflow: clip;
+        word-break: normal;
+    }
+
+    .result-table td {
+        border: 1px solid #d1d5db;
+        padding: 5px 4px;
+        white-space: nowrap;
+        font-size: 12px;
+        color: #111827;
+        vertical-align: middle;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+    }
+
+    .result-table tbody tr:nth-child(even) { background: #f9fafb; }
+    .result-table tbody tr:hover           { background: #fef9c3; }
+    .result-table th.left,
+    .result-table td.left   { text-align: left; }
+
+    .student-name {
+        font-weight: 700;
+        color: #111827;
+        text-align: left !important;
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .row-total-cell {
+        background: #FFF7ED !important;
+        color: #C2410C !important;
+        font-weight: 800 !important;
+        font-size: 13px !important;
+    }
+    .row-total-cell.total-absent   { color: #DC2626 !important; }
+    .row-total-cell.total-optional { color: #D97706 !important; }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 11px !important;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+    .status-completed { background: #DCFCE7; color: #166534; border-color: #86EFAC; }
+    .status-pending   { background: #FEF3C7; color: #92400E; border-color: #FCD34D; }
+    .status-other     { background: #E5E7EB; color: #374151; border-color: #D1D5DB; }
+
+    .no-record {
+        border: 1px solid #d1d5db;
+        padding: 20px 16px;
+        text-align: center;
+        color: #92400E;
+        background: #fffbeb;
+        font-weight: 600;
+        font-size: 13px;
+    }
 
     .mark-input {
-        width: 42px; height: 24px; padding: 1px 2px;
-        border: 1px solid #9ca3af; border-radius: 3px;
-        text-align: center; font-size: 11px;
-        -moz-appearance: textfield; appearance: textfield;
+        width: 100%;
+        height: 26px;
+        padding: 2px 4px;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 700;
+        -moz-appearance: textfield;
+        appearance: textfield;
+        transition: border-color .15s, box-shadow .15s;
+        margin: 0 auto;
+        display: block;
+        background: #fff;
+        color: #111827;
+        outline: none;
     }
     .mark-input::-webkit-outer-spin-button,
     .mark-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .mark-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
-    .mark-input:read-only { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
+    .mark-input:focus { border-color: #2563EB; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); }
+    .mark-input:read-only { background: #F3F4F6; color: #6B7280; cursor: not-allowed; }
 
-    .attendance-btn, .optional-btn {
-        min-width: 60px; padding: 3px 5px; border: 0; border-radius: 3px;
-        color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; line-height: 1.2;
+    .skill-toggle-btn {
+        width: 100%;
+        max-width: 74px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        font-size: 9.5px;
+        font-weight: 700;
+        color: #fff;
+        border: 0;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background-color .15s ease;
+        padding: 0;
+        margin: 0 auto;
+        letter-spacing: 0.2px;
     }
-    .present-btn      { background: #16a34a; }
-    .present-btn:hover { background: #15803d; }
-    .absent-btn       { background: #dc2626; }
-    .absent-btn:hover  { background: #b91c1c; }
-    .optional-btn     { background: #6b7280; }
-    .optional-btn:hover { background: #4b5563; }
-    .optional-active-btn       { background: #d97706 !important; }
-    .optional-active-btn:hover { background: #b45309 !important; }
+    .skill-present-btn { background-color: #16a34a; }
+    .skill-present-btn:hover { background-color: #15803d; }
+    .skill-absent-btn { background-color: #dc2626; }
+    .skill-absent-btn:hover { background-color: #b91c1c; }
+    .skill-toggle-btn .dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #fff;
+        opacity: .9;
+        flex-shrink: 0;
+    }
 
-    .status-present  { color: #16a34a; font-weight: 700; font-size: 10px; }
-    .status-absent   { color: #dc2626; font-weight: 700; font-size: 10px; }
-    .status-optional { color: #d97706; font-weight: 700; font-size: 10px; }
+    .status-cell {
+        font-weight: 700;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        letter-spacing: 0.2px;
+    }
+    .status-cell.status-present { color: #16a34a; }
+    .status-cell.status-absent  { color: #dc2626; }
+    .status-cell.status-optional { color: #D97706; }
 
-    .optional-header { background: #fef3c7 !important; color: #92400e !important; }
+    .mark-text { font-weight: 700; font-size: 12.5px; display: none; }
+    .mark-text.readonly-mark.absent   { color: #DC2626 !important; }
+    .mark-text.readonly-mark.optional { color: #D97706 !important; }
 
-    .status-cell-wrapper { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .marks-action-row {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+    }
 
-    .marks-action-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .student-count { margin-left: auto; background: #dbeafe; color: #1e40af; padding: 5px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-
+    @media (max-width: 1100px) {
+        .filter-group.w-academic-year { width: 130px; }
+        .filter-group.w-exam          { width: 200px; }
+        .filter-group.w-assignment    { width: 300px; }
+    }
     @media (max-width: 900px) {
-        .filter-group { width: 100%; }
-        .academic-year-select, .exam-select, .assignment-select { width: 100%; }
-        .student-count { margin-left: 0; }
+        .filter-row { gap: 6px; }
+        .filter-group.w-academic-year,
+        .filter-group.w-exam,
+        .filter-group.w-assignment { flex: 1 1 140px; width: auto; }
     }
-
-    {!! $H::tabStyles() !!}
+    @media (max-width: 700px) {
+        .exam-progress-page { padding: 8px; }
+        .tabs-bar { flex-direction: column; }
+        .tab { justify-content: center; }
+        .filter-row { flex-direction: column; align-items: stretch; }
+        .filter-group,
+        .filter-group.w-academic-year,
+        .filter-group.w-exam,
+        .filter-group.w-assignment,
+        .filter-group.filter-group-btn { width: 100%; flex: 1 1 100%; margin-left: 0; }
+        .erp-btn, .erp-btn-save { width: 100%; }
+        .marks-action-row { flex-direction: column; align-items: stretch; justify-content: center; }
+        .marks-action-row .erp-btn { width: 100%; }
+    }
 </style>
 
-<div class="erp-page marks-entry-page">
+<div class="exam-progress-page">
 
-    <div class="marks-entry-card">
+    {{-- HEADER WITH BACK BUTTON --}}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 style="margin: 0 !important;">Examination Marks</h2>
+        <a href="{{ route('exam-progress.index', ['subject_type' => 'academic']) }}" class="erp-btn erp-btn-reset" style="text-decoration: none;">
+            ⬅ Back
+        </a>
+    </div>
 
-        <h2 class="marks-entry-title">Examination Marks</h2>
+    @if(session('error'))
+        <div class="error-box">⚠ {{ session('error') }}</div>
+    @endif
+    @if($errors->any())
+        <div class="error-box">
+            <strong>Please correct the following:</strong>
+            <ul style="margin: 6px 0 0 20px; padding: 0;">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-        {!! $H::renderTabs('entry', $marksEntryUrl, $viewMarksUrl) !!}
+    <div class="tabs-bar">
+        <a href="{{ $marksEntryUrl }}" class="tab active">Marks Entry</a>
+        <a href="{{ $viewMarksUrl }}" class="tab">View Marks</a>
+    </div>
 
-        @if(session('success'))
-            <div class="success-box">✓ {{ session('success') }}</div>
-        @endif
+    @if(session('success') || (request()->boolean('marks_saved') && !$marksLocked))
+        <div class="status-banner">
+            @if(session('success'))
+                <span class="status-success">✓ {{ session('success') }}</span>
+            @endif
+            @if(request()->boolean('marks_saved') && !$marksLocked)
+                <span class="status-warning">⚠ Marks are saved but <strong>NOT finally submitted</strong>. Please click <strong>Submit Final Marks</strong> to complete the submission.</span>
+            @endif
+        </div>
+    @endif
 
-        @if(session('error'))
-            <div class="error-box"><strong>Error:</strong> {{ session('error') }}</div>
-        @endif
-
-        @if($errors->any())
-            <div class="error-box">
-                <strong>Please correct the following:</strong>
-                <ul style="margin:6px 0 0 20px;">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
-        @if(request()->boolean('marks_saved') && !$marksLocked)
-            <div class="saved-box">
-                ⚠ Marks are saved but <strong>NOT finally submitted</strong>.
-                Please click <strong>Submit Final Marks</strong> to complete the submission.
-            </div>
-        @endif
-
-        @if($marksLocked)
-            <div class="warning-box">
-                <strong>Marks entry has already been completed and is locked.</strong><br>
-                Contact Admin for modification.
-            </div>
-        @endif
-
+    <div class="erp-card">
         <form method="GET" action="{{ route('marks-entry.index') }}" id="marksFilterForm">
             <div class="filter-row">
-
-                <div class="filter-group">
+                <div class="filter-group w-academic-year">
                     <label class="filter-label" for="academic_year_id">Academic Year</label>
-                    <div class="filter-select-wrapper">
-                        <select name="academic_year_id" id="academic_year_id" class="filter-select academic-year-select">
+                    <div class="select-wrapper">
+                        <select name="academic_year_id" id="academic_year_id" class="filter-select">
                             <option value="">All Academic Years</option>
                             {!! $H::renderYearOptions($academicYears, request('academic_year_id')) !!}
                         </select>
-                        <span class="dropdown-arrow"></span>
                     </div>
                 </div>
 
-                <div class="filter-group">
+                <div class="filter-group w-exam">
                     <label class="filter-label" for="exam_master_id">Exam</label>
-                    <div class="filter-select-wrapper">
-                        <select name="exam_master_id" id="exam_master_id" class="filter-select exam-select">
+                    <div class="select-wrapper">
+                        <select name="exam_master_id" id="exam_master_id" class="filter-select">
                             <option value="">Select Exam</option>
                             {!! $H::renderExamOptions($exams, $selectedExamId) !!}
                         </select>
-                        <span class="dropdown-arrow"></span>
                     </div>
                 </div>
 
-                <div class="filter-group">
+                <div class="filter-group w-assignment">
                     <label class="filter-label" for="teacher_subject_allocation_id">Teaching Assignment</label>
-                    <div class="filter-select-wrapper">
+                    <div class="select-wrapper">
                         <select name="teacher_subject_allocation_id" id="teacher_subject_allocation_id"
-                                class="filter-select assignment-select"
+                                class="filter-select"
                                 {{ !$selectedExamId ? 'disabled' : '' }}>
                             @if(!$selectedExamId)
                                 <option value="">Select Exam First</option>
@@ -250,14 +546,17 @@
                                 {!! $H::renderAssignmentOptions($assignments, $selectedTsaId) !!}
                             @endif
                         </select>
-                        <span class="dropdown-arrow"></span>
                     </div>
                 </div>
 
-                <div class="filter-group">
-                    <button type="submit" class="erp-btn erp-btn-save" id="loadStudentsButton">
-                        Load Students
-                    </button>
+                <div class="filter-group filter-group-btn">
+                    <label class="filter-label" style="visibility:hidden;">Action</label>
+                    <button type="submit" class="erp-btn erp-btn-save" id="loadStudentsButton">Load</button>
+                </div>
+
+                <div class="filter-group filter-group-btn">
+                    <label class="filter-label" style="visibility:hidden;">Action</label>
+                    <a href="{{ route('marks-entry.index') }}" class="erp-btn erp-btn-reset">Reset</a>
                 </div>
             </div>
         </form>
@@ -269,74 +568,103 @@
                 $standardName = optional(optional($teacherSubjectAllocation->allocation)->standard)->standard_name ?? '';
                 $divisionName = optional(optional($teacherSubjectAllocation->allocation)->division)->division_name ?? '';
             @endphp
-
-            <div class="selected-info">
-                <span><span class="selected-info-item">Teacher:</span> {{ $teacherName }}</span>
-                <span class="selected-info-separator">|</span>
-                <span><span class="selected-info-item">Subject:</span> {{ $subjectName }}</span>
-                <span class="selected-info-separator">|</span>
-                <span>
-                    <span class="selected-info-item">Class:</span>
-                    {{ $standardName }}@if($divisionName) - {{ $divisionName }}@endif
-                </span>
-                <span class="selected-info-separator">|</span>
-                <span><span class="selected-info-item">Exam:</span> {{ $exam->display_exam_name ?? $exam->exam_name }}</span>
-                <span class="selected-info-separator">|</span>
-                <span><span class="selected-info-item">Students:</span> {{ $entryRows->count() }}</span>
-
+            <div class="summary-row">
+                <span class="summary-badge total-badge">Students: {{ $entryRows->count() }}</span>
+                <span class="summary-badge total-badge">Teacher: {{ $teacherName }}</span>
+                <span class="summary-badge total-badge">Subject: {{ $subjectName }}</span>
+                <span class="summary-badge total-badge">Class: {{ $standardName }}@if($divisionName) - {{ $divisionName }}@endif</span>
+                <span class="summary-badge total-badge">Exam: {{ $exam->display_exam_name ?? $exam->exam_name }}</span>
+                <span class="summary-badge completed-badge">Total Max: {{ (int) $totalMaxMarks }}</span>
                 @if($showOptionalColumn)
-                    <span class="selected-info-separator">|</span>
-                    <span style="color:#b45309;font-weight:700;">Optional Selection: Enabled</span>
+                    <span class="summary-badge pending-badge">Optional Selection: Enabled</span>
                 @endif
             </div>
         @endif
+    </div>
 
-        @if($entryRows->count() > 0)
-            <div class="marks-table-wrapper">
+    @if($entryRows->count() > 0)
+        <div class="erp-card">
+            <form method="POST" action="{{ route('marks-entry.save') }}" id="marksSaveForm" novalidate>
+                @csrf
+                <input type="hidden" name="academic_year_id" value="{{ request('academic_year_id') }}">
+                <input type="hidden" name="exam_master_id" value="{{ $selectedExamId }}">
+                <input type="hidden" name="teacher_subject_allocation_id" value="{{ $selectedTsaId }}">
 
-                <form method="POST" action="{{ route('marks-entry.save') }}" id="marksSaveForm">
-                    @csrf
-                    <input type="hidden" name="academic_year_id" value="{{ request('academic_year_id') }}">
-                    <input type="hidden" name="exam_master_id" value="{{ $selectedExamId }}">
-                    <input type="hidden" name="teacher_subject_allocation_id" value="{{ $selectedTsaId }}">
+                <div class="result-table-wrapper">
+                    <table class="result-table">
+                        <colgroup>
+                            <col style="width:5%;">
+                            <col style="width:5%;">
+                            <col style="width:20%;">
+                            <col style="width:8%;">
+                            @if($showOptionalColumn) <col style="width:6.5%;"> @endif
 
-                    <table class="marks-table">
+                            @if($showTheory)
+                                <col style="width:4.5%;"> <col style="width:4.5%;"> <col style="width:5.5%;">
+                            @endif
+                            @if($showOral)
+                                <col style="width:4.5%;"> <col style="width:4.5%;"> <col style="width:5.5%;">
+                            @endif
+                            @if($showPractical)
+                                <col style="width:4.5%;"> <col style="width:4.5%;"> <col style="width:5.5%;">
+                            @endif
+
+                            <col style="width:7%;">
+                            <col style="width:7%;">
+                        </colgroup>
+
                         <thead>
                             <tr>
-                                <th>GR No</th>
-                                <th>Roll No</th>
-                                <th>Student Name</th>
-                                <th>Attendance</th>
+                                <th>GR<br>NO</th>
+                                <th>ROLL<br>NO</th>
+                                <th class="left">STUDENT<br>NAME</th>
+                                <th>ATTEN-<br>DANCE</th>
 
                                 @if($showOptionalColumn)
-                                    <th class="optional-header">Optional</th>
+                                    <th class="optional-header">OPT-<br>IONAL</th>
                                 @endif
 
                                 @if($showTheory)
-                                    <th>Theory Max</th>
-                                    <th>Theory Pass</th>
-                                    <th>Theory Obtained</th>
+                                    <th>THEORY<br>MAX</th>
+                                    <th>THEORY<br>PASS</th>
+                                    <th class="th-obtained">THEORY<br>OBT.</th>
                                 @endif
 
                                 @if($showOral)
-                                    <th>Oral Max</th>
-                                    <th>Oral Pass</th>
-                                    <th>Oral Obtained</th>
+                                    <th>ORAL<br>MAX</th>
+                                    <th>ORAL<br>PASS</th>
+                                    <th class="th-obtained">ORAL<br>OBT.</th>
                                 @endif
 
                                 @if($showPractical)
-                                    <th>Practical Max</th>
-                                    <th>Practical Pass</th>
-                                    <th>Practical Obtained</th>
+                                    <th>PRACT.<br>MAX</th>
+                                    <th>PRACT.<br>PASS</th>
+                                    <th class="th-obtained">PRACT.<br>OBT.</th>
                                 @endif
 
-                                <th>Status</th>
+                                <th class="total-header">
+                                    TOTAL<br>({{ (int) $totalMaxMarks }})
+                                </th>
+
+                                <th>STATUS</th>
                             </tr>
                         </thead>
 
                         <tbody>
                         @foreach($entryRows as $row)
-                            @php $sid = $row['student_id']; @endphp
+                            @php
+                                $sid = $row['student_id'];
+
+                                $rowTotal = 0;
+                                if (!$row['is_absent'] && !$row['is_optional']) {
+                                    if ($showTheory)    $rowTotal += (float) ($row['theory_value']    ?? 0);
+                                    if ($showOral)      $rowTotal += (float) ($row['oral_value']      ?? 0);
+                                    if ($showPractical) $rowTotal += (float) ($row['practical_value'] ?? 0);
+                                }
+                                $rowTotalDisplay = $row['is_optional']
+                                    ? 'OPT'
+                                    : ($row['is_absent'] ? 'AB' : $rowTotal);
+                            @endphp
 
                             <tr>
                                 <td class="center">
@@ -346,7 +674,7 @@
 
                                 <td class="center">{{ $row['roll_no'] }}</td>
 
-                                <td class="student-name-cell"><strong>{{ $row['full_name'] ?: '-' }}</strong></td>
+                                <td class="student-name" title="{{ $row['full_name'] }}">{{ $row['full_name'] ?: '-' }}</td>
 
                                 <td class="center">
                                     <input type="hidden"
@@ -357,12 +685,13 @@
                                     @if(!$marksLocked)
                                         <button type="button"
                                                 id="btn_{{ $sid }}"
-                                                class="attendance-btn {{ $row['is_absent'] ? 'absent-btn' : 'present-btn' }}"
+                                                class="skill-toggle-btn {{ $row['is_absent'] ? 'skill-absent-btn' : 'skill-present-btn' }}"
                                                 onclick="toggleAbsent('{{ $sid }}', event)">
-                                            {{ $row['is_absent'] ? 'ABSENT' : 'PRESENT' }}
+                                            <span class="dot"></span>
+                                            <span class="btn-label">{{ $row['is_absent'] ? 'ABSENT' : 'PRESENT' }}</span>
                                         </button>
                                     @else
-                                        <span class="{{ $row['is_absent'] ? 'status-absent' : 'status-present' }}">
+                                        <span class="status-cell {{ $row['is_absent'] ? 'status-absent' : 'status-present' }}">
                                             {{ $row['is_absent'] ? 'ABSENT' : 'PRESENT' }}
                                         </span>
                                     @endif
@@ -378,12 +707,14 @@
                                         @if(!$marksLocked)
                                             <button type="button"
                                                     id="optional_btn_{{ $sid }}"
-                                                    class="optional-btn {{ $row['is_optional'] ? 'optional-active-btn' : '' }}"
-                                                    onclick="toggleOptional('{{ $sid }}', event)">
-                                                {{ $row['is_optional'] ? 'OPTIONAL' : 'NORMAL' }}
+                                                    class="skill-toggle-btn {{ $row['is_optional'] ? 'skill-absent-btn' : 'skill-present-btn' }}"
+                                                    onclick="toggleOptional('{{ $sid }}', event)"
+                                                    style="{{ $row['is_optional'] ? 'background-color:#D97706;' : '' }}">
+                                                <span class="dot"></span>
+                                                <span class="btn-label">{{ $row['is_optional'] ? 'OPTIONAL' : 'NORMAL' }}</span>
                                             </button>
                                         @else
-                                            <span class="{{ $row['is_optional'] ? 'status-optional' : 'status-present' }}">
+                                            <span class="status-cell {{ $row['is_optional'] ? 'status-optional' : 'status-present' }}">
                                                 {{ $row['is_optional'] ? 'OPTIONAL' : 'NORMAL' }}
                                             </span>
                                         @endif
@@ -398,8 +729,8 @@
                                                name="theory_marks[{{ $sid }}]"
                                                value="{{ $row['theory_value'] }}"
                                                min="0" max="{{ (int) $theoryMaxMarks }}" step="1"
-                                               data-max="{{ (int) $theoryMaxMarks }}"
                                                class="mark-input student-{{ $sid }}"
+                                               data-student="{{ $sid }}"
                                                {{ $row['marks_readonly'] ? 'readonly' : '' }}>
                                     </td>
                                 @endif
@@ -412,8 +743,8 @@
                                                name="oral_marks[{{ $sid }}]"
                                                value="{{ $row['oral_value'] }}"
                                                min="0" max="{{ (int) $oralMaxMarks }}" step="1"
-                                               data-max="{{ (int) $oralMaxMarks }}"
                                                class="mark-input student-{{ $sid }}"
+                                               data-student="{{ $sid }}"
                                                {{ $row['marks_readonly'] ? 'readonly' : '' }}>
                                     </td>
                                 @endif
@@ -426,357 +757,346 @@
                                                name="practical_marks[{{ $sid }}]"
                                                value="{{ $row['practical_value'] }}"
                                                min="0" max="{{ (int) $practicalMaxMarks }}" step="1"
-                                               data-max="{{ (int) $practicalMaxMarks }}"
                                                class="mark-input student-{{ $sid }}"
+                                               data-student="{{ $sid }}"
                                                {{ $row['marks_readonly'] ? 'readonly' : '' }}>
                                     </td>
                                 @endif
 
+                                <td class="row-total-cell {{ $row['is_optional'] ? 'total-optional' : ($row['is_absent'] ? 'total-absent' : '') }}"
+                                    id="total_{{ $sid }}"
+                                    data-student="{{ $sid }}">
+                                    {{ $rowTotalDisplay }}
+                                </td>
+
                                 <td class="center" id="status_{{ $sid }}">
-                                    <div class="status-cell-wrapper">
-                                        @if($row['is_optional'])
-                                            <span class="status-optional">OPTIONAL</span>
-                                        @elseif($row['is_absent'])
-                                            <span class="status-absent">ABSENT</span>
-                                        @else
-                                            <span class="status-present">PRESENT</span>
-                                        @endif
-                                    </div>
+                                    <span class="status-cell {{ $row['is_optional'] ? 'status-optional' : ($row['is_absent'] ? 'status-absent' : 'status-present') }}">
+                                        {{ $row['is_optional'] ? 'OPTIONAL' : ($row['is_absent'] ? 'ABSENT' : 'PRESENT') }}
+                                    </span>
                                 </td>
                             </tr>
                         @endforeach
                         </tbody>
                     </table>
+                </div>
 
-                    <div style="display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                <div class="marks-action-row">
+                    @if(!$marksLocked)
+                        <button type="submit"
+                                formaction="{{ route('marks-entry.save') }}"
+                                id="saveMarksButton"
+                                class="erp-btn erp-btn-reset"
+                                style="min-width: 170px;">
+                            Save Marks
+                        </button>
+                    @endif
 
-    @if(!$marksLocked)
-        <button type="submit"
-                id="saveMarksButton"
-                style="width:180px !important;
-                       min-width:180px !important;
-                       max-width:180px !important;
-                       flex:0 0 180px !important;
-                       height:34px !important;
-                       padding:0 !important;
-                       margin:0 !important;
-                       display:inline-flex !important;
-                       align-items:center !important;
-                       justify-content:center !important;
-                       background:#2563eb !important;
-                       color:#fff !important;
-                       border:0 !important;
-                       border-radius:4px !important;
-                       font-size:11px !important;
-                       font-weight:600 !important;
-                       cursor:pointer !important;
-                       white-space:nowrap !important;
-                       box-sizing:border-box !important;">
-            Save Marks
-        </button>
-    @endif
+                    <button type="submit"
+                            formaction="{{ route('marks-entry.submit') }}"
+                            id="submitFinalButton"
+                            class="erp-btn erp-btn-save"
+                            style="min-width: 170px;"
+                            {{ $marksLocked ? 'disabled' : '' }}>
+                        {{ $marksLocked ? 'Marks Submitted' : 'Submit Final Marks' }}
+                    </button>
+                </div>
+            </form>
+        </div>
 
-    <button type="button"
-            id="submitFinalButton"
-            style="width:180px !important;
-                   min-width:180px !important;
-                   max-width:180px !important;
-                   flex:0 0 180px !important;
-                   height:34px !important;
-                   padding:0 !important;
-                   margin:0 !important;
-                   display:inline-flex !important;
-                   align-items:center !important;
-                   justify-content:center !important;
-                   background:#16a34a !important;
-                   color:#fff !important;
-                   border:0 !important;
-                   border-radius:4px !important;
-                   font-size:11px !important;
-                   font-weight:600 !important;
-                   cursor:pointer !important;
-                   white-space:nowrap !important;
-                   box-sizing:border-box !important;"
-            {{ $marksLocked ? 'disabled' : '' }}>
-        {{ $marksLocked ? 'Marks Submitted' : 'Submit Final Marks' }}
-    </button>
-
-    <span class="student-count" style="margin-left:auto;">{{ $entryRows->count() }} Students</span>
-</div>
-                </form>
-
-                @if($teacherSubjectAllocation)
-                    <form method="POST" action="{{ route('marks-entry.submit') }}"
-                          id="finalSubmitForm" style="display:none;">
-                        @csrf
-                        <input type="hidden" name="academic_year_id" value="{{ request('academic_year_id') }}">
-                        <input type="hidden" name="exam_master_id" value="{{ $selectedExamId }}">
-                        <input type="hidden" name="teacher_subject_allocation_id" value="{{ $selectedTsaId }}">
-                    </form>
-                @endif
-
-            </div>
-
-        @elseif(request()->filled('teacher_subject_allocation_id') && !$marksLocked)
-            <div class="warning-box">
+    @elseif(request()->filled('teacher_subject_allocation_id') && !$marksLocked)
+        <div class="erp-card">
+            <div class="no-record">
                 No students found for the selected teaching assignment.
                 Please verify the Old ERP student mapping.
             </div>
-        @endif
+        </div>
+    @else
+        <div class="erp-card">
+            <div class="no-record" style="background: #eff6ff; border-color: #93c5fd; color: #1e40af;">
+                Select your filters above and click <strong>Load</strong> to view students.
+            </div>
+        </div>
+    @endif
 
-    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+(function () {
+    'use strict';
 
-    /* =========================================================
-       HELPERS
-       ========================================================= */
+    function getElement(id) { return document.getElementById(id); }
+    function getStudentInputs(studentId) { return document.querySelectorAll('.student-' + studentId); }
 
-    function getErrorDiv(input) {
-        if (!input) return null;
-        return input.parentNode ? input.parentNode.querySelector('.error-text') : null;
-    }
+    /* ⭐ DYNAMIC TOTAL — sum of visible component inputs */
+    function recalculateTotal(studentId) {
+        const totalCell = getElement('total_' + studentId);
+        if (!totalCell) return;
 
-    function clearMarkError(input) {
-        if (!input) return;
-        const d = getErrorDiv(input);
-        if (d) d.textContent = '';
-        input.style.border = '1px solid #9CA3AF';
-    }
+        const absentInput   = getElement('absent_' + studentId);
+        const optionalInput = getElement('optional_' + studentId);
 
-    function showMarkError(input, message) {
-        if (!input) return;
-        const d = getErrorDiv(input);
-        input.style.border = '2px solid #DC2626';
-        if (d) d.textContent = message;
-    }
+        const isAbsent   = absentInput   && absentInput.value === '1';
+        const isOptional = optionalInput && optionalInput.value === '1';
 
-    function getMaxMarks(input) {
-        if (!input) return 0;
-        const max = input.dataset.max || input.getAttribute('max') || 0;
-        const parsed = Number(max);
-        return Number.isFinite(parsed) ? parsed : 0;
-    }
-
-    /* =========================================================
-       SAVE VALIDATION — EMPTY ALLOWED
-       ========================================================= */
-
-    function validateMarkForSave(input) {
-        if (!input || input.readOnly || input.disabled) return true;
-
-        const value = input.value.trim();
-        clearMarkError(input);
-
-        if (value === '') return true;   // empty is fine for Save
-
-        if (!/^\d+(\.\d+)?$/.test(value)) {
-            showMarkError(input, 'Enter a valid numeric mark.');
-            return false;
+        if (isOptional) {
+            totalCell.textContent = 'OPT';
+            totalCell.className = 'row-total-cell total-optional';
+            return;
+        }
+        if (isAbsent) {
+            totalCell.textContent = 'AB';
+            totalCell.className = 'row-total-cell total-absent';
+            return;
         }
 
-        const numericValue = Number(value);
-        const max = getMaxMarks(input);
+        let total = 0;
+        getStudentInputs(studentId).forEach(function (input) {
+            const raw = (input.value ?? '').toString().trim();
+            if (raw === '' || raw === 'AB' || raw === 'OPT') return;
+            const v = parseFloat(raw);
+            if (!isNaN(v)) total += v;
+        });
 
-        if (!Number.isFinite(numericValue)) {
-            showMarkError(input, 'Enter a valid numeric mark.');
-            return false;
-        }
-
-        if (numericValue < 0) {
-            showMarkError(input, 'Marks cannot be negative.');
-            return false;
-        }
-
-        if (numericValue > max) {
-            showMarkError(input, 'Maximum allowed marks is ' + max + '.');
-            return false;
-        }
-
-        input.style.border = '2px solid #16A34A';
-        return true;
+        totalCell.textContent = total;
+        totalCell.className = 'row-total-cell';
     }
 
-    /* =========================================================
-       FINAL SUBMIT VALIDATION — DIGITS ONLY, NO EMPTY
-       ========================================================= */
+    /* ============================================================
+       ⭐ AUTO-SAVE LOGIC
+       ============================================================ */
+    const csrfToken = document.querySelector('input[name="_token"]')?.value;
+    let saveTimeouts = {};
 
-    function validateMarkForSubmit(input) {
-        if (!input || input.readOnly || input.disabled) return true;
+    function triggerAutoSave(studentId) {
+        if (!csrfToken) return;
 
-        const value = input.value.trim();
-        clearMarkError(input);
+        const form = document.getElementById('marksSaveForm');
+        if (!form) return;
 
-        if (value === '') {
-            showMarkError(input, 'Marks are required.');
-            return false;
-        }
+        const absentInput = document.getElementById('absent_' + studentId);
+        const optionalInput = document.getElementById('optional_' + studentId);
+        
+        const theoryInput = document.querySelector(`input[name="theory_marks[${studentId}]"]`);
+        const oralInput = document.querySelector(`input[name="oral_marks[${studentId}]"]`);
+        const practicalInput = document.querySelector(`input[name="practical_marks[${studentId}]"]`);
 
-        if (!/^\d+$/.test(value)) {
-            showMarkError(input, 'Only whole-number digits are allowed.');
-            return false;
-        }
+        const payload = {
+            _token: csrfToken,
+            teacher_subject_allocation_id: form.querySelector('input[name="teacher_subject_allocation_id"]').value,
+            exam_master_id: form.querySelector('input[name="exam_master_id"]').value,
+            student_id: studentId,
+            is_absent: { [studentId]: absentInput ? parseInt(absentInput.value) : 0 },
+            is_optional: { [studentId]: optionalInput ? parseInt(optionalInput.value) : 0 },
+            theory_marks: { [studentId]: theoryInput ? theoryInput.value : '' },
+            oral_marks: { [studentId]: oralInput ? oralInput.value : '' },
+            practical_marks: { [studentId]: practicalInput ? practicalInput.value : '' }
+        };
 
-        const numericValue = Number(value);
-        const max = getMaxMarks(input);
+        const row = theoryInput ? theoryInput.closest('tr') : null;
+        if (row) row.style.opacity = '0.6';
 
-        if (numericValue > max) {
-            showMarkError(input, 'Maximum allowed marks is ' + max + '.');
-            return false;
-        }
-
-        input.style.border = '2px solid #16A34A';
-        return true;
-    }
-
-    window.validateMarkInput = validateMarkForSave;
-
-    /* =========================================================
-       STUDENT MARK INPUTS
-       ========================================================= */
-
-    function getStudentMarkInputs(studentId) {
-        return document.querySelectorAll('.student-' + studentId);
-    }
-
-    function enableStudentMarks(studentId) {
-        getStudentMarkInputs(studentId).forEach(function (input) {
-            input.readOnly = false;
-            input.disabled = false;
-            input.required = false;      // Save allows empty
-            input.style.background = '';
-            input.style.border = '1px solid #9CA3AF';
-            clearMarkError(input);
-            if (input.value === '0') input.value = '';
+        fetch('{{ route("marks-entry.autosave") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (row) row.style.opacity = '1';
+            if (data.success) {
+                if (row) {
+                    const originalBg = row.style.backgroundColor;
+                    row.style.backgroundColor = '#dcfce7';
+                    setTimeout(() => { row.style.backgroundColor = originalBg; }, 800);
+                }
+            } else {
+                Swal.fire('Auto-save Error', data.message || 'Failed to save.', 'error');
+            }
+        })
+        .catch(err => {
+            if (row) row.style.opacity = '1';
+            console.error('Auto-save error:', err);
         });
     }
 
-    function disableStudentMarks(studentId, bg, border) {
-        getStudentMarkInputs(studentId).forEach(function (input) {
-            input.value = '0';
-            input.readOnly = true;
-            input.disabled = false;      // keep in form submission
-            input.required = false;
-            input.style.background = bg;
-            input.style.border = '1px solid ' + border;
-            clearMarkError(input);
+    function attachTotalListeners() {
+        document.querySelectorAll('.mark-input').forEach(function (input) {
+            const studentId = input.dataset.student;
+            if (!studentId) return;
+            
+            input.addEventListener('input',  function () { 
+                recalculateTotal(studentId); 
+                if (saveTimeouts[studentId]) clearTimeout(saveTimeouts[studentId]);
+                saveTimeouts[studentId] = setTimeout(() => triggerAutoSave(studentId), 800);
+            });
+            
+            input.addEventListener('change', function () { 
+                recalculateTotal(studentId); 
+                triggerAutoSave(studentId); 
+            });
         });
     }
 
-    /* =========================================================
-       BUTTON / STATUS REFRESH
-       ========================================================= */
+    function showMarkAsText(input, textToShow, className) {
+        const parent = input.parentNode;
+        let span = parent.querySelector('.mark-text');
+        if (!span) {
+            span = document.createElement('span');
+            span.className = 'mark-text';
+            parent.appendChild(span);
+        }
+        span.textContent = textToShow;
+        span.className = 'mark-text ' + className;
+        span.style.display = 'block';
+        input.style.display = 'none';
+    }
+
+    function showMarkAsInput(input) {
+        const parent = input.parentNode;
+        const span = parent.querySelector('.mark-text');
+        if (span) { span.style.display = 'none'; }
+        input.style.display = 'block';
+        if (input.value === '0') input.value = '';
+        input.readOnly = false;
+        input.style.background = '';
+        input.style.border = '1px solid #d1d5db';
+    }
+
+    function setInputEnabled(input) {
+        input.readOnly = false;
+        if (input.value === '0') { input.value = ''; }
+        input.style.background = '';
+        input.style.border = '1px solid #d1d5db';
+        showMarkAsInput(input);
+    }
 
     function updateAttendanceButton(studentId, isAbsent) {
-        const button = document.getElementById('btn_' + studentId);
-        if (!button) return;
+        const button = getElement('btn_' + studentId);
+        if (!button) { return; }
         button.type = 'button';
+        const label = button.querySelector('.btn-label');
         if (isAbsent) {
-            button.textContent = 'ABSENT';
-            button.classList.remove('present-btn');
-            button.classList.add('absent-btn');
+            if (label) label.textContent = 'ABSENT';
+            button.classList.remove('skill-present-btn');
+            button.classList.add('skill-absent-btn');
         } else {
-            button.textContent = 'PRESENT';
-            button.classList.remove('absent-btn');
-            button.classList.add('present-btn');
+            if (label) label.textContent = 'PRESENT';
+            button.classList.remove('skill-absent-btn');
+            button.classList.add('skill-present-btn');
         }
     }
 
     function updateOptionalButton(studentId, isOptional) {
-        const button = document.getElementById('optional_btn_' + studentId);
-        if (!button) return;
+        const button = getElement('optional_btn_' + studentId);
+        if (!button) { return; }
         button.type = 'button';
+        const label = button.querySelector('.btn-label');
         if (isOptional) {
-            button.textContent = 'OPTIONAL';
-            button.classList.add('optional-active-btn');
+            if (label) label.textContent = 'OPTIONAL';
+            button.classList.remove('skill-present-btn');
+            button.classList.add('skill-absent-btn');
+            button.style.backgroundColor = '#D97706';
         } else {
-            button.textContent = 'NORMAL';
-            button.classList.remove('optional-active-btn');
+            if (label) label.textContent = 'NORMAL';
+            button.classList.remove('skill-absent-btn');
+            button.classList.add('skill-present-btn');
+            button.style.backgroundColor = '';
         }
     }
 
-    function updateStudentStatus(studentId, type) {
-        const status = document.getElementById('status_' + studentId);
-        if (!status) return;
-        let html = '';
-        if (type === 'ABSENT') {
-            html = '<div class="status-cell-wrapper"><span class="status-absent">ABSENT</span></div>';
-        } else if (type === 'OPTIONAL') {
-            html = '<div class="status-cell-wrapper"><span class="status-optional">OPTIONAL</span></div>';
+    function updateStatus(studentId, statusType) {
+        const status = getElement('status_' + studentId);
+        if (!status) { return; }
+        if (statusType === 'ABSENT') {
+            status.innerHTML = '<span class="status-cell status-absent">ABSENT</span>';
+        } else if (statusType === 'OPTIONAL') {
+            status.innerHTML = '<span class="status-cell status-optional">OPTIONAL</span>';
         } else {
-            html = '<div class="status-cell-wrapper"><span class="status-present">PRESENT</span></div>';
+            status.innerHTML = '<span class="status-cell status-present">PRESENT</span>';
         }
-        status.innerHTML = html;
     }
 
-    /* =========================================================
-       STATE APPLIERS
-       ========================================================= */
-
-    function setNormalStatus(studentId) {
-        const a = document.getElementById('absent_' + studentId);
-        const o = document.getElementById('optional_' + studentId);
-        if (a) a.value = '0';
-        if (o) o.value = '0';
+    function setPresentState(studentId) {
+        const absentFlag = getElement('absent_' + studentId);
+        const optionalFlag = getElement('optional_' + studentId);
+        if (!absentFlag) { return; }
+        absentFlag.value = '0';
+        if (optionalFlag) { optionalFlag.value = '0'; }
         updateAttendanceButton(studentId, false);
         updateOptionalButton(studentId, false);
-        updateStudentStatus(studentId, 'PRESENT');
-        enableStudentMarks(studentId);
+        updateStatus(studentId, 'PRESENT');
+        getStudentInputs(studentId).forEach(setInputEnabled);
+        recalculateTotal(studentId);
+        triggerAutoSave(studentId); // ⭐ Auto-Save
     }
 
-    function makeAbsent(studentId) {
-        const a = document.getElementById('absent_' + studentId);
-        const o = document.getElementById('optional_' + studentId);
-        if (!a) return;
-        a.value = '1';
-        if (o) o.value = '0';
+    function setAbsentState(studentId) {
+        const absentFlag = getElement('absent_' + studentId);
+        const optionalFlag = getElement('optional_' + studentId);
+        if (!absentFlag) { return; }
+        absentFlag.value = '1';
+        if (optionalFlag) { optionalFlag.value = '0'; }
         updateAttendanceButton(studentId, true);
         updateOptionalButton(studentId, false);
-        updateStudentStatus(studentId, 'ABSENT');
-        disableStudentMarks(studentId, '#fee2e2', '#fca5a5');
+        updateStatus(studentId, 'ABSENT');
+        getStudentInputs(studentId).forEach(function (input) {
+            input.value = '0';
+            input.readOnly = true;
+            input.style.background = '#fee2e2';
+            input.style.border = '1px solid #fca5a5';
+            showMarkAsText(input, 'AB', 'readonly-mark absent');
+        });
+        recalculateTotal(studentId);
+        triggerAutoSave(studentId); // ⭐ Auto-Save
     }
 
-    function makePresent(studentId) {
-        const a = document.getElementById('absent_' + studentId);
-        const o = document.getElementById('optional_' + studentId);
-        if (!a) return;
-        a.value = '0';
-        if (o) o.value = '0';
+    function setOptionalState(studentId) {
+        const absentFlag = getElement('absent_' + studentId);
+        const optionalFlag = getElement('optional_' + studentId);
+        if (!optionalFlag) { return; }
+        if (absentFlag) { absentFlag.value = '0'; }
+        optionalFlag.value = '1';
+        updateAttendanceButton(studentId, false);
+        updateOptionalButton(studentId, true);
+        updateStatus(studentId, 'OPTIONAL');
+        getStudentInputs(studentId).forEach(function (input) {
+            input.value = '0';
+            input.readOnly = true;
+            input.style.background = '#fff7ed';
+            input.style.border = '1px solid #f59e0b';
+            showMarkAsText(input, 'OPT', 'readonly-mark optional');
+        });
+        recalculateTotal(studentId);
+        triggerAutoSave(studentId); // ⭐ Auto-Save
+    }
+
+    function setNormalState(studentId) {
+        const absentFlag = getElement('absent_' + studentId);
+        const optionalFlag = getElement('optional_' + studentId);
+        if (absentFlag) { absentFlag.value = '0'; }
+        if (optionalFlag) { optionalFlag.value = '0'; }
         updateAttendanceButton(studentId, false);
         updateOptionalButton(studentId, false);
-        updateStudentStatus(studentId, 'PRESENT');
-        enableStudentMarks(studentId);
+        updateStatus(studentId, 'PRESENT');
+        getStudentInputs(studentId).forEach(setInputEnabled);
+        recalculateTotal(studentId);
+        triggerAutoSave(studentId); // ⭐ Auto-Save
     }
-
-    function makeOptional(studentId) {
-        const o = document.getElementById('optional_' + studentId);
-        const a = document.getElementById('absent_' + studentId);
-        if (!o) return;
-        o.value = '1';
-        if (a) a.value = '0';
-        updateOptionalButton(studentId, true);
-        updateAttendanceButton(studentId, false);
-        updateStudentStatus(studentId, 'OPTIONAL');
-        disableStudentMarks(studentId, '#fff7ed', '#f59e0b');
-    }
-
-    /* =========================================================
-       TOGGLE ABSENT
-       ========================================================= */
 
     window.toggleAbsent = function (studentId, event) {
         if (event) { event.preventDefault(); event.stopPropagation(); }
 
-        const a = document.getElementById('absent_' + studentId);
-        const o = document.getElementById('optional_' + studentId);
-        if (!a) return false;
+        const absentFlag = getElement('absent_' + studentId);
+        const optionalFlag = getElement('optional_' + studentId);
+        if (!absentFlag) { return; }
 
-        /* Optional → Absent */
-        if (o && o.value === '1') {
+        if (optionalFlag && optionalFlag.value === '1') {
             Swal.fire({
                 icon: 'question',
                 title: 'Student is Optional',
@@ -784,16 +1104,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 showCancelButton: true,
                 confirmButtonText: 'Yes, Continue',
                 cancelButtonText: 'Cancel'
-            }).then(function (r) {
-                if (!r.isConfirmed) return;
-                setNormalStatus(studentId);
-                setTimeout(function () { makeAbsent(studentId); }, 50);
+            }).then(function (result) {
+                if (!result.isConfirmed) { return; }
+                setNormalState(studentId);
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Confirm Absent',
+                    text: 'Student will be marked ABSENT and all marks will become 0.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Mark Absent',
+                    cancelButtonText: 'Cancel'
+                }).then(function (secondResult) {
+                    if (secondResult.isConfirmed) { setAbsentState(studentId); }
+                });
             });
-            return false;
+            return;
         }
 
-        /* Present → Absent */
-        if (a.value === '0') {
+        if (absentFlag.value === '0') {
             Swal.fire({
                 icon: 'warning',
                 title: 'Confirm Absent',
@@ -801,13 +1129,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 showCancelButton: true,
                 confirmButtonText: 'Yes, Mark Absent',
                 cancelButtonText: 'Cancel'
-            }).then(function (r) {
-                if (r.isConfirmed) makeAbsent(studentId);
+            }).then(function (result) {
+                if (result.isConfirmed) { setAbsentState(studentId); }
             });
-            return false;
+            return;
         }
 
-        /* Absent → Present */
         Swal.fire({
             icon: 'question',
             title: 'Confirm Present',
@@ -815,35 +1142,29 @@ document.addEventListener('DOMContentLoaded', function () {
             showCancelButton: true,
             confirmButtonText: 'Yes, Present',
             cancelButtonText: 'Cancel'
-        }).then(function (r) {
-            if (r.isConfirmed) makePresent(studentId);
+        }).then(function (result) {
+            if (result.isConfirmed) { setPresentState(studentId); }
         });
-        return false;
     };
-
-    /* =========================================================
-       TOGGLE OPTIONAL
-       ========================================================= */
 
     window.toggleOptional = function (studentId, event) {
         if (event) { event.preventDefault(); event.stopPropagation(); }
 
-        const o = document.getElementById('optional_' + studentId);
-        const a = document.getElementById('absent_' + studentId);
-        if (!o) return false;
+        const optionalFlag = getElement('optional_' + studentId);
+        const absentFlag   = getElement('absent_' + studentId);
+        if (!optionalFlag) { return; }
 
-        if (a && a.value === '1') {
+        if (absentFlag && absentFlag.value === '1') {
             Swal.fire({
                 icon: 'warning',
                 title: 'Student is Absent',
                 text: 'An absent student cannot be marked as Optional.',
                 confirmButtonText: 'OK'
             });
-            return false;
+            return;
         }
 
-        /* Normal → Optional */
-        if (o.value === '0') {
+        if (optionalFlag.value === '0') {
             Swal.fire({
                 icon: 'warning',
                 title: 'Mark Student Optional?',
@@ -852,13 +1173,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 confirmButtonText: 'Yes, Optional',
                 cancelButtonText: 'Cancel',
                 confirmButtonColor: '#d97706'
-            }).then(function (r) {
-                if (r.isConfirmed) makeOptional(studentId);
+            }).then(function (result) {
+                if (result.isConfirmed) { setOptionalState(studentId); }
             });
-            return false;
+            return;
         }
 
-        /* Optional → Normal */
         Swal.fire({
             icon: 'question',
             title: 'Remove Optional Status?',
@@ -866,203 +1186,249 @@ document.addEventListener('DOMContentLoaded', function () {
             showCancelButton: true,
             confirmButtonText: 'Yes, Normal',
             cancelButtonText: 'Cancel'
-        }).then(function (r) {
-            if (r.isConfirmed) setNormalStatus(studentId);
+        }).then(function (result) {
+            if (result.isConfirmed) { setNormalState(studentId); }
         });
-        return false;
     };
 
-    /* =========================================================
-       ATTACH LIVE VALIDATION TO MARK INPUTS
-       ========================================================= */
+    function validateMarksForSave() {
+        const rows = document.querySelectorAll('#marksSaveForm tbody tr');
+        let hasError = false;
+        let errorMessage = '';
 
-    document.querySelectorAll('.mark-input').forEach(function (input) {
-        input.addEventListener('input', function () { validateMarkForSave(this); });
-        input.addEventListener('blur',  function () { validateMarkForSave(this); });
-    });
+        rows.forEach(function (row) {
+            const optionalField = row.querySelector('input[name^="is_optional["]');
+            const absentField   = row.querySelector('input[name^="is_absent["]');
+            const isOptional = optionalField && optionalField.value === '1';
+            const isAbsent   = absentField   && absentField.value === '1';
+            if (isOptional || isAbsent) { return; }
 
-    /* =========================================================
-       SAVE FORM — VALIDATE + CONFIRM + SUBMIT
-       ========================================================= */
+            row.querySelectorAll('.mark-input').forEach(function (input) {
+                if (input.readOnly || input.style.display === 'none') { return; }
+                const value = input.value.trim();
 
-    const saveForm   = document.getElementById('marksSaveForm');
-    const saveButton = document.getElementById('saveMarksButton');
+                if (value === '') { input.style.border = '1px solid #d1d5db'; return; }
 
-    if (saveForm) {
+                if (!/^\d+(\.\d+)?$/.test(value)) {
+                    hasError = true;
+                    errorMessage = 'Only numeric values are allowed.';
+                    input.style.border = '2px solid #dc2626';
+                    return;
+                }
+
+                const number = parseFloat(value);
+                const max = parseFloat(input.max);
+
+                if (isNaN(number)) { hasError = true; errorMessage = 'Please enter a valid mark.'; input.style.border = '2px solid #dc2626'; return; }
+                if (number < 0)    { hasError = true; errorMessage = 'Marks cannot be negative.'; input.style.border = '2px solid #dc2626'; return; }
+                if (number > max)  { hasError = true; errorMessage = 'Marks cannot exceed ' + max + '.'; input.style.border = '2px solid #dc2626'; return; }
+
+                input.style.border = '1px solid #16a34a';
+            });
+        });
+
+        if (hasError) {
+            Swal.fire({ icon: 'error', title: 'Validation Error', text: errorMessage, confirmButtonText: 'OK' });
+            return false;
+        }
+        return true;
+    }
+
+    function validateMarksForSubmit() {
+        const rows = document.querySelectorAll('#marksSaveForm tbody tr');
+        let hasError = false;
+        let errorMessage = '';
+
+        rows.forEach(function (row) {
+            const optionalField = row.querySelector('input[name^="is_optional["]');
+            const absentField   = row.querySelector('input[name^="is_absent["]');
+            const isOptional = optionalField && optionalField.value === '1';
+            const isAbsent   = absentField   && absentField.value === '1';
+            if (isOptional || isAbsent) { return; }
+
+            row.querySelectorAll('.mark-input').forEach(function (input) {
+                if (input.readOnly || input.style.display === 'none') { return; }
+                const value = input.value.trim();
+
+                if (value === '') { hasError = true; errorMessage = 'All marks must be filled before final submission.'; input.style.border = '2px solid #dc2626'; return; }
+                if (!/^\d+(\.\d+)?$/.test(value)) { hasError = true; errorMessage = 'Only numeric values are allowed.'; input.style.border = '2px solid #dc2626'; return; }
+
+                const number = parseFloat(value);
+                const max = parseFloat(input.max);
+
+                if (number < 0 || number > max) { hasError = true; errorMessage = 'Marks must be between 0 and ' + max + '.'; input.style.border = '2px solid #dc2626'; return; }
+
+                input.style.border = '1px solid #16a34a';
+            });
+        });
+
+        if (hasError) {
+            Swal.fire({ icon: 'error', title: 'Validation Error', text: errorMessage, confirmButtonText: 'OK' });
+            return false;
+        }
+        return true;
+    }
+
+    function setupMarkValidation() {
+        document.querySelectorAll('.mark-input').forEach(function (input) {
+            input.addEventListener('input', function () {
+                if (this.readOnly || this.style.display === 'none') return;
+                const max = parseFloat(this.max);
+                const value = this.value.trim();
+
+                if (value === '') { this.style.border = '1px solid #d1d5db'; return; }
+                if (!/^\d*\.?\d*$/.test(value)) { this.value = value.replace(/[^\d.]/g, ''); return; }
+
+                const number = parseFloat(this.value);
+                if (!isNaN(number)) {
+                    if (number > max) this.value = max;
+                    if (number < 0)   this.value = 0;
+                }
+                const finalVal = parseFloat(this.value);
+                this.style.border = (isNaN(finalVal) || finalVal < 0 || finalVal > max)
+                    ? '2px solid #dc2626'
+                    : '1px solid #16a34a';
+            });
+        });
+    }
+
+    function setupFormSubmit() {
+        const saveForm = getElement('marksSaveForm');
+        if (!saveForm) return;
+
         saveForm.addEventListener('submit', function (event) {
             event.preventDefault();
+            const submitter = event.submitter;
+            const isFinalSubmit = submitter && submitter.id === 'submitFinalButton';
+            const isValid = isFinalSubmit ? validateMarksForSubmit() : validateMarksForSave();
+            if (!isValid) return;
 
-            let valid = true;
-
-            saveForm.querySelectorAll('tbody tr').forEach(function (row) {
-                const a = row.querySelector('input[name^="is_absent["]');
-                const o = row.querySelector('input[name^="is_optional["]');
-                const isAbsent   = a && a.value === '1';
-                const isOptional = o && o.value === '1';
-                if (isAbsent || isOptional) return;
-
-                row.querySelectorAll('.mark-input').forEach(function (input) {
-                    if (input.readOnly || input.disabled) return;
-                    if (!validateMarkForSave(input)) valid = false;
-                });
-            });
-
-            if (!valid) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Invalid Marks',
-                    text: 'Please correct the entered marks.',
-                    confirmButtonText: 'OK'
-                });
-                return;
-            }
+            const title = isFinalSubmit ? 'Final Marks Submission' : 'Save Marks';
+            const html = isFinalSubmit
+                ? '<div style="text-align:left"><b>This is the FINAL submission of marks.</b><br><br>Please check all marks carefully.<br><br>After final submission:<ul style="margin-top:8px;margin-left:20px;"><li>Marks will be locked.</li><li>Teacher cannot modify the marks.</li><li>Administrator intervention will be required for corrections.</li></ul></div>'
+                : '<div style="text-align:left">Your marks will be saved as a <b>draft</b>.<br><br>You can leave some marks blank and complete them later.<br><br>You can still edit them before final submission.<br><br><b>Continue and save?</b></div>';
 
             Swal.fire({
-                icon: 'question',
-                title: 'Save Marks',
-                html:
-                    '<div style="text-align:left">' +
-                    'Your marks will be saved as a <b>draft</b>.' +
-                    '<br><br>' +
-                    'You can still edit them before final submission.' +
-                    '<br><br>' +
-                    '<b>Continue and save?</b>' +
-                    '</div>',
+                icon: isFinalSubmit ? 'warning' : 'question',
+                title: title,
+                html: html,
                 showCancelButton: true,
-                confirmButtonText: 'Yes, Save Marks',
+                confirmButtonText: isFinalSubmit ? 'Submit Final Marks' : 'Yes, Save Marks',
                 cancelButtonText: 'Cancel',
-                confirmButtonColor: '#2563eb'
-            }).then(function (r) {
-                if (!r.isConfirmed) return;
-                if (saveButton) {
-                    saveButton.disabled = true;
-                    saveButton.textContent = 'Saving...';
+                confirmButtonColor: isFinalSubmit ? '#16a34a' : '#2563eb'
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                if (submitter) {
+                    submitter.disabled = true;
+                    submitter.textContent = isFinalSubmit ? 'Submitting...' : 'Saving...';
+                }
+                if (submitter && submitter.hasAttribute('formaction')) {
+                    saveForm.setAttribute('action', submitter.getAttribute('formaction'));
                 }
                 HTMLFormElement.prototype.submit.call(saveForm);
             });
         });
     }
 
-    /* =========================================================
-       FINAL SUBMIT — VALIDATE + CONFIRM + SUBMIT
-       ========================================================= */
+    function setupFilters() {
+        const yearSelect       = getElement('academic_year_id');
+        const examSelect       = getElement('exam_master_id');
+        const assignmentSelect = getElement('teacher_subject_allocation_id');
+        const filterForm       = getElement('marksFilterForm');
 
-    const submitFinalButton = document.getElementById('submitFinalButton');
-    const finalSubmitForm   = document.getElementById('finalSubmitForm');
-
-    if (submitFinalButton && finalSubmitForm) {
-        submitFinalButton.type = 'button';
-
-        submitFinalButton.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (submitFinalButton.disabled) return;
-
-            let valid = true;
-            let firstInvalidInput = null;
-
-            const container =
-                document.querySelector('#marksSaveForm tbody') ||
-                document.querySelector('.marks-table tbody');
-
-            if (container) {
-                container.querySelectorAll('tr').forEach(function (row) {
-                    const o = row.querySelector('input[name^="is_optional["]');
-                    const a = row.querySelector('input[name^="is_absent["]');
-                    const isOptional = o && o.value === '1';
-                    const isAbsent   = a && a.value === '1';
-                    if (isOptional || isAbsent) return;
-
-                    row.querySelectorAll('.mark-input').forEach(function (input) {
-                        if (input.readOnly || input.disabled) return;
-                        if (!validateMarkForSubmit(input)) {
-                            valid = false;
-                            if (!firstInvalidInput) firstInvalidInput = input;
-                        }
-                    });
-                });
-            }
-
-            if (!valid) {
-                if (firstInvalidInput) {
-                    firstInvalidInput.focus();
-                    firstInvalidInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Validation Error',
-                    html:
-                        'Please correct all marks before final submission.<br><br>' +
-                        '<b>Only whole-number digits are allowed.</b>',
-                    confirmButtonText: 'OK'
-                });
-                return;
-            }
-
-            Swal.fire({
-                icon: 'warning',
-                title: 'Final Marks Submission',
-                html:
-                    '<div style="text-align:left">' +
-                    '<b>This is the FINAL submission of marks.</b><br><br>' +
-                    'Please check all marks carefully.<br><br>' +
-                    'After final submission:' +
-                    '<ul style="margin-top:8px;margin-left:20px;">' +
-                    '<li>Marks will be locked.</li>' +
-                    '<li>Teacher cannot modify the marks.</li>' +
-                    '<li>Administrator intervention will be required for corrections.</li>' +
-                    '</ul></div>',
-                showCancelButton: true,
-                confirmButtonText: 'Submit Final Marks',
-                cancelButtonText: 'Cancel',
-                confirmButtonColor: '#16a34a'
-            }).then(function (r) {
-                if (!r.isConfirmed) return;
-                submitFinalButton.disabled = true;
-                submitFinalButton.textContent = 'Submitting...';
-                HTMLFormElement.prototype.submit.call(finalSubmitForm);
+        if (yearSelect && filterForm) {
+            yearSelect.addEventListener('change', function () {
+                if (assignmentSelect) { assignmentSelect.innerHTML = '<option value="">Select Exam First</option>'; assignmentSelect.disabled = true; }
+                filterForm.submit();
             });
-        });
+        }
+
+        if (examSelect && filterForm) {
+            examSelect.addEventListener('change', function () {
+                if (assignmentSelect) { assignmentSelect.innerHTML = '<option value="">Loading assignments...</option>'; assignmentSelect.disabled = true; }
+                filterForm.submit();
+            });
+        }
     }
 
-    /* =========================================================
-       FILTERS
-       ========================================================= */
+    function protectRowButtons() {
+        document
+            .querySelectorAll('#marksSaveForm button[id^="btn_"],#marksSaveForm button[id^="optional_btn_"]')
+            .forEach(function (button) { button.type = 'button'; });
+    }
 
-    const yearSelect       = document.getElementById('academic_year_id');
-    const examSelect       = document.getElementById('exam_master_id');
-    const assignmentSelect = document.getElementById('teacher_subject_allocation_id');
-    const filterForm       = document.getElementById('marksFilterForm');
+    function restoreButtonStates() {
+        document.querySelectorAll('#marksSaveForm tbody tr').forEach(function (row) {
+            const absentInput   = row.querySelector('input[name^="is_absent["]');
+            const optionalInput = row.querySelector('input[name^="is_optional["]');
+            const attendanceBtn = row.querySelector('button[id^="btn_"]');
+            const optionalBtn   = row.querySelector('button[id^="optional_btn_"]');
+            const statusCell    = row.querySelector('td[id^="status_"] .status-cell');
 
-    if (yearSelect && filterForm) {
-        yearSelect.addEventListener('change', function () {
-            if (assignmentSelect) {
-                assignmentSelect.innerHTML = '<option value="">Select Exam First</option>';
-                assignmentSelect.disabled = true;
+            if (!absentInput) return;
+
+            const sid = absentInput.name.match(/\[(\d+)\]/)?.[1];
+            const isAbsent   = absentInput.value === '1';
+            const isOptional = optionalInput && optionalInput.value === '1';
+
+            if (attendanceBtn) {
+                const label = attendanceBtn.querySelector('.btn-label');
+                if (isAbsent) {
+                    attendanceBtn.classList.remove('skill-present-btn');
+                    attendanceBtn.classList.add('skill-absent-btn');
+                    if (label) label.textContent = 'ABSENT';
+                } else {
+                    attendanceBtn.classList.remove('skill-absent-btn');
+                    attendanceBtn.classList.add('skill-present-btn');
+                    if (label) label.textContent = 'PRESENT';
+                }
             }
-            filterForm.submit();
-        });
-    }
 
-    if (examSelect && filterForm) {
-        examSelect.addEventListener('change', function () {
-            if (assignmentSelect) {
-                assignmentSelect.innerHTML = '<option value="">Loading assignments...</option>';
-                assignmentSelect.disabled = true;
+            if (optionalBtn) {
+                const label = optionalBtn.querySelector('.btn-label');
+                if (isOptional) {
+                    optionalBtn.style.backgroundColor = '#D97706';
+                    if (label) label.textContent = 'OPTIONAL';
+                } else {
+                    optionalBtn.style.backgroundColor = '';
+                    if (label) label.textContent = 'NORMAL';
+                }
             }
-            filterForm.submit();
+
+            if (statusCell) {
+                if (isOptional) { statusCell.textContent = 'OPTIONAL'; statusCell.className = 'status-cell status-optional'; }
+                else if (isAbsent) { statusCell.textContent = 'ABSENT'; statusCell.className = 'status-cell status-absent'; }
+                else { statusCell.textContent = 'PRESENT'; statusCell.className = 'status-cell status-present'; }
+            }
+
+            if (sid) recalculateTotal(sid);
         });
     }
 
-    /* =========================================================
-       FORCE BUTTONS TO TYPE="BUTTON"
-       ========================================================= */
+    window.addEventListener('pageshow', function () { restoreButtonStates(); });
 
-    document
-        .querySelectorAll('[id^="btn_"], [id^="optional_btn_"]')
-        .forEach(function (b) { b.type = 'button'; });
+    function initialize() {
+        protectRowButtons();
+        setupMarkValidation();
+        setupFormSubmit();
+        setupFilters();
+        attachTotalListeners();
 
-});
+        document.querySelectorAll('#marksSaveForm tbody tr').forEach(function (row) {
+            const absentInput = row.querySelector('input[name^="is_absent["]');
+            if (!absentInput) return;
+            const sid = absentInput.name.match(/\[(\d+)\]/)?.[1];
+            if (sid) recalculateTotal(sid);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize);
+    } else {
+        initialize();
+    }
+})();
 </script>
 
 </x-app-layout>

@@ -1,673 +1,333 @@
 <x-app-layout>
 
-<div style="max-width:700px;margin:auto;padding:20px;">
+<style>
+    .subj-form * { box-sizing: border-box; }
 
-    <div style="
-        background:white;
-        border-radius:12px;
-        padding:20px;
-        border:1px solid #d1d5db;
-        box-shadow:0 4px 10px rgba(0,0,0,.15);
-    ">
+    .subj-form label.lbl {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: #374151;
+        margin-bottom: 3px;
+        letter-spacing: 0.2px;
+    }
+    .subj-form .req { color: #dc2626; }
 
-        <h2 class="text-2xl font-bold text-yellow-600 text-center mb-6">
-            Edit Subject
-        </h2>
+    .subj-form .select-wrap { position: relative; width: 100%; }
+
+    .subj-form input[type="text"],
+    .subj-form input[type="number"],
+    .subj-form select {
+        width: 100%;
+        height: 34px;
+        border: 1px solid #9ca3af;
+        border-radius: 5px;
+        padding: 4px 8px;
+        font-size: 12px;
+        background: #fff;
+        outline: none;
+    }
+
+    .subj-form input[readonly] { background: #f3f4f6; color: #6b7280; }
+
+    .subj-form input:focus,
+    .subj-form select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+    }
+
+    .subj-form select {
+        padding-right: 30px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        cursor: pointer;
+    }
+
+    .subj-form .select-wrap::after {
+        content: "";
+        position: absolute;
+        top: 50%; right: 11px;
+        width: 0; height: 0; margin-top: -2px;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-top: 5px solid #6b7280;
+        pointer-events: none;
+    }
+
+    .subj-form .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .subj-form .check-box {
+        display: flex; align-items: center; gap: 6px;
+        height: 34px; padding: 0 10px;
+        border: 1px solid #d1d5db; border-radius: 5px; background: #f9fafb;
+    }
+    .subj-form .check-box input { width: 14px; height: 14px; cursor: pointer; }
+    .subj-form .check-box label {
+        font-size: 12px; font-weight: 600; color: #374151; margin: 0; cursor: pointer;
+    }
+
+    /* Standards checklist (master-only mode) */
+    .std-picker {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 6px;
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: #f9fafb;
+    }
+    .std-item {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 10px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+        cursor: pointer;
+        transition: background .1s, border-color .1s;
+    }
+    .std-item:hover { background: #eff6ff; border-color: #93c5fd; }
+    .std-item input { width: 14px; height: 14px; cursor: pointer; }
+    .std-item.checked { background: #dbeafe; border-color: #3b82f6; color: #1e3a8a; }
+
+    .subj-form .btn-update {
+        height: 34px; padding: 0 22px;
+        background: #ca8a04; color: #fff;
+        border: none; border-radius: 5px;
+        font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .subj-form .btn-update:disabled { background: #9ca3af; cursor: not-allowed; }
+    .subj-form .btn-cancel {
+        height: 34px; padding: 0 22px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: #6b7280; color: #fff; border-radius: 5px;
+        text-decoration: none; font-size: 12px; font-weight: 700;
+    }
+</style>
 
 
-        {{-- =========================================================
-             VALIDATION ERRORS
-        ========================================================== --}}
+<div style="width:100%;max-width:100%;padding:10px;">
 
-        @if ($errors->any())
+    <div style="width:100%;background:#fff;border-radius:10px;padding:14px 18px;border:1px solid #d1d5db;box-shadow:0 3px 8px rgba(0,0,0,.10);">
 
-            <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
+        {{-- HEADER --}}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h2 style="margin:0;color:#ca8a04;font-size:19px;font-weight:700;">
+                {{ $mapping ? 'Edit Subject Mapping' : 'Edit Subject Master' }}
+            </h2>
+            <a href="{{ route('subjects.index', ['tab' => $mapping ? 'academic' : 'skill']) }}"
+               style="font-size:12px;color:#6b7280;text-decoration:none;font-weight:600;">
+                ← Back to Subjects
+            </a>
+        </div>
 
-                <ul class="list-disc pl-5">
-
-                    @foreach ($errors->all() as $error)
-
-                        <li>
-                            {{ $error }}
-                        </li>
-
-                    @endforeach
-
-                </ul>
-
+        {{-- MODE HINT --}}
+        @if(!$mapping)
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px;">
+                This subject is currently <strong>unmapped</strong>. Edit its details and select the standards below to map it.
             </div>
-
         @endif
 
-
-        {{-- =========================================================
-             ERROR MESSAGE
-        ========================================================== --}}
-
+        {{-- FLASH --}}
         @if(session('error'))
-
-            <div class="bg-red-100 text-red-700 p-3 rounded mb-4">
-
+            <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:7px 10px;border-radius:5px;margin-bottom:8px;font-size:12px;">
                 {{ session('error') }}
-
             </div>
-
+        @endif
+        @if ($errors->any())
+            <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:7px 10px;border-radius:5px;margin-bottom:8px;font-size:12px;">
+                <ul style="margin:0;padding-left:16px;">
+                    @foreach ($errors->all() as $error) <li>{{ $error }}</li> @endforeach
+                </ul>
+            </div>
         @endif
 
-
-        {{-- =========================================================
-             SUCCESS MESSAGE
-        ========================================================== --}}
-
-        @if(session('success'))
-
-            <div class="bg-green-100 text-green-700 p-3 rounded mb-4">
-
-                {{ session('success') }}
-
-            </div>
-
-        @endif
-
-
-        {{-- =========================================================
-             SUBJECT MASTER INFORMATION
-        ========================================================== --}}
-
-        @php
-
-            $masterSubject =
-                $subject->subject ?? null;
-
-            $masterSubjectId =
-                $subject->subject_id
-                ?? $masterSubject?->id
-                ?? null;
-
-            $masterSubjectName =
-                $masterSubject?->subject_name
-                ?? $subject->subject_name
-                ?? '';
-
-            $masterSubjectCode =
-                $masterSubject?->subject_code
-                ?? '';
-
-            $masterShortName =
-                $masterSubject?->short_name
-                ?? '';
-
-            $masterSubjectTypeId =
-                $masterSubject?->subject_type_id
-                ?? '';
-
-        @endphp
-
-
-        {{-- =========================================================
-             FORM
-        ========================================================== --}}
-
-        <form
-            method="POST"
-            action="{{ route('subjects.update', $subject->id) }}"
-            id="subjectEditForm"
-        >
-
+        <form method="POST"
+              action="{{ $mapping
+                        ? route('subjects.update', $mapping->id)
+                        : route('subjects.update-master', $masterSubject->id) }}"
+              id="subjectEditForm"
+              class="subj-form">
             @csrf
-
             @method('PUT')
 
-
-            {{-- =====================================================
-                 STANDARD
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label
-                    for="standard_id"
-                    class="block font-semibold mb-2"
-                >
-                    Standard
-                </label>
-
-                <select
-                    name="standard_id"
-                    id="standard_id"
-                    class="w-full border rounded p-2"
-                    required
-                >
-
-                    <option value="">
-                        Select Standard
-                    </option>
-
-                    @foreach($standards as $standard)
-
-                        <option
-                            value="{{ $standard->id }}"
-                            {{ (string)old(
-                                'standard_id',
-                                $subject->standard_id
-                            ) === (string)$standard->id
-                                ? 'selected'
-                                : '' }}
-                        >
-                            {{ $standard->standard_name }}
-                        </option>
-
-                    @endforeach
-
-                </select>
-
+            {{-- ROW 1 --}}
+            <div class="form-row">
+                <div>
+                    <label class="lbl">SUBJECT MASTER ID</label>
+                    <input type="text" value="{{ $masterSubject->id }}" readonly tabindex="-1">
+                </div>
+                <div>
+                    <label for="subject_name" class="lbl">SUBJECT NAME <span class="req">*</span></label>
+                    <input type="text" name="subject_name" id="subject_name"
+                           value="{{ old('subject_name', $masterSubject->subject_name) }}"
+                           maxlength="255" required>
+                </div>
+                <div>
+                    <label for="subject_code" class="lbl">SUBJECT CODE <span class="req">*</span></label>
+                    <input type="text" name="subject_code" id="subject_code"
+                           value="{{ old('subject_code', $masterSubject->subject_code) }}"
+                           maxlength="50" style="text-transform:uppercase;" required>
+                </div>
             </div>
 
+            {{-- ROW 2 --}}
+            <div class="form-row">
+                <div>
+                    <label for="short_name" class="lbl">SHORT NAME</label>
+                    <input type="text" name="short_name" id="short_name"
+                           value="{{ old('short_name', $masterSubject->short_name) }}"
+                           maxlength="20">
+                </div>
+                <div>
+                    <label for="subject_type_id" class="lbl">SUBJECT TYPE <span class="req">*</span></label>
+                    <div class="select-wrap">
+                        <select name="subject_type_id" id="subject_type_id" required>
+                            <option value="">Select Subject Type</option>
+                            @foreach($subjectTypes as $type)
+                                <option value="{{ $type->id }}"
+                                    {{ (string)old('subject_type_id', $masterSubject->subject_type_id) === (string)$type->id ? 'selected' : '' }}>
+                                    {{ $type->name ?? $type->subject_type ?? $type->type_name ?? $type->description ?? 'Type ' . $type->id }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label for="sort_order" class="lbl">
+                        {{ $mapping ? 'DISPLAY ORDER' : 'DISPLAY ORDER (Master)' }}
+                    </label>
+                    <input type="number" name="sort_order" id="sort_order"
+                           value="{{ old('sort_order', $mapping->sort_order ?? $masterSubject->display_order ?? 0) }}"
+                           min="0" required>
+                </div>
+            </div>
 
-            {{-- =====================================================
-                 SUBJECT MASTER ID
-            ====================================================== --}}
+            {{-- ROW 3 --}}
+            <div class="form-row">
+                @if($mapping)
+                    <div>
+                        <label class="lbl">&nbsp;</label>
+                        <div class="check-box">
+                            <input type="checkbox" name="is_optional" value="1" id="is_optional"
+                                {{ old('is_optional', $mapping->is_optional) ? 'checked' : '' }}>
+                            <label for="is_optional">Optional Subject</label>
+                        </div>
+                    </div>
+                @else
+                    <div></div>
+                @endif
 
-            @if($masterSubjectId)
+                <div>
+                    <label class="lbl">&nbsp;</label>
+                    <div class="check-box">
+                        <input type="checkbox" name="is_active" value="1" id="is_active"
+                            {{ old('is_active', $mapping->is_active ?? $masterSubject->is_active) ? 'checked' : '' }}>
+                        <label for="is_active">Active</label>
+                    </div>
+                </div>
 
-                <div class="mb-4">
+                <div></div>
+            </div>
 
-                    <label
-                        class="block font-semibold mb-2"
-                    >
-                        Subject Master ID
+            {{-- STANDARDS --}}
+            @if($mapping)
+
+                <div style="margin-bottom:8px;">
+                    <label for="standard_id" class="lbl">STANDARD</label>
+                    <div class="select-wrap">
+                        <select name="standard_id" id="standard_id" required>
+                            <option value="">Select Standard</option>
+                            @if(count($mappedStandardIds) > 1)
+                                <option value="all" {{ old('standard_id') === 'all' ? 'selected' : '' }}>
+                                    ★ All Standards (apply to all {{ count($mappedStandardIds) }} mappings)
+                                </option>
+                            @endif
+                            @foreach($standards as $standard)
+                                <option value="{{ $standard->id }}"
+                                    {{ (string)old('standard_id', $mapping->standard_id) === (string)$standard->id ? 'selected' : '' }}>
+                                    {{ $standard->standard_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div style="font-size:10px;color:#9ca3af;margin-top:2px;">
+                        @if(count($mappedStandardIds) > 1)
+                            Shared by {{ count($mappedStandardIds) }} standards — All Standards updates all mappings at once.
+                        @else
+                            Moving changes this mapping's standard.
+                        @endif
+                    </div>
+                </div>
+
+            @else
+
+                <div style="margin-bottom:12px;">
+                    <label class="lbl" style="margin-bottom:6px;">
+                        MAP TO STANDARDS
+                        <span style="color:#6b7280;font-weight:600;">({{ count($mappedStandardIds) }} selected)</span>
                     </label>
 
-                    <input
-                        type="text"
-                        value="{{ $masterSubjectId }}"
-                        readonly
-                        class="w-full border rounded p-2 bg-gray-100"
-                    >
-
+                    <div class="std-picker">
+                        @foreach($standards as $standard)
+                            @php $checked = in_array((int)$standard->id, $mappedStandardIds, true); @endphp
+                            <label class="std-item {{ $checked ? 'checked' : '' }}">
+                                <input type="checkbox"
+                                       name="standard_ids[]"
+                                       value="{{ $standard->id }}"
+                                       {{ $checked ? 'checked' : '' }}
+                                       onchange="this.closest('.std-item').classList.toggle('checked', this.checked)">
+                                <span>{{ $standard->standard_name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
                 </div>
 
             @endif
 
-
-            {{-- =====================================================
-                 SUBJECT NAME
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label
-                    for="subject_name"
-                    class="block font-semibold mb-2"
-                >
-                    Subject Name
-                </label>
-
-                <input
-                    type="text"
-                    name="subject_name"
-                    id="subject_name"
-                    class="w-full border rounded p-2"
-                    value="{{ old(
-                        'subject_name',
-                        $masterSubjectName
-                    ) }}"
-                    maxlength="255"
-                    placeholder="Enter Subject Name"
-                    required
-                >
-
-            </div>
-
-
-            {{-- =====================================================
-                 SUBJECT CODE
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label
-                    for="subject_code"
-                    class="block font-semibold mb-2"
-                >
-                    Subject Code
-                </label>
-
-                <input
-                    type="text"
-                    name="subject_code"
-                    id="subject_code"
-                    class="w-full border rounded p-2"
-                    value="{{ old(
-                        'subject_code',
-                        $masterSubjectCode
-                    ) }}"
-                    maxlength="50"
-                    placeholder="Enter Subject Code"
-                    required
-                >
-
-            </div>
-
-
-            {{-- =====================================================
-                 SHORT NAME
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label
-                    for="short_name"
-                    class="block font-semibold mb-2"
-                >
-                    Short Name
-                </label>
-
-                <input
-                    type="text"
-                    name="short_name"
-                    id="short_name"
-                    class="w-full border rounded p-2"
-                    value="{{ old(
-                        'short_name',
-                        $masterShortName
-                    ) }}"
-                    maxlength="20"
-                    placeholder="Enter Short Name"
-                >
-
-            </div>
-
-
-            {{-- =====================================================
-                 SUBJECT TYPE
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label
-                    for="subject_type_id"
-                    class="block font-semibold mb-2"
-                >
-                    Subject Type
-                </label>
-
-                <select
-                    name="subject_type_id"
-                    id="subject_type_id"
-                    class="w-full border rounded p-2"
-                    required
-                >
-
-                    <option value="">
-                        Select Subject Type
-                    </option>
-
-                    @foreach($subjectTypes as $subjectType)
-
-                        <option
-                            value="{{ $subjectType->id }}"
-                            {{ (string)old(
-                                'subject_type_id',
-                                $masterSubjectTypeId
-                            ) === (string)$subjectType->id
-                                ? 'selected'
-                                : '' }}
-                        >
-
-                            {{ $subjectType->name
-                                ?? $subjectType->subject_type
-                                ?? $subjectType->type_name
-                                ?? $subjectType->description
-                                ?? 'Type ' . $subjectType->id
-                            }}
-
-                        </option>
-
-                    @endforeach
-
-                </select>
-
-            </div>
-
-
-            {{-- =====================================================
-                 DISPLAY ORDER
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label
-                    for="sort_order"
-                    class="block font-semibold mb-2"
-                >
-                    Display Order
-                </label>
-
-                <input
-                    type="number"
-                    name="sort_order"
-                    id="sort_order"
-                    value="{{ old(
-                        'sort_order',
-                        $subject->sort_order
-                    ) }}"
-                    class="w-full border rounded p-2"
-                    min="0"
-                    required
-                >
-
-            </div>
-
-
-            {{-- =====================================================
-                 OPTIONAL SUBJECT
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label class="flex items-center gap-2">
-
-                    <input
-                        type="checkbox"
-                        name="is_optional"
-                        value="1"
-                        {{ old(
-                            'is_optional',
-                            $subject->is_optional
-                        ) ? 'checked' : '' }}
-                    >
-
-                    <span>
-                        Optional Subject
-                    </span>
-
-                </label>
-
-            </div>
-
-
-            {{-- =====================================================
-                 ACTIVE
-            ====================================================== --}}
-
-            <div class="mb-4">
-
-                <label class="flex items-center gap-2">
-
-                    <input
-                        type="checkbox"
-                        name="is_active"
-                        value="1"
-                        {{ old(
-                            'is_active',
-                            $subject->is_active
-                        ) ? 'checked' : '' }}
-                    >
-
-                    <span>
-                        Active
-                    </span>
-
-                </label>
-
-            </div>
-
-
-            {{-- =====================================================
-                 SHARED MASTER WARNING
-            ====================================================== --}}
-
-            <div
-                style="
-                    background:#fff7ed;
-                    border:1px solid #fed7aa;
-                    color:#9a3412;
-                    padding:11px 13px;
-                    border-radius:6px;
-                    font-size:13px;
-                    margin-top:15px;
-                    line-height:1.55;
-                "
-            >
-
-                <strong>Important:</strong>
-
-                This record contains a
-
-                <strong>Subject Master</strong>
-
-                and a
-
-                <strong>Standard-wise Mapping</strong>.
-
-                <br><br>
-
-                The same Subject Master can be used by multiple standards.
-
-                <br>
-
-                Subject Master ID:
-
-                <strong>
-                    {{ $masterSubjectId ?? '-' }}
-                </strong>
-
-                <br><br>
-
-                Changing the Subject Name, Subject Code, Short Name or
-                Subject Type can affect other standards using the same
-                Subject Master.
-
-                <br><br>
-
-                Display Order, Optional and Active are maintained for the
-                selected Standard mapping.
-
-            </div>
-
-
-            {{-- =====================================================
-                 BUTTONS
-            ====================================================== --}}
-
-            <div class="flex justify-end items-center gap-2 mt-6">
-
-                <button
-                    type="submit"
-                    class="erp-btn erp-btn-save"
-                    id="updateSubjectButton"
-                >
-                    Update
-                </button>
-
-
-                <a
-                    href="{{ route('subjects.index') }}"
-                    class="erp-btn erp-btn-cancel"
-                >
-                    Cancel
-                </a>
-
+            {{-- BUTTONS --}}
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+                <button type="submit" id="updateSubjectButton" class="btn-update">Update</button>
+                <a href="{{ route('subjects.index', ['tab' => $mapping ? 'academic' : 'skill']) }}"
+                   class="btn-cancel">Cancel</a>
             </div>
 
         </form>
 
     </div>
-
 </div>
 
 
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('subjectEditForm');
+    const code = document.getElementById('subject_code');
+    const btn  = document.getElementById('updateSubjectButton');
+    const std  = document.getElementById('standard_id');
 
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
+    code.addEventListener('input', function () { this.value = this.value.toUpperCase(); });
 
-        const form =
-            document.getElementById(
-                'subjectEditForm'
-            );
-
-        const subjectName =
-            document.getElementById(
-                'subject_name'
-            );
-
-        const subjectCode =
-            document.getElementById(
-                'subject_code'
-            );
-
-        const standard =
-            document.getElementById(
-                'standard_id'
-            );
-
-        const subjectType =
-            document.getElementById(
-                'subject_type_id'
-            );
-
-        const updateButton =
-            document.getElementById(
-                'updateSubjectButton'
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UPPERCASE SUBJECT CODE
-        |--------------------------------------------------------------------------
-        */
-
-        subjectCode.addEventListener(
-            'input',
-            function () {
-
-                this.value =
-                    this.value.toUpperCase();
-
-            }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BASIC VALIDATION
-        |--------------------------------------------------------------------------
-        */
-
-        form.addEventListener(
-            'submit',
-            function (event) {
-
-                /*
-                |--------------------------------------------------------------
-                | Standard
-                |--------------------------------------------------------------
-                */
-
-                if (
-                    !standard.value
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Please select Standard.'
-                    );
-
-                    standard.focus();
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------
-                | Subject Name
-                |--------------------------------------------------------------
-                */
-
-                if (
-                    !subjectName.value.trim()
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Please enter Subject Name.'
-                    );
-
-                    subjectName.focus();
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------
-                | Subject Code
-                |--------------------------------------------------------------
-                */
-
-                if (
-                    !subjectCode.value.trim()
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Please enter Subject Code.'
-                    );
-
-                    subjectCode.focus();
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------
-                | Subject Type
-                |--------------------------------------------------------------
-                */
-
-                if (
-                    !subjectType.value
-                ) {
-
-                    event.preventDefault();
-
-                    alert(
-                        'Please select Subject Type.'
-                    );
-
-                    subjectType.focus();
-
-                    return;
-                }
-
-
-                /*
-                |--------------------------------------------------------------
-                | Prevent double submission
-                |--------------------------------------------------------------
-                */
-
-                updateButton.disabled =
-                    true;
-
-                updateButton.innerText =
-                    'Updating...';
-
-            }
-        );
-
-    }
-);
-
+    form.addEventListener('submit', function (e) {
+        if (std && !std.value) {
+            e.preventDefault();
+            alert('Please select Standard.');
+            std.focus();
+            return;
+        }
+        btn.disabled = true;
+        btn.innerText = 'Updating...';
+    });
+});
 </script>
 
 </x-app-layout>

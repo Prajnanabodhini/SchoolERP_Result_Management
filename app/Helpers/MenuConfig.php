@@ -68,8 +68,8 @@ return [
     'Examination' => [
 
         [
-            'name'  => 'Exam Progress Dashboard',
-            'route' => 'exam-progress.index'
+            'name'  => 'Exam Structure',
+            'route' => 'exam-structures.index'
         ],
 
         [
@@ -82,9 +82,14 @@ return [
             'route' => 'teacher-bulk-allocation.index'
         ],
 
+        /*
+        |------------------------------------------------------------------
+        | NEW: Skill Teacher Allocation
+        |------------------------------------------------------------------
+        */
         [
-            'name'  => 'Student Skill Subject Allocation',
-            'route' => 'student-skill-subject-allocation.index'
+            'name'  => 'Skill Teacher Allocation',
+            'route' => 'skill-teacher-allocation.index'
         ],
 
         [
@@ -95,6 +100,16 @@ return [
         [
             'name'  => 'Skill Subject Marks Entry',
             'route' => 'student-skill-marks.index'
+        ],
+
+        [
+            'name'  => 'Skill Observation Entry',
+            'route' => 'student-skill-observations.index'
+        ],
+
+        [
+            'name'  => 'Skill Observation Summary',
+            'route' => 'student-skill-observations.summary'
         ]
     ],
 

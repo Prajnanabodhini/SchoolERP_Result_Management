@@ -15,7 +15,25 @@
     font-size: 21px !important;
     font-weight: 700 !important;
     color: #1D4ED8 !important;
-    margin: 0 0 14px 0;
+    margin: 0 0 4px 0 !important;
+}
+
+/* =========================================================
+   PAGE HEADER
+========================================================= */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.page-header p {
+    font-size: 13px;
+    color: #6B7280;
+    margin: 0;
 }
 
 /* =========================================================
@@ -31,19 +49,22 @@
 }
 
 /* =========================================================
-   STANDARD GRID
+   SECTION TITLES
 ========================================================= */
 .filter-section-title {
     font-size: 12px;
     font-weight: 700;
     color: #374151;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 
+/* =========================================================
+   STANDARD GRID
+========================================================= */
 .standard-grid {
-    border: 1px solid #d1d5db;
+    border: 1px solid #e5e7eb;
     border-radius: 6px;
     overflow: hidden;
     margin-bottom: 14px;
@@ -60,14 +81,15 @@
 
 .standard-row-label {
     padding: 9px 14px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: #1e3a8a;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
     border-right: 1px solid #e5e7eb;
     background: #f3f4f6;
     display: flex;
     align-items: center;
+    text-transform: uppercase;
 }
 
 .standard-row-options {
@@ -124,8 +146,12 @@
     letter-spacing: 0.3px;
 }
 
+.filter-label .req {
+    color: #DC2626;
+}
+
 .filter-select {
-    height: 34px;
+    height: 36px;
     padding: 4px 10px;
     font-size: 13px;
     font-weight: 600;
@@ -290,6 +316,32 @@
 }
 
 /* =========================================================
+   INFO BANNER
+========================================================= */
+.info-banner {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 13px;
+}
+.info-banner .info-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #1e40af;
+    font-weight: 700;
+}
+.info-banner .info-sep {
+    color: #93c5fd;
+}
+
+/* =========================================================
    EMPTY STATE
 ========================================================= */
 .empty-state {
@@ -305,8 +357,7 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.empty-state svg,
-.empty-state img {
+.empty-state svg {
     width: 72px !important;
     height: 72px !important;
     max-width: 72px !important;
@@ -344,7 +395,7 @@
     table-layout: fixed;
     border-collapse: collapse;
     margin: 0;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .students-table thead tr {
@@ -354,12 +405,14 @@
 
 .students-table th {
     padding: 9px 8px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     text-align: left;
-    border: 1px solid #d1d5db;
+    border: 1px solid #1e40af;
     color: #ffffff;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 .students-table th.center { text-align: center; }
 
@@ -370,12 +423,15 @@
     color: #111827;
     overflow-wrap: anywhere;
     word-break: break-word;
+    font-size: 12px;
 }
 
 .students-table tbody tr:nth-child(even) { background: #f9fafb; }
 .students-table tbody tr:hover { background: #fef9c3; }
 
-/* Subject checkbox pills */
+/* =========================================================
+   SUBJECT CHECKBOX PILLS
+========================================================= */
 .subject-pill {
     display: inline-flex;
     align-items: center;
@@ -423,15 +479,14 @@
     .filter-select { min-width: 100%; }
     .bulk-bar-hint { display: none; }
 }
+
+@media (max-width: 768px) {
+    .btn { width: 100%; }
+}
 </style>
 
 
 @php
-    /*
-    |--------------------------------------------------------------------------
-    | Build lookup maps for Class / Division names.
-    |--------------------------------------------------------------------------
-    */
     $standardMap = $standards->pluck('standard_name', 'id');
     $divisionMap = $divisions->pluck('division_name', 'id');
 @endphp
@@ -439,16 +494,23 @@
 
 <div class="skill-page p-3">
 
-    <h2>Student Skill Subject Allocation</h2>
+    {{-- =====================================================
+         HEADER
+    ====================================================== --}}
+    <div class="page-header">
+        <div>
+            <h2>Student Skill Subject Allocation</h2>
+            <p>Assign skill subjects to students across multiple classes</p>
+        </div>
+    </div>
 
-    {{-- SUCCESS --}}
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
 
     {{-- =====================================================
-         FILTER FORM
+         FILTER CARD
     ====================================================== --}}
     <form method="GET"
           action="{{ route('student-skill-subject-allocation.index') }}"
@@ -456,6 +518,7 @@
 
         <div class="skill-card">
 
+            {{-- SECTION: STANDARDS --}}
             <div class="filter-section-title">Standards</div>
 
             <div class="standard-grid">
@@ -474,15 +537,11 @@
                 @foreach($groupedStandards as $sectionName => $sectionStandards)
 
                     <div class="standard-row">
-
                         <div class="standard-row-label">
                             {{ strtoupper($sectionName) }}
                         </div>
-
                         <div class="standard-row-options">
-
                             @foreach($sectionStandards as $standard)
-
                                 <label class="standard-option">
                                     <input type="checkbox"
                                            name="standard_ids[]"
@@ -490,11 +549,8 @@
                                            {{ in_array((string)$standard->id, $selectedStandardIds, true) ? 'checked' : '' }}>
                                     {{ $standard->standard_name }}
                                 </label>
-
                             @endforeach
-
                         </div>
-
                     </div>
 
                 @endforeach
@@ -502,13 +558,17 @@
             </div>
 
 
+            {{-- SECTION: OTHER FILTERS --}}
+            <div class="filter-section-title">Filters</div>
+
             <div class="filter-row">
 
+                {{-- ACADEMIC YEAR --}}
                 <div class="filter-group">
-                    <label for="academic_year_id" class="filter-label">Academic Year</label>
-                    <select name="academic_year_id"
-                            id="academic_year_id"
-                            class="filter-select">
+                    <label for="academic_year_id" class="filter-label">
+                        Academic Year <span class="req">*</span>
+                    </label>
+                    <select name="academic_year_id" id="academic_year_id" class="filter-select" required>
                         <option value="">Select Academic Year</option>
                         @foreach($academicYears as $year)
                             <option value="{{ $year->id }}"
@@ -519,8 +579,11 @@
                     </select>
                 </div>
 
+                {{-- DIVISIONS --}}
                 <div class="filter-group" style="flex:1;min-width:280px;">
-                    <label class="filter-label">Divisions</label>
+                    <label class="filter-label">
+                        Divisions <span class="req">*</span>
+                    </label>
                     <div class="division-options">
                         @foreach($divisions as $division)
                             <label class="division-option">
@@ -534,13 +597,16 @@
                     </div>
                 </div>
 
-            </div>
+                {{-- ACTION BUTTONS --}}
+                <div class="filter-group">
+                    <label class="filter-label" style="visibility:hidden;">Action</label>
+                    <div class="action-row" style="margin-top:0;">
+                        <button type="submit" class="btn btn-primary">Load Students</button>
+                        <a href="{{ route('student-skill-subject-allocation.index') }}"
+                           class="btn btn-secondary">Reset</a>
+                    </div>
+                </div>
 
-
-            <div class="action-row">
-                <button type="submit" class="btn btn-primary">Load Students</button>
-                <a href="{{ route('student-skill-subject-allocation.index') }}"
-                   class="btn btn-secondary">Reset</a>
             </div>
 
         </div>
@@ -554,6 +620,17 @@
 
     @if($students->isNotEmpty())
 
+        {{-- INFO BANNER --}}
+        <div class="info-banner">
+            <span class="info-item">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563EB;"></span>
+                {{ $students->count() }} Students
+            </span>
+            <span class="info-sep">|</span>
+            <span class="info-item">{{ $skillSubjects->count() }} Skill Subjects</span>
+        </div>
+
+
         {{-- ============ BULK APPLY ============ --}}
         <form method="POST"
               action="{{ route('student-skill-subject-allocation.bulk-allocate') }}"
@@ -566,7 +643,6 @@
             @endforeach
 
             <div class="bulk-bar">
-
                 <span class="bulk-bar-title">
                     Add one subject to all {{ $students->count() }} students:
                 </span>
@@ -587,7 +663,6 @@
                 <span class="bulk-bar-hint">
                     Or set individually in the table below
                 </span>
-
             </div>
         </form>
 
@@ -604,7 +679,6 @@
             @endforeach
 
             <div class="bulk-bar" style="background:#fef2f2;border-color:#fca5a5;">
-
                 <span class="bulk-bar-title" style="color:#991b1b;">
                     Remove one subject from all {{ $students->count() }} students:
                 </span>
@@ -625,7 +699,6 @@
                 <span class="bulk-bar-hint" style="color:#991b1b;">
                     Use this to correct a wrongly assigned subject
                 </span>
-
             </div>
         </form>
 
@@ -637,9 +710,7 @@
             <input type="hidden" name="academic_year_id" value="{{ request('academic_year_id') }}">
 
             <div class="table-wrapper">
-
                 <table class="students-table">
-
                     <colgroup>
                         <col style="width:5%;">
                         <col style="width:8%;">
@@ -678,7 +749,6 @@
 
                                 $selected = array_map('intval', $student->selected_subjects ?? []);
 
-                                // Student name + father name combined
                                 $fullStudentName = trim(
                                     ($student->studname ?? '') . ' ' . ($student->fathername ?? '')
                                 );
@@ -697,7 +767,6 @@
 
                                 <td>
                                     <div style="display:flex;flex-wrap:wrap;gap:4px 6px;">
-
                                         @foreach($skillSubjects as $subject)
 
                                             @php $isChecked = in_array((int)$subject->id, $selected, true); @endphp
@@ -711,7 +780,6 @@
                                             </label>
 
                                         @endforeach
-
                                     </div>
                                 </td>
                             </tr>
@@ -720,10 +788,9 @@
                     </tbody>
 
                 </table>
-
             </div>
 
-            <div class="action-row" style="margin-top:14px;">
+            <div class="action-row" style="margin-top:14px;justify-content:flex-end;">
                 <button type="submit" class="btn btn-primary">Save Allocations</button>
             </div>
 
@@ -770,9 +837,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // Live styling for subject pills as they're toggled
+    /* Live styling for subject pills as they're toggled */
     document.querySelectorAll('.subject-pill input[type="checkbox"]').forEach(function (cb) {
-
         cb.addEventListener('change', function () {
             this.closest('.subject-pill')
                 .classList.toggle('checked', this.checked);

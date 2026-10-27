@@ -28,93 +28,51 @@
     Add User
 </h2>
 
-
 <form method="POST" action="{{ route('users.store') }}">
     @csrf
 
     <div class="mb-4">
-        <label class="block font-semibold mb-2">
-            User Name
-        </label>
-
-        <input type="text"
-               name="name"
-               value="{{ old('name') }}"
-               class="w-full border rounded p-2"
-               required>
+        <label class="block font-semibold mb-2">User Name</label>
+        <input type="text" name="name" value="{{ old('name') }}" class="w-full border rounded p-2" required>
     </div>
 
     <div class="mb-4">
-        <label class="block font-semibold mb-2">
-            Email
-        </label>
-
-        <input type="email"
-               name="email"
-               value="{{ old('email') }}"
-               class="w-full border rounded p-2"
-               required>
+        <label class="block font-semibold mb-2">Email</label>
+        <input type="email" name="email" value="{{ old('email') }}" class="w-full border rounded p-2" required>
     </div>
 
     <div class="mb-4">
-        <label class="block font-semibold mb-2">
-            Role
-        </label>
-
-        <select name="role"
-                class="w-full border rounded p-2">
-
-            <option value="Administrator">Administrator</option>
-            <option value="Principal">Principal</option>
-            <option value="Teacher">Teacher</option>
-            <option value="Clerk">Clerk</option>
-            <option value="Accountant">Accountant</option>
-            <option value="Student">Student</option>
-            <option value="Parent">Parent</option>
+        <label class="block font-semibold mb-2">Role</label>
+        <select name="role" class="w-full border rounded p-2" required>
+            <option value="">Select Role</option>
+            
+            {{-- DYNAMIC LOOP HERE --}}
+            @foreach($roles as $role)
+                <option value="{{ $role->name }}" {{ old('role') == $role->name ? 'selected' : '' }}>
+                    {{ $role->name }}
+                </option>
+            @endforeach
 
         </select>
     </div>
 
     <div class="mb-4">
-        <label class="block font-semibold mb-2">
-            Password
-        </label>
-
-        <input type="password"
-               name="password"
-               class="w-full border rounded p-2"
-               required>
+        <label class="block font-semibold mb-2">Password</label>
+        <input type="password" name="password" class="w-full border rounded p-2" required>
     </div>
 
     <div class="flex justify-between items-center mt-6">
-
         <label>
-            <input type="checkbox"
-                   name="is_active"
-                   checked>
-            Active
+            <input type="checkbox" name="is_active" checked> Active
         </label>
-
         <div>
-
-            <button type="submit"
-                    class="erp-btn erp-btn-save">
-                Save
-            </button>
-
-            <a href="{{ route('users.index') }}"
-               class="erp-btn erp-btn-cancel">
-                Cancel
-            </a>
-
+            <button type="submit" class="erp-btn erp-btn-save">Save</button>
+            <a href="{{ route('users.index') }}" class="erp-btn erp-btn-cancel">Cancel</a>
         </div>
-
     </div>
 
 </form>
 
 </div>
-
 </div>
-
 </x-app-layout>

@@ -88,8 +88,15 @@
     .cmp-row {
         display: flex; justify-content: space-between;
         font-size: 12px; margin-bottom: 4px; color: #374151;
+        gap: 8px;
     }
-    .cmp-row .val { font-weight: 700; color: #111827; }
+    .cmp-row > span:first-child {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 65%;
+    }
+    .cmp-row .val { font-weight: 700; color: #111827; white-space: nowrap; }
     .cmp-row .val.exam1 { color: #1d4ed8; }
     .cmp-row .val.exam2 { color: #7c3aed; }
 
@@ -305,20 +312,32 @@
 
 @else
 
+    @php
+        /* Shorter labels for tight spaces (KPI boxes, table headers) */
+        $exam1Label  = $kpi['exam1']['label'] ?? 'Exam 1';
+        $exam2Label  = $kpi['exam2']['label'] ?? 'Exam 2';
+    @endphp
+
     <div class="erp-card mt-4">
         <h3 class="text-lg font-bold text-blue-700 mb-3">
             Overall Comparison —
-            <span style="color:#1d4ed8;">{{ $kpi['exam1']['label'] }} ({{ $kpi['exam1']['year_label'] }})</span>
+            <span style="color:#1d4ed8;">{{ $exam1Label }} ({{ $kpi['exam1']['year_label'] }})</span>
             <span style="color:#6b7280;">vs</span>
-            <span style="color:#7c3aed;">{{ $kpi['exam2']['label'] }} ({{ $kpi['exam2']['year_label'] }})</span>
+            <span style="color:#7c3aed;">{{ $exam2Label }} ({{ $kpi['exam2']['year_label'] }})</span>
         </h3>
 
         <div class="cmp-cards">
 
             <div class="cmp-box">
                 <div class="cmp-title">Average %</div>
-                <div class="cmp-row"><span>Exam 1</span><span class="val exam1">{{ number_format($kpi['exam1']['avg_pct'], 2) }}%</span></div>
-                <div class="cmp-row"><span>Exam 2</span><span class="val exam2">{{ number_format($kpi['exam2']['avg_pct'], 2) }}%</span></div>
+                <div class="cmp-row">
+                    <span title="{{ $exam1Label }}">{{ $exam1Label }}</span>
+                    <span class="val exam1">{{ number_format($kpi['exam1']['avg_pct'], 2) }}%</span>
+                </div>
+                <div class="cmp-row">
+                    <span title="{{ $exam2Label }}">{{ $exam2Label }}</span>
+                    <span class="val exam2">{{ number_format($kpi['exam2']['avg_pct'], 2) }}%</span>
+                </div>
                 <div class="cmp-delta">
                     <span>Change</span>
                     <span class="{{ $kpi['delta']['avg_pct'] > 0 ? 'delta-up' : ($kpi['delta']['avg_pct'] < 0 ? 'delta-down' : 'delta-flat') }}">
@@ -329,8 +348,14 @@
 
             <div class="cmp-box">
                 <div class="cmp-title">Pass %</div>
-                <div class="cmp-row"><span>Exam 1</span><span class="val exam1">{{ number_format($kpi['exam1']['pass_pct'], 1) }}%</span></div>
-                <div class="cmp-row"><span>Exam 2</span><span class="val exam2">{{ number_format($kpi['exam2']['pass_pct'], 1) }}%</span></div>
+                <div class="cmp-row">
+                    <span title="{{ $exam1Label }}">{{ $exam1Label }}</span>
+                    <span class="val exam1">{{ number_format($kpi['exam1']['pass_pct'], 1) }}%</span>
+                </div>
+                <div class="cmp-row">
+                    <span title="{{ $exam2Label }}">{{ $exam2Label }}</span>
+                    <span class="val exam2">{{ number_format($kpi['exam2']['pass_pct'], 1) }}%</span>
+                </div>
                 <div class="cmp-delta">
                     <span>Change</span>
                     <span class="{{ $kpi['delta']['pass_pct'] > 0 ? 'delta-up' : ($kpi['delta']['pass_pct'] < 0 ? 'delta-down' : 'delta-flat') }}">
@@ -341,8 +366,14 @@
 
             <div class="cmp-box">
                 <div class="cmp-title">Highest %</div>
-                <div class="cmp-row"><span>Exam 1</span><span class="val exam1">{{ number_format($kpi['exam1']['highest'], 2) }}%</span></div>
-                <div class="cmp-row"><span>Exam 2</span><span class="val exam2">{{ number_format($kpi['exam2']['highest'], 2) }}%</span></div>
+                <div class="cmp-row">
+                    <span title="{{ $exam1Label }}">{{ $exam1Label }}</span>
+                    <span class="val exam1">{{ number_format($kpi['exam1']['highest'], 2) }}%</span>
+                </div>
+                <div class="cmp-row">
+                    <span title="{{ $exam2Label }}">{{ $exam2Label }}</span>
+                    <span class="val exam2">{{ number_format($kpi['exam2']['highest'], 2) }}%</span>
+                </div>
                 <div class="cmp-delta">
                     <span>Change</span>
                     <span class="{{ $kpi['delta']['highest'] > 0 ? 'delta-up' : ($kpi['delta']['highest'] < 0 ? 'delta-down' : 'delta-flat') }}">
@@ -382,8 +413,8 @@
                 <tr>
                     <th>Sr.</th>
                     <th>Subject</th>
-                    <th>Exam 1 Avg %</th>
-                    <th>Exam 2 Avg %</th>
+                    <th title="{{ $exam1Label }}">{{ $exam1Label }} — Avg %</th>
+                    <th title="{{ $exam2Label }}">{{ $exam2Label }} — Avg %</th>
                     <th>Change</th>
                     <th>Trend</th>
                 </tr>
@@ -442,8 +473,8 @@
                 <tr>
                     <th>Rank</th>
                     <th>Student Name</th>
-                    <th>Exam 1 %</th>
-                    <th>Exam 2 %</th>
+                    <th title="{{ $exam1Label }}">{{ $exam1Label }} — %</th>
+                    <th title="{{ $exam2Label }}">{{ $exam2Label }} — %</th>
                     <th>Change</th>
                     <th>Status</th>
                     <th>Detail</th>
@@ -551,8 +582,8 @@
                     <thead>
                         <tr>
                             <th rowspan="2" style="vertical-align:middle;">Subject</th>
-                            <th colspan="3">{{ $kpi['exam1']['label'] }}</th>
-                            <th colspan="3">{{ $kpi['exam2']['label'] }}</th>
+                            <th colspan="3">{{ $exam1Label }}</th>
+                            <th colspan="3">{{ $exam2Label }}</th>
                         </tr>
                         <tr>
                             <th>Max</th><th>Pass</th><th>Obt.</th>
@@ -582,8 +613,8 @@
         data: {
             labels: @json($chartSubjectLabels),
             datasets: [
-                { label: '{{ $kpi["exam1"]["label"] }} (%)', data: @json($chartSubjectPct1), backgroundColor: '#3b82f6' },
-                { label: '{{ $kpi["exam2"]["label"] }} (%)', data: @json($chartSubjectPct2), backgroundColor: '#8b5cf6' }
+                { label: '{{ $exam1Label }} (%)', data: @json($chartSubjectPct1), backgroundColor: '#3b82f6' },
+                { label: '{{ $exam2Label }} (%)', data: @json($chartSubjectPct2), backgroundColor: '#8b5cf6' }
             ]
         },
         options: {
@@ -625,7 +656,7 @@
         document.getElementById('detailModal').style.display = 'flex';
 
         const url = '{{ route('analytics.comparison.student', ':sid') }}'.replace(':sid', studentId)
-            + '?exam1_id={{ $exam1Id }}&exam2_id={{ $exam2Id }}';
+            + '?exam1_id={{ $exam1Id }}&exam2_id={{ $exam2Id }}&standard_id={{ $standardId }}';
 
         fetch(url)
             .then(r => r.json())

@@ -14,6 +14,14 @@ class LibraryBook extends Model
         'book_name',
         'author',
         'publisher',
+        'publication_year',
+        'edition',
+        'total_pages',
+        'donor_name',
+        'bill_no',
+        'bill_date',
+        'printed_price',
+        'remarks',
         'category_id',
         'total_copies',
         'available_copies',
@@ -25,6 +33,9 @@ class LibraryBook extends Model
         'is_active'        => 'boolean',
         'total_copies'     => 'integer',
         'available_copies' => 'integer',
+        'publication_year' => 'integer',
+        'total_pages'      => 'integer',
+        'bill_date'        => 'date',
     ];
 
     public function category(): BelongsTo

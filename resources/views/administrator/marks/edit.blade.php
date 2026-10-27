@@ -30,129 +30,309 @@
 @endphp
 
 <style>
+    /* =========================================================
+       PAGE
+       ========================================================= */
     .admin-marks-page,
     .admin-marks-page * {
         box-sizing: border-box;
-        font-family: Arial, sans-serif !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+
+    .admin-marks-page {
+        background: #f0f0f0;
+        padding: 20px;
     }
 
     .admin-marks-page h2 {
-        margin: 0 0 12px;
-        font-size: 18px !important;
+        margin: 0 0 14px;
+        font-size: 21px !important;
         font-weight: 700 !important;
-        color: #1d4ed8 !important;
+        color: #1D4ED8 !important;
+        letter-spacing: 0.4px;
     }
 
-    /* ---------------- FILTER ROW ---------------- */
-    .admin-filter-row   { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
-    .admin-filter-group { display: flex; flex-direction: column; gap: 3px; flex: 0 0 auto; }
-    .admin-filter-label { font-size: 11px; font-weight: 600; color: #374151; }
-    .admin-filter-wrapper { position: relative; display: inline-block; }
+    /* Card wrapper (uses .erp-card from layout + these enhancements) */
+    .admin-marks-page > .erp-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        padding: 18px 20px;
+    }
+
+    .admin-marks-page > .erp-card + .erp-card {
+        margin-top: 14px;
+    }
+
+    /* =========================================================
+       FILTER ROW
+       ========================================================= */
+    .admin-filter-row {
+        display: flex;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .admin-filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex: 0 0 auto;
+    }
+
+    .admin-filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .admin-filter-wrapper {
+        position: relative;
+        display: inline-block;
+    }
 
     .admin-filter-select {
-        height: 30px;
-        padding: 3px 24px 3px 8px;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
+        height: 32px;
+        padding: 3px 28px 3px 10px;
+        border: 1px solid #9CA3AF;
+        border-radius: 6px;
         background: #fff;
         color: #111827;
-        font-size: 11px;
+        font-size: 12px;
+        font-weight: 600;
         outline: none;
         appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        transition: border-color .15s, box-shadow .15s;
     }
-    .admin-filter-select:focus { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
+    .admin-filter-select:focus {
+        border-color: #2563EB;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    .admin-filter-select:disabled {
+        background: #F3F4F6;
+        color: #6B7280;
+        cursor: not-allowed;
+    }
 
     .admin-dropdown-arrow {
-        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-        border-left: 4px solid transparent;
-        border-right: 4px solid transparent;
-        border-top: 5px solid #6b7280;
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #6b7280;
         pointer-events: none;
     }
 
-    .admin-academic-year-select { width: 150px; }
-    .admin-exam-select          { width: 220px; }
-    .admin-assignment-group     { flex: 0 1 auto; min-width: 220px; max-width: 420px; }
+    .admin-academic-year-select { width: 170px; }
+    .admin-exam-select          { width: 230px; }
+    .admin-assignment-group     { flex: 0 1 auto; min-width: 260px; max-width: 440px; }
     .admin-assignment-wrapper   { width: max-content; max-width: 100%; }
-    .admin-assignment-select    { width: max-content; min-width: 240px; max-width: 420px; }
+    .admin-assignment-select    { width: max-content; min-width: 280px; max-width: 440px; }
 
-    .admin-filter-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+    .admin-filter-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 0 0 auto;
+    }
 
-    /* ---------------- BUTTONS ---------------- */
+    /* =========================================================
+       BUTTONS
+       ========================================================= */
     .admin-erp-btn {
-        height: 36px;
-        min-width: 110px;              /* forces Load Marks + Reset to same width */
-        padding: 4px 14px;
-        border: 0;
-        border-radius: 4px;
-        font-size: 15px;
-        font-weight: 600;
+        height: 32px;
+        min-width: 140px;
+        padding: 0 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         text-decoration: none;
         white-space: nowrap;
-        box-sizing: border-box;
+        border: 1px solid transparent;
+        transition: background .15s, border-color .15s;
     }
-    .admin-btn-blue  { background: #2563eb; color: #fff; }
-    .admin-btn-blue:hover  { background: #1d4ed8; }
-    .admin-btn-gray  { background: #6b7280; color: #fff; }
-    .admin-btn-gray:hover  { background: #4b5563; }
-    .admin-erp-btn:disabled { opacity: .65; cursor: not-allowed; }
+    .admin-btn-blue {
+        background: #16A34A;
+        color: #fff;
+        border-color: #15803D;
+    }
+    .admin-btn-blue:hover { background: #15803D; border-color: #166534; }
 
-    /* ---------------- MESSAGES ---------------- */
-    .admin-info-box    { margin-bottom: 10px; padding: 8px 10px; border-radius: 4px; font-size: 11px; }
-    .admin-success-box { background: #ecfdf5; border: 1px solid #10b981; color: #065f46; }
-    .admin-warning-box { background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; }
-    .admin-error-box   { background: #fef2f2; border: 1px solid #ef4444; color: #991b1b; }
+    .admin-btn-gray {
+        background: #6B7280;
+        color: #fff;
+        border-color: #4B5563;
+    }
+    .admin-btn-gray:hover { background: #4B5563; border-color: #374151; }
 
-    /* ---------------- SELECTED INFO ---------------- */
+    .admin-erp-btn:disabled {
+        background: #9CA3AF !important;
+        border-color: #6B7280 !important;
+        opacity: .85;
+        cursor: not-allowed;
+    }
+
+    /* =========================================================
+       ALERT BOXES
+       ========================================================= */
+    .admin-info-box {
+        margin-top: 14px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.5;
+    }
+    .admin-info-box:first-of-type { margin-top: 0; }
+
+    .admin-success-box {
+        background: #dcfce7;
+        border: 1px solid #86efac;
+        color: #166534;
+    }
+    .admin-warning-box {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        color: #92400e;
+    }
+    .admin-error-box {
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        color: #991b1b;
+    }
+    .admin-error-box ul { margin: 0; padding-left: 20px; }
+
+    /* =========================================================
+       SELECTED INFO BANNER
+       ========================================================= */
     .admin-selected-info {
-        display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-        margin-top: 10px; padding: 8px 10px;
-        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px;
-        color: #1e3a8a; font-size: 11px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+        padding: 9px 14px;
+        border-radius: 8px;
+        background: #eff6ff;
+        border: 1px solid #93c5fd;
+        color: #1e40af;
+        font-size: 11.5px;
+        font-weight: 600;
     }
-    .admin-selected-item      { font-weight: 700; }
+    .admin-selected-item {
+        font-weight: 700;
+        color: #1e3a8a;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.3px;
+    }
     .admin-selected-separator { color: #93c5fd; }
 
     .admin-modified-info {
-        display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-        margin-top: 8px; padding: 8px 10px;
-        background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px;
-        color: #374151; font-size: 11px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+        padding: 9px 14px;
+        border-radius: 8px;
+        background: #f9fafb;
+        border: 1px solid #d1d5db;
+        color: #374151;
+        font-size: 11.5px;
+        font-weight: 600;
     }
-    .admin-modified-title   { font-weight: 700; color: #1e3a8a; }
-    .admin-modified-value   { font-weight: 700; color: #111827; }
+    .admin-modified-title {
+        font-weight: 700;
+        color: #1e3a8a;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.3px;
+    }
+    .admin-modified-value { font-weight: 700; color: #111827; }
     .admin-modified-separator { color: #94a3b8; }
 
-    /* ---------------- STATUS BADGE ---------------- */
-    .admin-status-badge    { display: inline-flex; align-items: center; justify-content: center;
-                             padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; }
-    .admin-status-pending   { background: #fef3c7; color: #92400e; }
-    .admin-status-completed { background: #dcfce7; color: #166534; }
-    .admin-status-locked    { background: #fee2e2; color: #991b1b; }
-    .admin-status-default   { background: #e5e7eb; color: #374151; }
+    /* =========================================================
+       STATUS BADGES
+       ========================================================= */
+    .admin-status-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+    .admin-status-pending   { background: #FEF3C7; color: #92400E; }
+    .admin-status-completed { background: #DCFCE7; color: #166534; }
+    .admin-status-locked    { background: #FEE2E2; color: #991B1B; }
+    .admin-status-default   { background: #E5E7EB; color: #374151; }
 
-    /* ---------------- MARKS CARD ---------------- */
-    .admin-marks-card { margin-top: 10px; }
+    /* =========================================================
+       MARKS CARD HEADER
+       ========================================================= */
+    .admin-marks-card { margin-top: 14px; }
+
     .admin-marks-header {
-        display: flex; align-items: center; justify-content: space-between; gap: 10px;
-        padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
     }
-    .admin-marks-header-title    { font-size: 14px; font-weight: 700; color: #1d4ed8; }
-    .admin-marks-header-subtitle { margin-top: 2px; color: #6b7280; font-size: 11px; }
+    .admin-marks-header-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1e3a8a;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .admin-marks-header-subtitle {
+        margin-top: 3px;
+        color: #6b7280;
+        font-size: 11.5px;
+        font-weight: 600;
+    }
+    .admin-marks-header-subtitle strong { color: #111827; font-weight: 700; }
+
     .admin-student-count {
-        padding: 4px 8px; background: #dbeafe; color: #1e40af;
-        border-radius: 3px; font-size: 11px; font-weight: 700; white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+        border-radius: 6px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
     }
 
-    /* ---------------- COMPACT MARKS TABLE ---------------- */
+    /* =========================================================
+       MARKS TABLE
+       ========================================================= */
     .admin-marks-table-wrapper {
         overflow-x: auto;
         border: 1px solid #d1d5db;
-        border-radius: 4px;
+        border-radius: 8px;
         background: #fff;
     }
 
@@ -164,102 +344,161 @@
         font-size: 11px;
     }
 
-    .admin-marks-table col.c-gr           { width: 5%;  }
-    .admin-marks-table col.c-roll         { width: 5%;  }
-    .admin-marks-table col.c-name         { width: 26%; }
-    .admin-marks-table col.c-attend       { width: 8%;  }
-    .admin-marks-table col.c-optional     { width: 7%;  }
-    .admin-marks-table col.c-max          { width: 6%;  }
-    .admin-marks-table col.c-obt          { width: 7%;  }
-    .admin-marks-table col.c-status       { width: 8%;  }
+    .admin-marks-table col.c-gr       { width: 5%;  }
+    .admin-marks-table col.c-roll     { width: 5%;  }
+    .admin-marks-table col.c-name     { width: 26%; }
+    .admin-marks-table col.c-attend   { width: 8%;  }
+    .admin-marks-table col.c-optional { width: 7%;  }
+    .admin-marks-table col.c-max      { width: 6%;  }
+    .admin-marks-table col.c-obt      { width: 7%;  }
+    .admin-marks-table col.c-status   { width: 8%;  }
 
     .admin-marks-table th,
     .admin-marks-table td {
         border: 1px solid #d1d5db;
-        padding: 4px 3px;
+        padding: 5px 4px;
         text-align: center;
         vertical-align: middle;
         font-size: 11px;
-        line-height: 1.2;
+        line-height: 1.25;
         word-break: break-word;
+        color: #111827;
+    }
+
+    .admin-marks-table thead tr {
+        background: #1e3a8a;
     }
 
     .admin-marks-table th {
-        background: #dbeafe;
-        color: #1e3a8a;
+        background: #1e3a8a;
+        color: #ffffff !important;
+        border-color: #1e40af;
         font-weight: 700;
         font-size: 10px;
         line-height: 1.15;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
     }
 
-    .admin-marks-table tbody tr:hover { background: #f8fafc; }
-    .admin-marks-table .admin-center  { text-align: center; }
+    /* Optional column header highlight */
+    .admin-marks-table th.admin-optional-header {
+        background: #D97706 !important;
+        color: #ffffff !important;
+        border-color: #B45309 !important;
+    }
+
+    .admin-marks-table tbody tr:nth-child(even) { background: #f9fafb; }
+    .admin-marks-table tbody tr:hover           { background: #fef9c3; }
+
+    .admin-marks-table .admin-center { text-align: center; }
 
     .admin-marks-table .admin-student-name {
         text-align: left !important;
         white-space: normal !important;
-        font-weight: 600;
-        line-height: 1.2;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.25;
     }
+    .admin-marks-table .admin-student-name strong { font-weight: 700; }
 
-    .admin-marks-table .admin-student-name strong {
-        font-weight: 600;
-    }
-
-    /* ---------------- MARK INPUT ---------------- */
+    /* =========================================================
+       MARK INPUT
+       ========================================================= */
     .admin-mark-input {
         width: 100%;
-        max-width: 52px;
-        height: 24px;
-        padding: 1px 2px;
-        border: 1px solid #9ca3af;
-        border-radius: 3px;
+        max-width: 56px;
+        height: 28px;
+        padding: 2px 4px;
+        border: 1px solid #9CA3AF;
+        border-radius: 4px;
         text-align: center;
         font-size: 11px;
         font-weight: 600;
         background: #ffffff;
         box-sizing: border-box;
+        transition: border-color .15s, box-shadow .15s;
     }
-    .admin-mark-input:focus      { outline: none; border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
-    .admin-mark-input:read-only  { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
-    .admin-absent-input          { background: #fee2e2 !important; color: #991b1b; }
+    .admin-mark-input:focus {
+        outline: none;
+        border-color: #2563EB;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    .admin-mark-input:read-only {
+        background: #F3F4F6;
+        color: #6B7280;
+        cursor: not-allowed;
+    }
+    .admin-absent-input {
+        background: #FEE2E2 !important;
+        color: #991B1B !important;
+        border-color: #FCA5A5 !important;
+    }
 
-    /* ---------------- ATTENDANCE / OPTIONAL BUTTONS ---------------- */
-    .admin-attendance-btn, .admin-optional-btn {
-        min-width: 58px;
-        padding: 3px 4px;
-        border: 0;
-        border-radius: 3px;
+    /* =========================================================
+       ATTENDANCE / OPTIONAL BUTTONS
+       ========================================================= */
+    .admin-attendance-btn,
+    .admin-optional-btn {
+        min-width: 72px;
+        padding: 5px 8px;
+        border: 1px solid transparent;
+        border-radius: 5px;
         color: #fff;
         font-size: 10px;
         font-weight: 700;
         cursor: pointer;
-        line-height: 1.2;
+        line-height: 1;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
         white-space: nowrap;
+        transition: background .15s;
     }
-    .admin-present-btn     { background: #16a34a; }
-    .admin-present-btn:hover { background: #15803d; }
-    .admin-absent-btn      { background: #dc2626; }
-    .admin-absent-btn:hover { background: #b91c1c; }
-    .admin-optional-btn    { background: #6b7280; }
-    .admin-optional-btn:hover { background: #4b5563; }
-    .admin-optional-active-btn { background: #d97706 !important; }
-    .admin-optional-active-btn:hover { background: #b45309 !important; }
-    .admin-optional-input  { background: #fff7ed !important; border-color: #f59e0b !important; }
+    .admin-present-btn         { background: #16A34A; border-color: #15803D; }
+    .admin-present-btn:hover   { background: #15803D; }
+    .admin-absent-btn          { background: #DC2626; border-color: #B91C1C; }
+    .admin-absent-btn:hover    { background: #B91C1C; }
+    .admin-optional-btn        { background: #6B7280; border-color: #4B5563; }
+    .admin-optional-btn:hover  { background: #4B5563; }
+    .admin-optional-active-btn       { background: #D97706 !important; border-color: #B45309 !important; }
+    .admin-optional-active-btn:hover { background: #B45309 !important; }
 
-    .admin-status-optional { color: #d97706; font-weight: 700; font-size: 10px; }
-    .admin-status-present  { color: #15803d; font-weight: 700; font-size: 10px; }
-    .admin-status-absent   { color: #dc2626; font-weight: 700; font-size: 10px; }
+    .admin-optional-input {
+        background: #fff7ed !important;
+        border-color: #f59e0b !important;
+    }
 
-    /* ---------------- ACTION ROW ---------------- */
+    /* Status text inside table */
+    .admin-status-optional { color: #D97706; font-weight: 700; font-size: 10px; letter-spacing: 0.3px; }
+    .admin-status-present  { color: #16A34A; font-weight: 700; font-size: 10px; letter-spacing: 0.3px; }
+    .admin-status-absent   { color: #DC2626; font-weight: 700; font-size: 10px; letter-spacing: 0.3px; }
+
+    /* =========================================================
+       ACTION ROW
+       ========================================================= */
     .admin-action-row {
-        display: flex; align-items: center; gap: 8px; margin-top: 10px;
-        padding-top: 8px; border-top: 1px solid #e5e7eb; flex-wrap: wrap;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid #e5e7eb;
+        flex-wrap: wrap;
     }
-    .admin-action-note { margin-left: auto; font-size: 11px; color: #6b7280; }
+    .admin-action-note {
+        margin-left: auto;
+        font-size: 11.5px;
+        color: #6b7280;
+        font-weight: 600;
+    }
 
-    /* ---------------- RESPONSIVE ---------------- */
+    /* =========================================================
+       RESPONSIVE
+       ========================================================= */
     @media (max-width: 900px) {
+        .admin-marks-page { padding: 12px; }
+        .admin-marks-page > .erp-card { padding: 14px; }
+
         .admin-filter-group { width: 100%; }
         .admin-academic-year-select,
         .admin-exam-select,
@@ -267,8 +506,10 @@
         .admin-assignment-wrapper,
         .admin-assignment-group  { width: 100%; max-width: none; }
         .admin-filter-actions { width: 100%; }
-        .admin-marks-header   { flex-direction: column; align-items: flex-start; }
-        .admin-action-note    { margin-left: 0; }
+        .admin-filter-actions .admin-erp-btn { flex: 1; min-width: 0; }
+
+        .admin-marks-header { flex-direction: column; align-items: flex-start; }
+        .admin-action-note  { margin-left: 0; }
     }
 </style>
 
@@ -277,11 +518,11 @@
     {{-- ============ FILTER CARD ============ --}}
     <div class="erp-card">
 
-        <h2>EDIT EXAMINATION MARKS</h2>
+        <h2>Edit Examination Marks</h2>
 
         @if($errors->any())
             <div class="admin-info-box admin-error-box">
-                <ul style="margin:0;padding-left:20px;">
+                <ul>
                     @foreach($errors->all() as $e)
                         <li>{{ $e }}</li>
                     @endforeach
@@ -392,7 +633,6 @@
                         Load Marks
                     </button>
 
-                    {{-- Reset is now a <button> so it renders identically to Load Marks --}}
                     <button type="button"
                             onclick="window.location.href='{{ route('result-generation.admin-marks.edit') }}';"
                             class="admin-erp-btn admin-btn-gray">
@@ -456,7 +696,7 @@
             @endif
 
             @if(!empty($message))
-                <div class="admin-info-box admin-warning-box" style="margin-top:8px;">
+                <div class="admin-info-box admin-warning-box" style="margin-top:10px;">
                     {{ $message }}
                 </div>
             @endif
@@ -468,7 +708,7 @@
         <div class="erp-card admin-marks-card">
             <div class="admin-marks-header">
                 <div>
-                    <div class="admin-marks-header-title">EDIT MARKS</div>
+                    <div class="admin-marks-header-title">Edit Marks</div>
                     <div class="admin-marks-header-subtitle">
                         Subject: <strong>{{ $selectedSubjectName }}</strong>
                         &nbsp;|&nbsp;
@@ -527,7 +767,7 @@
                                 <th>Attendance</th>
 
                                 @if($showOptionalColumn)
-                                    <th style="background:#fef3c7;color:#92400e;">Optional</th>
+                                    <th class="admin-optional-header">Optional</th>
                                 @endif
 
                                 @if($showTheory)
@@ -699,7 +939,7 @@
                 </div>
             </form>
 
-            <div class="admin-info-box admin-warning-box" style="margin-top:10px;margin-bottom:0;">
+            <div class="admin-info-box admin-warning-box" style="margin-top:14px;margin-bottom:0;">
                 <strong>Administrator Access:</strong>
                 Marks can be entered or corrected for <strong>PENDING</strong> and <strong>COMPLETED</strong> assignments.
                 Administrator changes do not change the current teaching assignment status.
@@ -708,7 +948,7 @@
 
     @elseif($teacherSubjectAllocation && $studentCount === 0)
         <div class="erp-card"
-             style="margin-top:10px;padding:10px;background:#fef2f2;border:1px solid #ef4444;color:#991b1b;font-size:11px;">
+             style="margin-top:14px;padding:14px 18px;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:12px;font-weight:600;border-radius:8px;">
             No students were found for the selected class/division in the Old ERP student source.
         </div>
     @endif

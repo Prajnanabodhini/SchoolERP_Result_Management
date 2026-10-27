@@ -5,7 +5,7 @@
 <div style="
     max-width:1200px;
     margin:auto;
-    padding:20px;
+    padding:15px;
 ">
 
     {{-- =========================================================
@@ -16,11 +16,11 @@
         display:flex;
         justify-content:space-between;
         align-items:center;
-        margin-bottom:20px;
+        margin-bottom:15px;
     ">
 
         <h2 style="
-            font-size:24px;
+            font-size:18px;
             font-weight:bold;
             color:#1d4ed8;
             margin:0;
@@ -31,6 +31,7 @@
         <a
             href="{{ route('teacher-bulk-allocation.index') }}"
             class="erp-btn erp-btn-cancel"
+            style="font-size:13px; padding:6px 16px;"
         >
             Back
         </a>
@@ -47,9 +48,10 @@
         <div style="
             background:#dcfce7;
             color:#166534;
-            padding:12px;
-            border-radius:6px;
-            margin-bottom:15px;
+            padding:6px 10px;
+            font-size:13px;
+            border-radius:5px;
+            margin-bottom:12px;
         ">
             {{ session('success') }}
         </div>
@@ -66,9 +68,10 @@
         <div style="
             background:#fee2e2;
             color:#991b1b;
-            padding:12px;
-            border-radius:6px;
-            margin-bottom:15px;
+            padding:6px 10px;
+            font-size:13px;
+            border-radius:5px;
+            margin-bottom:12px;
         ">
             {{ session('error') }}
         </div>
@@ -85,9 +88,10 @@
         <div style="
             background:#fee2e2;
             color:#991b1b;
-            padding:12px;
-            border-radius:6px;
-            margin-bottom:15px;
+            padding:6px 10px;
+            font-size:13px;
+            border-radius:5px;
+            margin-bottom:12px;
         ">
 
             <ul style="
@@ -137,6 +141,54 @@
             ->values()
             ->toArray();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filter divisions by ERP data for this standard
+        |--------------------------------------------------------------------------
+        |
+        | If the ERP says the standard has only Division A, we hide B and C.
+        | The currently saved division is always kept, so the form doesn't
+        | break if the ERP data changes after the allocation was created.
+        |
+        */
+
+        $currentStandardId = (int) $allocation->standard_id;
+        $currentDivisionId = (int) $allocation->division_id;
+
+        $allowedDivisionIds = collect(
+            $divisionsByStandard[$currentStandardId] ?? []
+        )
+            ->pluck('id')
+            ->map(function ($id) {
+
+                return (int) $id;
+
+            })
+            ->all();
+
+
+        $filteredDivisions = $divisions;
+
+        if (!empty($allowedDivisionIds)) {
+
+            $filteredDivisions = $divisions
+                ->filter(function ($d) use (
+                    $allowedDivisionIds,
+                    $currentDivisionId
+                ) {
+
+                    $id = (int) $d->id;
+
+                    /* Keep if ERP-valid OR currently saved on this allocation */
+                    return in_array($id, $allowedDivisionIds, true)
+                        || $id === $currentDivisionId;
+
+                })
+                ->values();
+
+        }
+
     @endphp
 
 
@@ -162,16 +214,16 @@
         <div style="
             background:white;
             border:1px solid #d1d5db;
-            border-radius:10px;
-            padding:18px;
-            box-shadow:0 3px 8px rgba(0,0,0,.08);
+            border-radius:8px;
+            padding:15px;
+            box-shadow:0 2px 6px rgba(0,0,0,.08);
         ">
 
             <h3 style="
-                font-size:18px;
+                font-size:15px;
                 font-weight:bold;
                 color:#2563eb;
-                margin:0 0 15px 0;
+                margin:0 0 12px 0;
             ">
                 Allocation Details
             </h3>
@@ -187,21 +239,20 @@
                     minmax(180px,1fr)
                     minmax(180px,1fr)
                     minmax(180px,1fr);
-                gap:15px;
-                margin-bottom:15px;
+                gap:12px;
+                margin-bottom:12px;
             ">
 
 
-                {{-- =================================================
-                     TEACHER
-                ================================================== --}}
+                {{-- TEACHER --}}
 
                 <div>
 
                     <label style="
                         display:block;
                         font-weight:600;
-                        margin-bottom:5px;
+                        font-size:13px;
+                        margin-bottom:4px;
                     ">
                         Teacher
                     </label>
@@ -211,7 +262,9 @@
                         required
                         style="
                             width:100%;
-                            padding:8px 10px;
+                            padding:4px 8px;
+                            font-size:13px;
+                            height:32px;
                             border:1px solid #d1d5db;
                             border-radius:5px;
                             background:white;
@@ -238,16 +291,15 @@
                 </div>
 
 
-                {{-- =================================================
-                     ACADEMIC YEAR
-                ================================================== --}}
+                {{-- ACADEMIC YEAR --}}
 
                 <div>
 
                     <label style="
                         display:block;
                         font-weight:600;
-                        margin-bottom:5px;
+                        font-size:13px;
+                        margin-bottom:4px;
                     ">
                         Academic Year
                     </label>
@@ -257,7 +309,9 @@
                         required
                         style="
                             width:100%;
-                            padding:8px 10px;
+                            padding:4px 8px;
+                            font-size:13px;
+                            height:32px;
                             border:1px solid #d1d5db;
                             border-radius:5px;
                             background:white;
@@ -284,16 +338,15 @@
                 </div>
 
 
-                {{-- =================================================
-                     EXAM
-                ================================================== --}}
+                {{-- EXAM --}}
 
                 <div>
 
                     <label style="
                         display:block;
                         font-weight:600;
-                        margin-bottom:5px;
+                        font-size:13px;
+                        margin-bottom:4px;
                     ">
                         Exam
                     </label>
@@ -303,7 +356,9 @@
                         required
                         style="
                             width:100%;
-                            padding:8px 10px;
+                            padding:4px 8px;
+                            font-size:13px;
+                            height:32px;
                             border:1px solid #d1d5db;
                             border-radius:5px;
                             background:white;
@@ -342,20 +397,19 @@
                 grid-template-columns:
                     minmax(180px,1fr)
                     minmax(180px,1fr);
-                gap:15px;
+                gap:12px;
             ">
 
 
-                {{-- =================================================
-                     STANDARD - FROZEN
-                ================================================== --}}
+                {{-- STANDARD - FROZEN --}}
 
                 <div>
 
                     <label style="
                         display:block;
                         font-weight:600;
-                        margin-bottom:5px;
+                        font-size:13px;
+                        margin-bottom:4px;
                     ">
                         Standard
                     </label>
@@ -375,7 +429,9 @@
                         readonly
                         style="
                             width:100%;
-                            padding:8px 10px;
+                            padding:4px 8px;
+                            font-size:13px;
+                            height:32px;
                             border:1px solid #d1d5db;
                             border-radius:5px;
                             background:#f3f4f6;
@@ -394,16 +450,15 @@
                 </div>
 
 
-                {{-- =================================================
-                     DIVISION
-                ================================================== --}}
+                {{-- DIVISION — filtered by ERP --}}
 
                 <div>
 
                     <label style="
                         display:block;
                         font-weight:600;
-                        margin-bottom:5px;
+                        font-size:13px;
+                        margin-bottom:4px;
                     ">
                         Division
                     </label>
@@ -413,7 +468,9 @@
                         required
                         style="
                             width:100%;
-                            padding:8px 10px;
+                            padding:4px 8px;
+                            font-size:13px;
+                            height:32px;
                             border:1px solid #d1d5db;
                             border-radius:5px;
                             background:white;
@@ -424,7 +481,7 @@
                             Select Division
                         </option>
 
-                        @foreach($divisions as $division)
+                        @foreach($filteredDivisions as $division)
 
                             <option
                                 value="{{ $division->id }}"
@@ -451,21 +508,21 @@
         <div style="
             background:white;
             border:1px solid #d1d5db;
-            border-radius:10px;
-            padding:18px;
-            margin-top:15px;
-            box-shadow:0 3px 8px rgba(0,0,0,.08);
+            border-radius:8px;
+            padding:15px;
+            margin-top:12px;
+            box-shadow:0 2px 6px rgba(0,0,0,.08);
         ">
 
             <div style="
                 display:flex;
                 justify-content:space-between;
                 align-items:center;
-                margin-bottom:12px;
+                margin-bottom:10px;
             ">
 
                 <h3 style="
-                    font-size:18px;
+                    font-size:15px;
                     font-weight:bold;
                     color:#2563eb;
                     margin:0;
@@ -474,7 +531,7 @@
                 </h3>
 
                 <span style="
-                    font-size:13px;
+                    font-size:12px;
                     color:#6b7280;
                 ">
                     Previously selected subjects are checked automatically.
@@ -487,22 +544,16 @@
                 id="subjectsContainer"
                 style="
                     border:1px solid #d1d5db;
-                    padding:12px;
+                    padding:8px;
                     border-radius:6px;
                     background:#f9fafb;
-                    min-height:50px;
+                    min-height:40px;
                 "
             >
 
                 @forelse($subjects as $subject)
 
                     @php
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | REAL subjects.id
-                        |--------------------------------------------------------------------------
-                        */
 
                         $actualSubjectId =
                             (int) (
@@ -511,12 +562,6 @@
                                 ?? 0
                             );
 
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | CHECK SAVED SUBJECT
-                        |--------------------------------------------------------------------------
-                        */
 
                         $isChecked =
                             $actualSubjectId > 0
@@ -536,17 +581,17 @@
                             style="
                                 display:inline-flex;
                                 align-items:center;
-                                gap:7px;
-                                margin-right:10px;
-                                margin-bottom:8px;
-                                padding:7px 11px;
+                                gap:5px;
+                                margin-right:8px;
+                                margin-bottom:4px;
+                                padding:4px 6px;
                                 border:1px solid
                                     {{ $isChecked ? '#2563eb' : '#d1d5db' }};
-                                border-radius:6px;
+                                border-radius:5px;
                                 background:
                                     {{ $isChecked ? '#eff6ff' : 'white' }};
                                 cursor:pointer;
-                                font-size:14px;
+                                font-size:12px;
                             "
                         >
 
@@ -574,6 +619,7 @@
 
                     <span style="
                         color:#dc2626;
+                        font-size:13px;
                     ">
                         No subjects found for this Standard / Exam.
                     </span>
@@ -590,56 +636,57 @@
         ========================================================== --}}
 
         <div style="
-    margin-top:18px;
-    display:flex;
-    gap:10px;
-    align-items:center;
-    flex-wrap:wrap;
-">
-
-    <button
-        type="submit"
-        class="erp-btn erp-btn-save"
-        style="
-            display:inline-flex;
+            margin-top:15px;
+            display:flex;
+            gap:8px;
             align-items:center;
-            justify-content:center;
-            width:auto !important;
-            min-width:170px !important;
-            padding:10px 18px !important;
-            white-space:nowrap !important;
-            overflow:visible !important;
-            text-overflow:clip !important;
-            font-size:14px !important;
-            line-height:1.4 !important;
-            box-sizing:border-box !important;
-        "
-    >
-        Update Allocation
-    </button>
+            flex-wrap:wrap;
+        ">
 
-    <a
-        href="{{ route('teacher-bulk-allocation.index') }}"
-        class="erp-btn erp-btn-cancel"
-        style="
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            width:auto !important;
-            min-width:90px !important;
-            padding:10px 18px !important;
-            white-space:nowrap !important;
-            overflow:visible !important;
-            text-overflow:clip !important;
-            font-size:14px !important;
-            line-height:1.4 !important;
-            box-sizing:border-box !important;
-        "
-    >
-        Cancel
-    </a>
+            <button
+                type="submit"
+                class="erp-btn erp-btn-save"
+                style="
+                    display:inline-flex;
+                    align-items:center;
+                    justify-content:center;
+                    width:auto !important;
+                    min-width:140px !important;
+                    padding:6px 16px !important;
+                    white-space:nowrap !important;
+                    overflow:visible !important;
+                    text-overflow:clip !important;
+                    font-size:13px !important;
+                    line-height:1.4 !important;
+                    box-sizing:border-box !important;
+                "
+            >
+                Update Allocation
+            </button>
 
-</div>
+            <a
+                href="{{ route('teacher-bulk-allocation.index') }}"
+                class="erp-btn erp-btn-cancel"
+                style="
+                    display:inline-flex;
+                    align-items:center;
+                    justify-content:center;
+                    width:auto !important;
+                    min-width:80px !important;
+                    padding:6px 16px !important;
+                    white-space:nowrap !important;
+                    overflow:visible !important;
+                    text-overflow:clip !important;
+                    font-size:13px !important;
+                    line-height:1.4 !important;
+                    box-sizing:border-box !important;
+                "
+            >
+                Cancel
+            </a>
+
+        </div>
+
     </form>
 
 </div>
@@ -709,12 +756,6 @@ document.addEventListener('DOMContentLoaded', function () {
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TEACHER
-        |--------------------------------------------------------------------------
-        */
-
         if (!teacher || !teacher.value) {
 
             event.preventDefault();
@@ -728,12 +769,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | ACADEMIC YEAR
-        |--------------------------------------------------------------------------
-        */
 
         if (!academicYear || !academicYear.value) {
 
@@ -749,12 +784,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | EXAM
-        |--------------------------------------------------------------------------
-        */
-
         if (!exam || !exam.value) {
 
             event.preventDefault();
@@ -768,12 +797,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | STANDARD
-        |--------------------------------------------------------------------------
-        */
 
         if (!standard || !standard.value) {
 
@@ -789,12 +812,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | DIVISION
-        |--------------------------------------------------------------------------
-        */
-
         if (!division || !division.value) {
 
             event.preventDefault();
@@ -808,12 +825,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECTS
-        |--------------------------------------------------------------------------
-        */
 
         if (subjects.length === 0) {
 

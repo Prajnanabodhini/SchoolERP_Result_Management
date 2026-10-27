@@ -12,16 +12,19 @@ use App\Models\ExamMasterSubject;
 use App\Models\Standard;
 use App\Models\AcademicYear;
 use App\Models\ExamSubject;
+use App\Models\Division;
 
 use App\Helpers\ExamStructureHelper;
 use App\Helpers\AllocationStatusHelper;
+use App\Helpers\StudentHelper;
 
 class ExamMasterController extends Controller
 {
-    /* ================================================================
-     | DELEGATED HELPERS — shared with EditMarkHelper
-     * ================================================================ */
+    private const SKILL_SUBJECT_TYPE_IDS = [2, 3];
 
+    /* ================================================================
+     | DELEGATED HELPERS
+     * ================================================================ */
     private function getHardcodedExamStructure(): array
     {
         return ExamStructureHelper::getHardcodedExamStructure();
@@ -60,7 +63,6 @@ class ExamMasterController extends Controller
     /* ================================================================
      | MISC HELPERS
      * ================================================================ */
-
     private function isTermExam(string $examName): bool
     {
         $e = strtoupper(trim($examName));
@@ -74,6 +76,7 @@ class ExamMasterController extends Controller
             ->where('sws.standard_id',$standardId)
             ->where('sws.is_active',1)
             ->where('s.is_active',1)
+            ->whereNotIn('s.subject_type_id', self::SKILL_SUBJECT_TYPE_IDS)
             ->orderBy('sws.sort_order')
             ->orderBy('s.id')
             ->select([
@@ -125,22 +128,79 @@ class ExamMasterController extends Controller
     /* ================================================================
      | INDEX
      * ================================================================ */
-        public function index(Request $request)
+    public function index(Request $request)
     {
         $academicYearId = $request->input('academic_year_id');
+        $standardId     = $request->input('standard_id');
+        $divisionId     = $request->input('division_id');
+        $examId         = $request->input('exam_master_id');
 
         $examMasters = ExamMaster::with(['standard','academicYear'])
             ->when($academicYearId, fn ($q) => $q->where('academic_year_id', $academicYearId))
-            ->orderByDesc('id')->get();
+            ->when($standardId,     fn ($q) => $q->where('standard_id', $standardId))
+            ->when($examId,         fn ($q) => $q->where('id', $examId))
+            ->when($divisionId, function ($q) use ($divisionId) {
+                $q->whereIn('id', function ($sub) use ($divisionId) {
+                    $sub->select('exam_master_id')
+                        ->from('teacher_marks_status')
+                        ->where('division_id', (int) $divisionId)
+                        ->whereNotNull('teacher_subject_allocation_id');
+                });
+            })
+            ->orderByDesc('id')
+            ->get();
 
-        $academicYears = AcademicYear::where('is_active',1)->orderByDesc('id')->get();
+        $examFilterQuery = ExamMaster::query()->where('is_active', 1);
+
+        if (!empty($academicYearId)) $examFilterQuery->where('academic_year_id', (int) $academicYearId);
+        if (!empty($standardId))     $examFilterQuery->where('standard_id', (int) $standardId);
+        if (!empty($divisionId)) {
+            $examFilterQuery->whereIn('id', function ($sub) use ($divisionId) {
+                $sub->select('exam_master_id')
+                    ->from('teacher_marks_status')
+                    ->where('division_id', (int) $divisionId)
+                    ->whereNotNull('teacher_subject_allocation_id');
+            });
+        }
+
+        $examOptions = $examFilterQuery->orderByDesc('id')->get(['id', 'exam_name']);
+
+        $academicYears = AcademicYear::where('is_active', 1)->orderByDesc('id')->get();
+        $standards     = Standard::where('is_active', 1)->orderBy('display_order')->get();
+        $divisions     = Division::where('is_active', 1)->orderBy('division_name')->get();
 
         $examIds       = $examMasters->pluck('id')->toArray();
         $pendingCounts = AllocationStatusHelper::pendingCountForExams($examIds);
         $breakdowns    = AllocationStatusHelper::pendingBreakdownForExams($examIds);
 
+        foreach ($examMasters as $exam) {
+            $validDivisions = StudentHelper::getERPDivisionsForStandard(
+                (int) $exam->academic_year_id,
+                (int) $exam->standard_id
+            );
+
+            if ($validDivisions->isEmpty()) continue;
+
+            $validNames = $validDivisions
+                ->pluck('division_name')
+                ->map(fn ($v) => strtoupper(trim((string) $v)))
+                ->all();
+
+            $filtered = [];
+            foreach (($breakdowns[$exam->id] ?? []) as $divName => $count) {
+                if (in_array(strtoupper(trim((string) $divName)), $validNames, true)) {
+                    $filtered[$divName] = $count;
+                }
+            }
+
+            $breakdowns[$exam->id]    = $filtered;
+            $pendingCounts[$exam->id] = array_sum($filtered);
+        }
+
         return view('exam-masters.index', compact(
-            'examMasters','academicYears','academicYearId','pendingCounts','breakdowns'
+            'examMasters','academicYears','standards','divisions','examOptions',
+            'academicYearId','standardId','divisionId','examId',
+            'pendingCounts','breakdowns'
         ));
     }
 
@@ -220,7 +280,6 @@ class ExamMasterController extends Controller
                 $cols = Schema::getColumnListing('exam_master_subjects');
 
                 foreach ($standardSubjects as $ss) {
-
                     $excel = $sheet ? $this->matchExcelSubject($ss->subject_name, $examType, $sheet) : null;
 
                     $maxMarks  = $excel ? (float) $excel['total_max_marks']    : 40.0;
@@ -253,7 +312,11 @@ class ExamMasterController extends Controller
                         if (in_array($c, $cols, true)) $data[$c] = $val;
                     }
 
-                    ExamMasterSubject::create($data);
+                    // FIX: Use updateOrCreate instead of create
+                    ExamMasterSubject::updateOrCreate(
+                        ['exam_master_id' => $examMaster->id, 'subject_id' => $ss->subject_id],
+                        $data
+                    );
                 }
             });
 
@@ -295,17 +358,40 @@ class ExamMasterController extends Controller
             $existing = $existingConfigs->get($ss->subject_id);
             $excel    = $sheet ? $this->matchExcelSubject($ss->subject_name, $examType, $sheet) : null;
 
-            $tMax  = (float) ($existing->theory_max_marks        ?? $excel['theory_max_marks']        ?? 0);
-            $tPass = (float) ($existing->theory_passing_marks    ?? $excel['theory_passing_marks']    ?? 0);
-            $oMax  = (float) ($existing->oral_max_marks          ?? $excel['oral_max_marks']          ?? 0);
-            $oPass = (float) ($existing->oral_passing_marks      ?? $excel['oral_passing_marks']      ?? 0);
-            $pMax  = (float) ($existing->practical_max_marks     ?? $excel['practical_max_marks']     ?? 0);
-            $pPass = (float) ($existing->practical_passing_marks ?? $excel['practical_passing_marks'] ?? 0);
+            /* ⭐ Excel (fresh structure) wins; only fall back to saved snapshot */
+            if ($excel) {
+                $tMax  = (float) ($excel['theory_max_marks']        ?? 0);
+                $tPass = (float) ($excel['theory_passing_marks']    ?? 0);
+                $oMax  = (float) ($excel['oral_max_marks']          ?? 0);
+                $oPass = (float) ($excel['oral_passing_marks']      ?? 0);
+                $pMax  = (float) ($excel['practical_max_marks']     ?? 0);
+                $pPass = (float) ($excel['practical_passing_marks'] ?? 0);
 
-            $maxMarks  = $existing->max_marks  ?? $excel['total_max_marks']    ?? 40.0;
-            $passMarks = $existing->passing_marks
-                       ?? $excel['total_passing_marks']
-                       ?? ($maxMarks > 0 ? (int) ceil($maxMarks * $passingPct / 100) : 0);
+                $maxMarks  = (float) ($excel['total_max_marks']     ?? 0);
+                $passMarks = (float) ($excel['total_passing_marks'] ?? 0);
+
+                if ($maxMarks <= 0) {
+                    $maxMarks = $tMax + $oMax + $pMax;
+                }
+                if ($passMarks <= 0) {
+                    $passMarks = $tPass + $oPass + $pPass;
+                }
+            } elseif ($existing) {
+                $tMax  = (float) $existing->theory_max_marks;
+                $tPass = (float) $existing->theory_passing_marks;
+                $oMax  = (float) $existing->oral_max_marks;
+                $oPass = (float) $existing->oral_passing_marks;
+                $pMax  = (float) $existing->practical_max_marks;
+                $pPass = (float) $existing->practical_passing_marks;
+
+                $maxMarks  = (float) $existing->max_marks;
+                $passMarks = (float) $existing->passing_marks;
+            } else {
+                $tMax = $tPass = $oMax = $oPass = $pMax = $pPass = 0.0;
+
+                $maxMarks  = 40.0;
+                $passMarks = (int) ceil($maxMarks * $passingPct / 100);
+            }
 
             $subjects->push((object) [
                 'standard_wise_subject_id' => $ss->standard_wise_subject_id,
@@ -392,11 +478,14 @@ class ExamMasterController extends Controller
                     throw new \RuntimeException('No active subjects mapped.');
                 }
 
-                ExamMasterSubject::where('exam_master_id',$examMaster->id)->delete();
+                // FIX: Removed the delete() statement to preserve exam_master_subject IDs and prevent cascade deletions.
+                // ExamMasterSubject::where('exam_master_id',$examMaster->id)->delete();
 
                 $cols = Schema::getColumnListing('exam_master_subjects');
+                $processedSubjectIds = [];
 
                 foreach ($standardSubjects as $ss) {
+                    $processedSubjectIds[] = $ss->subject_id;
 
                     $excel = $sheet ? $this->matchExcelSubject($ss->subject_name, $examType, $sheet) : null;
 
@@ -430,8 +519,17 @@ class ExamMasterController extends Controller
                         if (in_array($c, $cols, true)) $data[$c] = $val;
                     }
 
-                    ExamMasterSubject::create($data);
+                    // FIX: Use updateOrCreate to prevent changing the ID of existing subject configurations
+                    ExamMasterSubject::updateOrCreate(
+                        ['exam_master_id' => $examMaster->id, 'subject_id' => $ss->subject_id],
+                        $data
+                    );
                 }
+
+                // Clean up only the subjects that were completely removed from the standard mapping
+                ExamMasterSubject::where('exam_master_id', $examMaster->id)
+                    ->whereNotIn('subject_id', $processedSubjectIds)
+                    ->delete();
             });
 
             $this->syncStudentMarks($examMaster->id, $standardId);
@@ -463,6 +561,7 @@ class ExamMasterController extends Controller
             ->where('sws.standard_id',$standardId)
             ->where('sws.is_active',1)
             ->where('s.is_active',1)
+            ->whereNotIn('s.subject_type_id', self::SKILL_SUBJECT_TYPE_IDS)
             ->orderBy('sws.sort_order')
             ->orderBy('s.id')
             ->select([

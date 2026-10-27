@@ -4,29 +4,24 @@
 
     <div style="width:100%;background:white;border-radius:10px;padding:14px;border:1px solid #d1d5db;box-shadow:0 3px 8px rgba(0,0,0,.12);box-sizing:border-box;">
 
-        {{-- HEADER --}}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
             <h2 style="margin:0;color:#1d4ed8;font-size:21px;font-weight:bold;">
                 Teacher Bulk Allocation
             </h2>
         </div>
 
-
-        {{-- SUCCESS --}}
         @if(session('success'))
             <div style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;font-size:13px;">
                 {{ session('success') }}
             </div>
         @endif
 
-        {{-- ERROR --}}
         @if(session('error'))
             <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;font-size:13px;">
                 {{ session('error') }}
             </div>
         @endif
 
-        {{-- VALIDATION --}}
         @if($errors->any())
             <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-size:13px;">
                 <strong>Please correct the following:</strong>
@@ -38,10 +33,6 @@
             </div>
         @endif
 
-
-        {{-- =====================================================
-             BACK BUTTON URL (prepared here, used inside alerts)
-        ====================================================== --}}
         @php
             $backToAllExamsUrl = route('teacher-bulk-allocation.index', array_filter([
                 'academic_year_id' => $academicYearId,
@@ -50,10 +41,6 @@
             ]));
         @endphp
 
-
-        {{-- =====================================================
-             PENDING EXAMS SUMMARY WIDGET
-        ====================================================== --}}
         @if(!empty($pendingSummary) && count($pendingSummary) > 0)
 
             <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
@@ -118,11 +105,6 @@
 
         @endif
 
-
-        {{-- =====================================================
-             PER-EXAM PENDING DETAIL (when exam selected)
-             Back button is now embedded inside this alert box.
-        ====================================================== --}}
         @if(!empty($pendingExam))
 
             @php
@@ -144,7 +126,6 @@
                         <div style="display:flex;align-items:flex-start;gap:10px;">
                             <div style="flex-shrink:0;font-size:18px;color:#dc2626;line-height:1;margin-top:1px;">⚠</div>
                             <div style="flex:1;">
-                                {{-- Header row with title + Back button --}}
                                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
                                     <div style="font-size:14px;font-weight:bold;color:#991b1b;">
                                         {{ $pendingCount }}
@@ -235,15 +216,10 @@
 
         @endif
 
-
-        {{-- =====================================================
-             FILTER
-        ====================================================== --}}
         <div style="width:100%;background:#ffffff;border:1px solid #d1d5db;border-radius:7px;padding:10px;margin-bottom:12px;box-sizing:border-box;">
             <form method="GET" action="{{ route('teacher-bulk-allocation.index') }}">
                 <div style="display:flex;align-items:flex-end;gap:8px;width:100%;flex-wrap:wrap;">
 
-                    {{-- STANDARD --}}
                     <div style="flex:0 0 170px;max-width:170px;">
                         <label for="standard_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:13px;">
                             Standard
@@ -258,7 +234,6 @@
                         </select>
                     </div>
 
-                    {{-- DIVISION --}}
                     <div style="flex:0 0 130px;max-width:130px;">
                         <label for="division_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:13px;">
                             Division
@@ -273,7 +248,6 @@
                         </select>
                     </div>
 
-                    {{-- EXAM --}}
                     <div style="flex:0 0 220px;max-width:220px;">
                         <label for="exam_master_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:13px;">
                             Exam
@@ -292,17 +266,14 @@
                         </select>
                     </div>
 
-                    {{-- SEARCH --}}
                     <button type="submit" style="width:80px;height:35px;background:#16a34a;color:white;border:none;padding:0;border-radius:5px;cursor:pointer;font-weight:600;font-size:13px;box-sizing:border-box;">
                         Search
                     </button>
 
-                    {{-- RESET --}}
-                    <a href="{{ route('teacher-bulk-allocation.index') }}" style="width:70px;height:35px;display:inline-flex;align-items:center;justify-content:center;background:#6b7280;color:white;padding:0;border-radius:5px;text-decoration:none;font-weight:600;font-size:13px;box-sizing:border-box;">
+                    <a href="{{ route('teacher-bulk-allocation.index') }}?reset=1" style="width:70px;height:35px;display:inline-flex;align-items:center;justify-content:center;background:#6b7280;color:white;padding:0;border-radius:5px;text-decoration:none;font-weight:600;font-size:13px;box-sizing:border-box;">
                         Reset
                     </a>
 
-                    {{-- NEW ALLOCATION --}}
                     <a href="{{ route('teacher-bulk-allocation.create') }}" style="width:auto;min-width:145px;height:35px;display:inline-flex;align-items:center;justify-content:center;background:#16a34a;color:white;padding:0 14px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:13px;margin-left:auto;box-sizing:border-box;">
                         + New Allocation
                     </a>
@@ -311,27 +282,23 @@
             </form>
         </div>
 
-
-        {{-- =====================================================
-             TABLE
-        ====================================================== --}}
         <div style="width:100%;overflow:hidden;">
             <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0;font-size:13px;">
                 <colgroup>
-                    <col style="width:4%;">   {{-- # --}}
-                    <col style="width:12%;">  {{-- Teacher --}}
-                    <col style="width:8%;">   {{-- Academic Year --}}
-                    <col style="width:13%;">  {{-- Section --}}
-                    <col style="width:11%;">  {{-- Standard --}}
-                    <col style="width:4%;">   {{-- Div. --}}
-                    <col style="width:16%;">  {{-- Exam --}}
-                    <col style="width:20%;">  {{-- Subjects --}}
-                    <col style="width:12%;">  {{-- Action --}}
+                    <col style="width:5%;">
+                    <col style="width:12%;">
+                    <col style="width:8%;">
+                    <col style="width:13%;">
+                    <col style="width:11%;">
+                    <col style="width:4%;">
+                    <col style="width:15%;">
+                    <col style="width:20%;">
+                    <col style="width:12%;">
                 </colgroup>
 
                 <thead>
                     <tr style="background:#1e3a8a;color:white;">
-                        <th style="padding:8px 4px;border:1px solid #d1d5db;text-align:center;font-size:13px;font-weight:bold;white-space:nowrap;">#</th>
+                        <th style="padding:8px 4px;border:1px solid #d1d5db;text-align:center;font-size:13px;font-weight:bold;white-space:nowrap;">ID</th>
                         <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Teacher</th>
                         <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Academic Year</th>
                         <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Section</th>
@@ -352,7 +319,10 @@
                     @endphp
 
                     <tr style="background:{{ $loop->even ? '#f9fafb' : '#ffffff' }};">
-                        <td style="padding:7px 4px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;font-size:13px;font-weight:bold;">{{ $allocation->id }}</td>
+                        {{-- ✅ Show the child link's ID (unique per exam) --}}
+                        <td style="padding:7px 4px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;font-size:13px;font-weight:bold;color:#1e3a8a;">
+                            {{ $allocation->displayRowId ?? $allocation->id }}
+                        </td>
 
                         <td style="padding:7px 5px;border:1px solid #d1d5db;font-weight:bold;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:13px;">
                             {{ optional($allocation->teacher)->name ?? '-' }}
@@ -438,9 +408,6 @@
 </div>
 
 
-{{-- =========================================================
-     DYNAMIC EXAM FILTER
-========================================================= --}}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 

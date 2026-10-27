@@ -29,7 +29,7 @@
         <div style="
             background:white;
             border-radius:10px;
-            padding:18px;
+            padding:15px;
             border:1px solid #d1d5db;
             box-shadow:0 3px 8px rgba(0,0,0,.12);
         ">
@@ -41,9 +41,9 @@
             <h2 style="
                 text-align:center;
                 color:#16a34a;
-                font-size:22px;
+                font-size:18px;
                 font-weight:bold;
-                margin-bottom:18px;
+                margin-bottom:12px;
             ">
                 Teacher Bulk Allocation
             </h2>
@@ -57,9 +57,10 @@
                 <div style="
                     background:#dcfce7;
                     color:#166534;
-                    padding:9px 12px;
-                    margin-bottom:12px;
+                    padding:6px 10px;
+                    margin-bottom:10px;
                     border-radius:5px;
+                    font-size:13px;
                 ">
                     {{ session('success') }}
                 </div>
@@ -74,9 +75,10 @@
                 <div style="
                     background:#fee2e2;
                     color:#991b1b;
-                    padding:9px 12px;
-                    margin-bottom:12px;
+                    padding:6px 10px;
+                    margin-bottom:10px;
                     border-radius:5px;
+                    font-size:13px;
                 ">
                     {{ session('error') }}
                 </div>
@@ -103,8 +105,8 @@
                 <div style="
                     display:grid;
                     grid-template-columns:1fr 1fr 1fr;
-                    gap:12px;
-                    margin-bottom:15px;
+                    gap:10px;
+                    margin-bottom:12px;
                 ">
 
 
@@ -115,7 +117,8 @@
                         <label style="
                             display:block;
                             font-weight:bold;
-                            margin-bottom:5px;
+                            font-size:13px;
+                            margin-bottom:4px;
                         ">
                             Teacher
                         </label>
@@ -124,7 +127,7 @@
                             name="user_id"
                             id="user_id"
                             class="form-select"
-                            style="width:100%;"
+                            style="width:100%; font-size:13px; height:32px; padding:4px 8px;"
                             required
                         >
 
@@ -155,7 +158,8 @@
                         <label style="
                             display:block;
                             font-weight:bold;
-                            margin-bottom:5px;
+                            font-size:13px;
+                            margin-bottom:4px;
                         ">
                             Academic Year
                         </label>
@@ -164,7 +168,7 @@
                             name="academic_year_id"
                             id="academic_year_id"
                             class="form-select"
-                            style="width:100%;"
+                            style="width:100%; font-size:13px; height:32px; padding:4px 8px;"
                             required
                         >
 
@@ -195,7 +199,8 @@
                         <label style="
                             display:block;
                             font-weight:bold;
-                            margin-bottom:5px;
+                            font-size:13px;
+                            margin-bottom:4px;
                         ">
                             Exam
                         </label>
@@ -204,7 +209,7 @@
                             name="exam_master_id"
                             id="exam_master_id"
                             class="form-select"
-                            style="width:100%;"
+                            style="width:100%; font-size:13px; height:32px; padding:4px 8px;"
                             required
                         >
 
@@ -240,7 +245,7 @@
                 <div style="
                     border:1px solid #d1d5db;
                     border-radius:7px;
-                    padding:12px;
+                    padding:10px;
                     background:#f9fafb;
                 ">
 
@@ -250,7 +255,7 @@
                     <div style="
                         display:grid;
                         grid-template-columns:260px 1fr;
-                        gap:15px;
+                        gap:12px;
                         align-items:start;
                     ">
 
@@ -262,7 +267,8 @@
                             <label style="
                                 display:block;
                                 font-weight:bold;
-                                margin-bottom:5px;
+                                font-size:13px;
+                                margin-bottom:4px;
                             ">
                                 Standard
                             </label>
@@ -275,8 +281,9 @@
                                 placeholder="Select Exam First"
                                 style="
                                     width:100%;
-                                    height:38px;
-                                    padding:7px 10px;
+                                    height:32px;
+                                    padding:4px 8px;
+                                    font-size:13px;
                                     border:1px solid #d1d5db;
                                     border-radius:5px;
                                     background:#e5e7eb;
@@ -313,7 +320,8 @@
                             <label style="
                                 display:block;
                                 font-weight:bold;
-                                margin-bottom:5px;
+                                font-size:13px;
+                                margin-bottom:4px;
                             ">
                                 Divisions
                             </label>
@@ -321,8 +329,9 @@
                             <div
                                 id="divisions-container"
                                 style="
-                                    min-height:38px;
-                                    padding:8px 10px;
+                                    min-height:32px;
+                                    padding:6px 8px;
+                                    font-size:13px;
                                     border:1px solid #d1d5db;
                                     background:white;
                                     border-radius:5px;
@@ -338,12 +347,13 @@
 
                     {{-- SUBJECTS --}}
 
-                    <div style="margin-top:12px;">
+                    <div style="margin-top:10px;">
 
                         <label style="
                             display:block;
                             font-weight:bold;
-                            margin-bottom:5px;
+                            font-size:13px;
+                            margin-bottom:4px;
                         ">
                             Subjects
                         </label>
@@ -351,8 +361,9 @@
                         <div
                             id="subjects-container"
                             style="
-                                min-height:42px;
-                                padding:8px 10px;
+                                min-height:32px;
+                                padding:6px 8px;
+                                font-size:13px;
                                 border:1px solid #d1d5db;
                                 background:white;
                                 border-radius:5px;
@@ -371,7 +382,7 @@
                 ================================================== --}}
 
                 <div style="
-                    margin-top:15px;
+                    margin-top:12px;
                     display:flex;
                     gap:8px;
                 ">
@@ -383,7 +394,8 @@
                             background:#16a34a;
                             color:white;
                             border:none;
-                            padding:8px 22px;
+                            padding:6px 16px;
+                            font-size:13px;
                             border-radius:5px;
                             cursor:pointer;
                             font-weight:bold;
@@ -398,7 +410,8 @@
                         style="
                             background:#6b7280;
                             color:white;
-                            padding:8px 22px;
+                            padding:6px 16px;
+                            font-size:13px;
                             text-decoration:none;
                             border-radius:5px;
                         "
@@ -450,12 +463,15 @@
 
             /*
             |--------------------------------------------------------------------------
-            | DIVISIONS
+            | DIVISIONS — full list + per-standard ERP-filtered list
             |--------------------------------------------------------------------------
             */
 
             const divisions =
                 @json($divisions);
+
+            const divisionsByStandard =
+                @json($divisionsByStandard ?? []);
 
 
             /*
@@ -480,22 +496,26 @@
 
             /*
             |--------------------------------------------------------------------------
-            | LOAD DIVISIONS
+            | LOAD DIVISIONS (filtered by Standard via ERP)
             |--------------------------------------------------------------------------
             */
 
-            function loadDivisions()
+            function loadDivisions(standardIdValue)
             {
                 divisionsContainer.innerHTML = '';
 
+                /* Prefer ERP-mapped divisions for this standard */
+                const mapped = divisionsByStandard[String(standardIdValue)] || [];
+                const list   = mapped.length > 0 ? mapped : divisions;
+
                 if (
-                    !Array.isArray(divisions) ||
-                    divisions.length === 0
+                    !Array.isArray(list) ||
+                    list.length === 0
                 ) {
 
                     divisionsContainer.innerHTML = `
                         <span style="color:red;">
-                            No divisions found.
+                            No divisions mapped for this Standard.
                         </span>
                     `;
 
@@ -506,15 +526,16 @@
                 let html = '';
 
 
-                divisions.forEach(function (division) {
+                list.forEach(function (division) {
 
                     html += `
                         <label style="
                             display:inline-flex;
                             align-items:center;
                             gap:5px;
-                            margin-right:15px;
-                            margin-bottom:5px;
+                            font-size:12px;
+                            margin-right:10px;
+                            margin-bottom:4px;
                             white-space:nowrap;
                             cursor:pointer;
                         ">
@@ -564,17 +585,6 @@
             |--------------------------------------------------------------------------
             | LOAD SUBJECTS
             |--------------------------------------------------------------------------
-            |
-            | IMPORTANT:
-            |
-            | Route is POST.
-            |
-            | We send only:
-            |
-            | exam_master_id
-            |
-            | Controller gets Standard from Exam Master.
-            |
             */
 
             async function loadSubjects(examMasterId)
@@ -632,12 +642,6 @@
                         );
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | READ RESPONSE
-                    |--------------------------------------------------------------------------
-                    */
-
                     const responseText =
                         await response.text();
 
@@ -664,12 +668,6 @@
                         );
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | PARSE JSON
-                    |--------------------------------------------------------------------------
-                    */
 
                     let data;
 
@@ -699,12 +697,6 @@
                     );
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | API FAILURE
-                    |--------------------------------------------------------------------------
-                    */
-
                     if (
                         !data ||
                         data.success !== true
@@ -723,12 +715,6 @@
                         return;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SUBJECT ARRAY
-                    |--------------------------------------------------------------------------
-                    */
 
                     const subjects =
                         Array.isArray(
@@ -751,12 +737,6 @@
                         return;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | BUILD SUBJECT CHECKBOXES
-                    |--------------------------------------------------------------------------
-                    */
 
                     let html = '';
 
@@ -788,9 +768,10 @@
                                     display:inline-flex;
                                     align-items:center;
                                     gap:6px;
-                                    margin-right:10px;
-                                    margin-bottom:6px;
-                                    padding:6px 9px;
+                                    padding:4px 6px;
+                                    font-size:12px;
+                                    margin-right:8px;
+                                    margin-bottom:4px;
                                     border:1px solid #d1d5db;
                                     border-radius:5px;
                                     background:white;
@@ -859,12 +840,6 @@
                         this.value;
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | RESET
-                    |--------------------------------------------------------------------------
-                    */
-
                     if (!examMasterId) {
 
                         resetFields();
@@ -879,12 +854,6 @@
                         ];
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STANDARD
-                    |--------------------------------------------------------------------------
-                    */
-
                     const selectedStandardId =
                         selected.dataset.standardId
                         || '';
@@ -895,22 +864,10 @@
                         || '';
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SECTION
-                    |--------------------------------------------------------------------------
-                    */
-
                     const selectedSectionId =
                         selected.dataset.sectionId
                         || '';
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SHOW STANDARD
-                    |--------------------------------------------------------------------------
-                    */
 
                     standardName.value =
                         selectedStandardName;
@@ -948,12 +905,6 @@
                     );
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STANDARD CHECK
-                    |--------------------------------------------------------------------------
-                    */
-
                     if (!selectedStandardId) {
 
                         divisionsContainer.innerHTML = `
@@ -971,12 +922,6 @@
                         return;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SECTION CHECK
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (!selectedSectionId) {
 
@@ -1002,20 +947,11 @@
                     }
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | LOAD DIVISIONS
-                    |--------------------------------------------------------------------------
-                    */
+                    /* ---------------------------------------------------
+                     | Load divisions filtered by this exam's standard
+                     * --------------------------------------------------- */
+                    loadDivisions(selectedStandardId);
 
-                    loadDivisions();
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | LOAD SUBJECTS
-                    |--------------------------------------------------------------------------
-                    */
 
                     await loadSubjects(
                         examMasterId
@@ -1072,12 +1008,6 @@
                         );
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | TEACHER
-                    |--------------------------------------------------------------------------
-                    */
-
                     if (!teacher) {
 
                         e.preventDefault();
@@ -1091,12 +1021,6 @@
                         return;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ACADEMIC YEAR
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (!year) {
 
@@ -1112,12 +1036,6 @@
                     }
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | EXAM
-                    |--------------------------------------------------------------------------
-                    */
-
                     if (!examValue) {
 
                         e.preventDefault();
@@ -1131,12 +1049,6 @@
                         return;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STANDARD
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (!standardValue) {
 
@@ -1152,12 +1064,6 @@
                         return;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | DIVISIONS
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (
                         divisionsChecked.length === 0
@@ -1175,12 +1081,6 @@
                         return;
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SUBJECTS
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (
                         subjectsChecked.length === 0

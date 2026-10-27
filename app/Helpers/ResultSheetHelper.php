@@ -56,23 +56,6 @@ class ResultSheetHelper
 
     /* ======================================================================
      | GRADE FROM PERCENTAGE
-     |======================================================================|
-     | Ranges used everywhere in this application:
-     |
-     |   A1 : 91 – 100
-     |   A2 : 81 – 90
-     |   B1 : 71 – 80
-     |   B2 : 61 – 70
-     |   C1 : 51 – 60
-     |   C2 : 41 – 50
-     |   D  : 33 – 40
-     |   E1 : 21 – 32
-     |   E2 : 1  – 20
-     |   F  : < 1
-     |
-     | IMPORTANT: E1 and E2 MUST exist. Without them, students with
-     | 21–32% or 1–20% collapse into F and disappear from the
-     | Overall Grade Analysis table.
      ====================================================================== */
 
     public static function getGradeFromPercentage($percentage): string
@@ -379,29 +362,6 @@ class ResultSheetHelper
 
     /* ======================================================================
      | BUILD STUDENTS
-     |======================================================================|
-     | This is the definitive result-sheet student builder.
-     |
-     | PASS / FAIL RULES
-     | ----------------
-     | Each subject uses its own passing marks:
-     |
-     |   1. If exam_master_subjects.passing_marks > 0 → use it.
-     |   2. Else compute as ceil( max_marks × passing_percentage / 100 )
-     |      where passing_percentage is 35 or 40 depending on the standard.
-     |
-     | A student FAILS a subject when the obtained mark is below the
-     | subject's passing marks.
-     |
-     | OVERALL RESULT
-     | --------------
-     |   FAIL  if any subject is FAIL or ABSENT,
-     |         OR overall percentage < standard passing percentage.
-     |
-     |   PASS  only when every subject passes AND the overall percentage
-     |         meets the standard's passing percentage.
-     |
-     |   PENDING  when any required mark is missing.
      ====================================================================== */
 
     public static function buildStudents(
@@ -469,10 +429,20 @@ class ResultSheetHelper
                 $maxMarks         = (float) ($column->max_marks ?? 0);
                 $isColumnOptional = (int) ($column->is_optional ?? 0) === 1;
 
+                $row = $studentMarks[$subjectId] ?? null;
+
+                // ⭐ FIX: If max_marks is 0 from the exam master, try to extract from the student's mark row
+                if ($maxMarks <= 0 && $row) {
+                    $maxMarks = self::extractMaxMarks($row);
+                }
+                
+                // ⭐ FIX: If still 0, default to 40 (assuming standard marking)
+                if ($maxMarks <= 0) {
+                    $maxMarks = 40;
+                }
+
                 /* ----------------------------------------------------------
                  | Effective passing marks for THIS subject
-                 | 1. Use DB value if available.
-                 | 2. Otherwise compute from the standard's percentage.
                  * ---------------------------------------------------------- */
 
                 $passingMarks = (float) ($column->passing_marks ?? 0);
@@ -480,8 +450,6 @@ class ResultSheetHelper
                 if ($passingMarks <= 0 && $maxMarks > 0) {
                     $passingMarks = self::calculatePassingMarks($maxMarks, $passPercentage);
                 }
-
-                $row = $studentMarks[$subjectId] ?? null;
 
                 /* ----------------------------------------------------------
                  | OPTIONAL SUBJECT HANDLING
@@ -581,12 +549,7 @@ class ResultSheetHelper
 
             /* ==========================================================
              | OVERALL RESULT
-             * ==========================================================
-             | FAIL    — any subject failed / absent,
-             |           OR overall % < standard passing %
-             | PASS    — all subjects passed AND overall % ≥ passing %
-             | PENDING — any required mark missing
-             */
+             * ========================================================== */
 
             if ($missingRequired || !$student->has_any_mark) {
 

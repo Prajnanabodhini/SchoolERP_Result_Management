@@ -122,7 +122,7 @@ class AnalyticsController extends Controller
 
 
     /* =====================================================================
-     |  INDEX — dashboard
+     |  INDEX — dashboard (and print-report mode)
      | ===================================================================== */
     public function index(Request $request)
     {
@@ -140,9 +140,18 @@ class AnalyticsController extends Controller
                    && $request->filled('standard_id')
                    && $request->filled('division_id');
 
+        /*
+        |--------------------------------------------------------------------------
+        | PICK THE VIEW — same data, different template
+        |--------------------------------------------------------------------------
+        */
+        $viewName = $request->boolean('print')
+            ? 'analytics.print'
+            : 'analytics.index';
+
         if (!$hasFilters) {
             return $this->emptyAnalyticsView(
-                $academicYears, $exams, $standards, $divisions, $request
+                $academicYears, $exams, $standards, $divisions, $request, $viewName
             );
         }
 
@@ -353,7 +362,7 @@ class AnalyticsController extends Controller
         $topStudentNames = $topStudents->pluck('student_name')->toArray();
         $topStudentMarks = $topStudents->pluck('total_marks')->map(fn($m) => round($m, 2))->toArray();
 
-        return view('analytics.index', [
+        return view($viewName, [
             'hasFilters'      => true,
             'gradeCounts'     => $gradeCounts,
             'academicYears'   => $academicYears,
@@ -380,6 +389,22 @@ class AnalyticsController extends Controller
             'subjectStats'    => $subjectStats,
             'standardComparison' => $standardComparison,
         ]);
+    }
+
+
+    /* =====================================================================
+     |  PRINT REPORT — reuse index() by setting the print flag
+     | ===================================================================== */
+    public function printReport(Request $request)
+    {
+        /*
+         * Reuse the exact same query pipeline as index() by setting `print=1`.
+         * index() detects this flag and renders 'analytics.print' instead of
+         * 'analytics.index' — using the same computed data.
+         */
+        $request->merge(['print' => 1]);
+
+        return $this->index($request);
     }
 
 
@@ -663,6 +688,7 @@ class AnalyticsController extends Controller
             (int) $standardId
         );
 
+        /* ---------- Structure max / passing for this subject ---------- */
         $structure = ExamStructureHelper::getComponentValues(
             (int) $standardId,
             $examName ?? '',
@@ -693,6 +719,7 @@ class AnalyticsController extends Controller
             $subjectPassingTotal = (int) ceil($subjectMaxTotal * 0.35);
         }
 
+        /* ---------- Legacy IDs mapping to this master subject ---------- */
         $swsIds = DB::table('standard_wise_subjects')
             ->where('subject_id', $subjectId)
             ->where('standard_id', $standardId)
@@ -719,23 +746,58 @@ class AnalyticsController extends Controller
             );
         }
 
-        $rows = $rowsQuery
+        $rawRows = $rowsQuery
             ->select(
+                'student_marks.id as mark_id',
                 'student_marks.student_id',
-                DB::raw("SUM(COALESCE(student_marks.theory_obtained_marks,0)
-                            + COALESCE(student_marks.oral_obtained_marks,0)
-                            + COALESCE(student_marks.practical_obtained_marks,0)) as obtained")
+                DB::raw('(' . $this->resolvedSubjectIdSql() . ') as resolved_subject_id'),
+                'student_marks.theory_obtained_marks',
+                'student_marks.oral_obtained_marks',
+                'student_marks.practical_obtained_marks',
+                'student_marks.theory_max_marks',
+                'student_marks.oral_max_marks',
+                'student_marks.practical_max_marks'
             )
-            ->groupBy('student_marks.student_id')
-            ->get()
-            ->map(function ($r) use ($subjectMaxTotal, $subjectPassingTotal) {
-                $r->max_marks = $subjectMaxTotal;
-                $r->passing   = $subjectPassingTotal;
-                $r->percent   = $subjectMaxTotal > 0
-                    ? round(($r->obtained / $subjectMaxTotal) * 100, 2)
-                    : 0;
-                return $r;
-            });
+            ->get();
+
+        $deduped = $rawRows
+            ->groupBy(fn($r) => $r->student_id . '|' . $r->resolved_subject_id)
+            ->map(function ($group) {
+                return $group
+                    ->sortByDesc(function ($r) {
+                        return (float) ($r->theory_obtained_marks    ?? 0)
+                             + (float) ($r->oral_obtained_marks      ?? 0)
+                             + (float) ($r->practical_obtained_marks ?? 0);
+                    })
+                    ->first();
+            })
+            ->values();
+
+        $rows = $deduped
+            ->groupBy('student_id')
+            ->map(function ($studentRows) use ($subjectMaxTotal, $subjectPassingTotal) {
+
+                $obtained = $studentRows->sum(function ($r) {
+                    return (float) ($r->theory_obtained_marks    ?? 0)
+                         + (float) ($r->oral_obtained_marks      ?? 0)
+                         + (float) ($r->practical_obtained_marks ?? 0);
+                });
+
+                if ($obtained > $subjectMaxTotal) {
+                    $obtained = $subjectMaxTotal;
+                }
+
+                return (object) [
+                    'student_id' => $studentRows->first()->student_id,
+                    'obtained'   => $obtained,
+                    'max_marks'  => $subjectMaxTotal,
+                    'passing'    => $subjectPassingTotal,
+                    'percent'    => $subjectMaxTotal > 0
+                        ? round(($obtained / $subjectMaxTotal) * 100, 2)
+                        : 0,
+                ];
+            })
+            ->values();
 
         $studentMap = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId)
             ->keyBy('Studentid');
@@ -768,9 +830,9 @@ class AnalyticsController extends Controller
     /* =====================================================================
      |  Placeholder view when no filters are applied
      | ===================================================================== */
-    private function emptyAnalyticsView($academicYears, $exams, $standards, $divisions, Request $request)
+    private function emptyAnalyticsView($academicYears, $exams, $standards, $divisions, Request $request, string $viewName = 'analytics.index')
     {
-        return view('analytics.index', [
+        return view($viewName, [
             'hasFilters'      => false,
             'academicYears'   => $academicYears,
             'exams'           => $exams,
@@ -840,7 +902,6 @@ class AnalyticsController extends Controller
         $exam1Name = $exam1Model->exam_name ?? 'Exam 1';
         $exam2Name = $exam2Model->exam_name ?? 'Exam 2';
 
-        /* ---- Students of the class (from year 1 as anchor) ---- */
         $studentMap = collect();
         try {
             $erpStudents = StudentHelper::getStudentsDirectERP($year1Id, $standardId, $divisionId);
@@ -854,7 +915,6 @@ class AnalyticsController extends Controller
             // ignore
         }
 
-        /* Also include any student that has marks in either exam */
         $unionStudentIds = StudentMark::where(function ($q) use ($exam1Id, $exam2Id) {
                 $q->where('exam_master_id', $exam1Id)
                   ->orWhere('exam_master_id', $exam2Id);
@@ -883,7 +943,6 @@ class AnalyticsController extends Controller
             ]);
         }
 
-        /* ---- Fetch marks for both exams ---- */
         $allowed1 = $this->allowedSubjectIds($exam1Id, $standardId);
         $allowed2 = $this->allowedSubjectIds($exam2Id, $standardId);
 
@@ -923,7 +982,6 @@ class AnalyticsController extends Controller
             ->unique(fn($r) => $r->student_id . '|' . $r->subject_id)
             ->groupBy('student_id');
 
-        /* ---- Per-student comparison ---- */
         $studentComparison = collect();
 
         foreach ($studentMap as $sid => $info) {
@@ -965,7 +1023,6 @@ class AnalyticsController extends Controller
             ->sortByDesc(fn($s) => $s->e2_pct ?? -1)
             ->values();
 
-        /* ---- Subject-wise comparison ---- */
         $allSubjectIds = collect($allowed1)->merge($allowed2)->unique()->values();
         $allSubjects   = \App\Models\Subject::whereIn('id', $allSubjectIds)
             ->orderBy('subject_name')->get();
@@ -1019,7 +1076,6 @@ class AnalyticsController extends Controller
             ]);
         }
 
-        /* ---- KPI ---- */
         $exam1Pcts = $studentComparison->pluck('e1_pct')->filter(fn($v) => $v !== null);
         $exam2Pcts = $studentComparison->pluck('e2_pct')->filter(fn($v) => $v !== null);
         $passThreshold = 35;
@@ -1057,13 +1113,11 @@ class AnalyticsController extends Controller
             'pass_pct' => round($kpi['exam2']['pass_pct'] - $kpi['exam1']['pass_pct'], 2),
         ];
 
-        /* ---- Improvers / Decliners ---- */
         $improvers = $studentComparison->where('both_exams', true)
             ->whereNotNull('delta')->sortByDesc('delta')->take(10)->values();
         $decliners = $studentComparison->where('both_exams', true)
             ->whereNotNull('delta')->sortBy('delta')->take(10)->values();
 
-        /* ---- Chart data ---- */
         $chartSubjectLabels = $subjectComparison->pluck('subject_name')->all();
         $chartSubjectPct1   = $subjectComparison->map(fn($s) => $s->avg1_pct ?? 0)->all();
         $chartSubjectPct2   = $subjectComparison->map(fn($s) => $s->avg2_pct ?? 0)->all();
@@ -1180,7 +1234,6 @@ class AnalyticsController extends Controller
         $standardName = Standard::find($standardId)->standard_name ?? '-';
         $divisionName = Division::find($divisionId)->division_name ?? '-';
 
-        /* ---- Students ---- */
         $studentMap = collect();
         try {
             $erpStudents = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
@@ -1205,7 +1258,6 @@ class AnalyticsController extends Controller
 
         $studentIds = $studentMap->keys()->all();
 
-        /* ---- All exams for this year + standard ---- */
         $exams = ExamMaster::where('academic_year_id', $yearId)
             ->where('standard_id', $standardId)
             ->orderBy('display_order')
@@ -1221,7 +1273,6 @@ class AnalyticsController extends Controller
             ]);
         }
 
-        /* ---- Per-exam KPI ---- */
         $examKPI = [];
         foreach ($exams as $exam) {
             $allowed = $this->allowedSubjectIds($exam->id, $standardId);
@@ -1290,7 +1341,6 @@ class AnalyticsController extends Controller
             ];
         }
 
-        /* ---- Subject × Exam matrix ---- */
         $subjectNames = [];
         foreach ($examKPI as $k) {
             foreach ($k['subject_stats'] as $sid => $info) {
@@ -1313,7 +1363,6 @@ class AnalyticsController extends Controller
             }
         }
 
-        /* ---- Student × Exam matrix ---- */
         $studentExamMatrix = [];
         foreach ($studentMap as $sid => $info) {
             $studentExamMatrix[$sid] = ['name' => $info['name'], 'exams' => []];
@@ -1323,7 +1372,6 @@ class AnalyticsController extends Controller
             }
         }
 
-        /* ---- Chart data ---- */
         $chartExamLabels  = $exams->pluck('exam_name')->all();
         $chartExamAvgPct  = collect($exams)->map(fn($e) => $examKPI[$e->id]['avg_pct']  ?? 0)->all();
         $chartExamPassPct = collect($exams)->map(fn($e) => $examKPI[$e->id]['pass_pct'] ?? 0)->all();

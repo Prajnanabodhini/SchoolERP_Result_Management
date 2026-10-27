@@ -69,7 +69,45 @@ use App\Http\Controllers\StudentSkillMarkController;
 use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\LibraryBookController;
 use App\Http\Controllers\LibraryBookCategoryController;
+use App\Http\Controllers\StudentSkillObservationController;
+use App\Http\Controllers\ExamStructureController;
+use App\Http\Controllers\SkillTeacherAllocationController;
 
+
+Route::get('/student-skill-observations/print-entry',
+    [App\Http\Controllers\StudentSkillObservationController::class, 'printEntry'])
+    ->name('student-skill-observations.print-entry');
+
+Route::get('/student-skill-observations/export-entry-excel',
+    [App\Http\Controllers\StudentSkillObservationController::class, 'exportEntryExcel'])
+    ->name('student-skill-observations.export-entry-excel');
+
+Route::middleware(['auth'])->group(function () {
+    // ... your existing student-skill-observations routes ...
+
+    // NEW — Excel export
+    Route::get(
+        '/student-skill-observations/export-excel',
+        [StudentSkillObservationController::class, 'exportExcel']
+    )->name('student-skill-observations.export-excel');
+});
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get('/student-skill-observations',
+        [StudentSkillObservationController::class, 'index']
+    )->name('student-skill-observations.index');
+
+    Route::post('/student-skill-observations/save',
+        [StudentSkillObservationController::class, 'save']
+    )->name('student-skill-observations.save');
+
+    Route::get('/student-skill-observations/summary',
+        [StudentSkillObservationController::class, 'summary']
+    )->name('student-skill-observations.summary');
+
+    Route::post('/student-skill-observations/auto-save', [App\Http\Controllers\StudentSkillObservationController::class, 'autoSave'])->name('student-skill-observations.auto-save');
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -118,6 +156,9 @@ Route::middleware(['auth'])->group(function () {
         '/student-skill-marks/save',
         [StudentSkillMarkController::class, 'save']
     )->name('student-skill-marks.save');
+
+    Route::post('/student-skill-marks/auto-save', [App\Http\Controllers\StudentSkillMarkController::class, 'autoSave'])
+    ->name('student-skill-marks.auto-save');
 });
 
 
@@ -425,6 +466,10 @@ Route::middleware(['auth'])->group(function () {
         SubjectController::class
     );
 
+    Route::get('subjects/edit-master/{subject}',   [SubjectController::class, 'editMaster'])
+    ->name('subjects.edit-master');
+Route::put('subjects/update-master/{subject}', [SubjectController::class, 'updateMaster'])
+    ->name('subjects.update-master');
 
     /*
     |--------------------------------------------------------------------------
@@ -599,42 +644,6 @@ Route::middleware(['auth'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | EXAM PATTERN
-    |--------------------------------------------------------------------------
-    */
-
-    Route::resource(
-        'exam-patterns',
-        ExamPatternController::class
-    );
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | EXAM PATTERN DETAILS
-    |--------------------------------------------------------------------------
-    */
-
-    Route::resource(
-        'exam-pattern-details',
-        ExamPatternDetailController::class
-    )->only([
-        'index',
-        'create',
-        'store',
-        'edit',
-        'update',
-        'destroy',
-    ]);
-
-    Route::get(
-        '/exam-pattern-details/get-subjects/{standard}',
-        [ExamPatternDetailController::class, 'getSubjects']
-    )->name('exam-pattern-details.getSubjects');
-
-
-    /*
-    |--------------------------------------------------------------------------
     | EXAM SUBJECTS
     |--------------------------------------------------------------------------
     */
@@ -660,6 +669,10 @@ Route::middleware(['auth'])->group(function () {
         '/exam-progress',
         [ExamProgressController::class, 'index']
     )->name('exam-progress.index');
+
+    Route::post('/exam-progress/generate-skill-marks', [ExamProgressController::class, 'generateSkillMarksAllocations'])
+    ->name('exam-progress.generate-skill-marks')
+    ->middleware(['auth']);
 
 
     /*
@@ -688,6 +701,9 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/get-students',    [LibraryController::class, 'getStudents'])    ->name('get-students');
         Route::get('/search-teachers', [LibraryController::class, 'searchTeachers']) ->name('search-teachers');
+
+        /* ---------- ⭐ AJAX: Book search (fixes RouteNotFoundException) ---------- */
+        Route::get('/books/search',    [LibraryController::class, 'booksSearch'])    ->name('books.search');
 
         /* ---------- Book Categories ---------- */
 
@@ -959,6 +975,9 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
+    Route::get('/analytics/print', [AnalyticsController::class, 'printReport'])
+     ->name('analytics.print');
+     
     Route::get(
         '/analytics',
         [AnalyticsController::class, 'index']
@@ -1008,6 +1027,38 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
+Route::middleware(['auth'])->prefix('exam-structures')->name('exam-structures.')->group(function () {
+    Route::get('/',                   [ExamStructureController::class, 'index'])->name('index');
+    Route::get('/{standardKey}/edit', [ExamStructureController::class, 'edit'])->name('edit');
+    Route::put('/{standardKey}',      [ExamStructureController::class, 'update'])->name('update');
+});
+
+
+Route::prefix('student-skill-marks')->name('student-skill-marks.')->group(function () {
+    Route::get('/',             [StudentSkillMarkController::class, 'index'])->name('index');
+    Route::post('/save',        [StudentSkillMarkController::class, 'save'])->name('save');
+    Route::get('/print',        [StudentSkillMarkController::class, 'print'])->name('print');
+    Route::get('/export-excel', [StudentSkillMarkController::class, 'exportExcel'])->name('export-excel');
+});
+
+
+Route::prefix('skill-teacher-allocation')->name('skill-teacher-allocation.')->group(function () {
+    Route::get('/', [SkillTeacherAllocationController::class, 'index'])->name('index');
+    Route::get('/create', [SkillTeacherAllocationController::class, 'create'])->name('create');
+    Route::post('/', [SkillTeacherAllocationController::class, 'store'])->name('store');
+    Route::get('/{id}/edit', [SkillTeacherAllocationController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [SkillTeacherAllocationController::class, 'update'])->name('update');
+    Route::delete('/{id}', [SkillTeacherAllocationController::class, 'destroy'])->name('destroy');
+});
+
+
+// Existing routes...
+Route::get('/skill-teacher-allocation', [SkillTeacherAllocationController::class, 'index'])->name('skill-teacher-allocation.index');
+
+// Add this new route for generating allocations
+Route::post('/skill-teacher-allocation/generate-skill-marks', [SkillTeacherAllocationController::class, 'generateSkillMarksAllocations'])
+    ->name('skill-teacher-allocation.generate-skill-marks')
+    ->middleware(['auth']);
 
 /*
 |--------------------------------------------------------------------------

@@ -23,7 +23,9 @@ class LibraryBookController extends Controller
                 $q->where('book_name', 'like', "%{$search}%")
                   ->orWhere('book_code', 'like', "%{$search}%")
                   ->orWhere('author', 'like', "%{$search}%")
-                  ->orWhere('publisher', 'like', "%{$search}%");
+                  ->orWhere('publisher', 'like', "%{$search}%")
+                  ->orWhere('donor_name', 'like', "%{$search}%")
+                  ->orWhere('bill_no', 'like', "%{$search}%");
             });
         }
 
@@ -35,10 +37,20 @@ class LibraryBookController extends Controller
             $query->where('is_active', $request->status === 'active' ? 1 : 0);
         }
 
-        $books      = $query->orderBy('book_name')->paginate(25)->withQueryString();
+        if ($request->filled('publication_year')) {
+            $query->where('publication_year', $request->publication_year);
+        }
+
+        /* ---------- ⭐ Rows per page (Pages dropdown) ---------- */
+        $perPage = (int) $request->input('per_page', 50);
+        if (!in_array($perPage, [10, 25, 50, 100, 200], true)) {
+            $perPage = 50;
+        }
+
+        $books      = $query->orderBy('book_name')->paginate($perPage)->withQueryString();
         $categories = LibraryBookCategory::where('is_active', 1)->orderBy('category_name')->get();
 
-        return view('library.books.index', compact('books', 'categories'));
+        return view('library.books.index', compact('books', 'categories', 'perPage'));
     }
 
     /* ===========================================================
@@ -65,6 +77,14 @@ class LibraryBookController extends Controller
             'book_name'        => 'required|string|max:255',
             'author'           => 'nullable|string|max:255',
             'publisher'        => 'nullable|string|max:255',
+            'publication_year' => 'nullable|integer|min:1000|max:' . (date('Y') + 1),
+            'edition'          => 'nullable|string|max:100',
+            'total_pages'      => 'nullable|integer|min:1',
+            'donor_name'       => 'nullable|string|max:255',
+            'bill_no'          => 'nullable|string|max:50',
+            'bill_date'        => 'nullable|date',
+            'printed_price'    => 'nullable|string|max:50',
+            'remarks'          => 'nullable|string',
             'category_id'      => 'nullable|exists:library_book_categories,id',
             'total_copies'     => 'required|integer|min:1',
             'shelf_location'   => 'nullable|string|max:50',
@@ -77,6 +97,14 @@ class LibraryBookController extends Controller
                 'book_name'        => trim($validated['book_name']),
                 'author'           => $validated['author'] ?? null,
                 'publisher'        => $validated['publisher'] ?? null,
+                'publication_year' => $validated['publication_year'] ?? null,
+                'edition'          => $validated['edition'] ?? null,
+                'total_pages'      => $validated['total_pages'] ?? null,
+                'donor_name'       => $validated['donor_name'] ?? null,
+                'bill_no'          => $validated['bill_no'] ?? null,
+                'bill_date'        => $validated['bill_date'] ?? null,
+                'printed_price'    => $validated['printed_price'] ?? null,
+                'remarks'          => $validated['remarks'] ?? null,
                 'category_id'      => $validated['category_id'] ?? null,
                 'total_copies'     => (int) $validated['total_copies'],
                 'available_copies' => (int) $validated['total_copies'],
@@ -115,14 +143,22 @@ class LibraryBookController extends Controller
         $book = LibraryBook::findOrFail($id);
 
         $validated = $request->validate([
-            'book_code'      => 'required|string|max:50|unique:library_books,book_code,' . $book->id,
-            'book_name'      => 'required|string|max:255',
-            'author'         => 'nullable|string|max:255',
-            'publisher'      => 'nullable|string|max:255',
-            'category_id'    => 'nullable|exists:library_book_categories,id',
-            'total_copies'   => 'required|integer|min:1',
-            'shelf_location' => 'nullable|string|max:50',
-            'is_active'      => 'nullable',
+            'book_code'        => 'required|string|max:50|unique:library_books,book_code,' . $book->id,
+            'book_name'        => 'required|string|max:255',
+            'author'           => 'nullable|string|max:255',
+            'publisher'        => 'nullable|string|max:255',
+            'publication_year' => 'nullable|integer|min:1000|max:' . (date('Y') + 1),
+            'edition'          => 'nullable|string|max:100',
+            'total_pages'      => 'nullable|integer|min:1',
+            'donor_name'       => 'nullable|string|max:255',
+            'bill_no'          => 'nullable|string|max:50',
+            'bill_date'        => 'nullable|date',
+            'printed_price'    => 'nullable|string|max:50',
+            'remarks'          => 'nullable|string',
+            'category_id'      => 'nullable|exists:library_book_categories,id',
+            'total_copies'     => 'required|integer|min:1',
+            'shelf_location'   => 'nullable|string|max:50',
+            'is_active'        => 'nullable',
         ]);
 
         try {
@@ -136,6 +172,14 @@ class LibraryBookController extends Controller
                 'book_name'        => trim($validated['book_name']),
                 'author'           => $validated['author'] ?? null,
                 'publisher'        => $validated['publisher'] ?? null,
+                'publication_year' => $validated['publication_year'] ?? null,
+                'edition'          => $validated['edition'] ?? null,
+                'total_pages'      => $validated['total_pages'] ?? null,
+                'donor_name'       => $validated['donor_name'] ?? null,
+                'bill_no'          => $validated['bill_no'] ?? null,
+                'bill_date'        => $validated['bill_date'] ?? null,
+                'printed_price'    => $validated['printed_price'] ?? null,
+                'remarks'          => $validated['remarks'] ?? null,
                 'category_id'      => $validated['category_id'] ?? null,
                 'total_copies'     => $newTotal,
                 'available_copies' => $newAvailable,

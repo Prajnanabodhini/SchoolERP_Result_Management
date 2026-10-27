@@ -35,7 +35,8 @@ class LoginRequest extends FormRequest
                 'in:chikhali,shirgaon',
             ],
 
-            'name' => [
+            // Changed from 'name' to 'username'
+            'username' => [
                 'required',
                 'string',
             ],
@@ -70,9 +71,11 @@ class LoginRequest extends FormRequest
         |--------------------------------------------------------------------------
         */
 
+        // NOTE: I am querying the database using the 'name' column. 
+        // If your database column is actually named 'username', change 'name' below to 'username'.
         $user = \App\Models\User::where(
-            'name',
-            $this->name
+            'name', 
+            $this->username
         )->first();
 
 
@@ -95,7 +98,7 @@ class LoginRequest extends FormRequest
             );
 
             throw ValidationException::withMessages([
-                'name' =>
+                'username' => // Changed from 'name' to 'username'
                     'Invalid Username or Password.',
             ]);
         }
@@ -229,18 +232,19 @@ class LoginRequest extends FormRequest
 
 
         throw ValidationException::withMessages([
-            'name' => trans(
-                'auth.throttle',
-                [
-                    'seconds' =>
-                        $seconds,
+            'username' => // Changed from 'name' to 'username'
+                trans(
+                    'auth.throttle',
+                    [
+                        'seconds' =>
+                            $seconds,
 
-                    'minutes' =>
-                        ceil(
-                            $seconds / 60
-                        ),
-                ]
-            ),
+                        'minutes' =>
+                            ceil(
+                                $seconds / 60
+                            ),
+                    ]
+                ),
         ]);
     }
 
@@ -252,7 +256,7 @@ class LoginRequest extends FormRequest
     {
         return Str::transliterate(
             Str::lower(
-                $this->string('name')
+                $this->string('username') // Changed from 'name' to 'username'
             )
             . '|'
             . $this->ip()

@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Examination Result Sheet</title>
-
     <style>
-
         @page { size: A4 landscape; margin-top: 20mm; margin-left: 15mm; margin-right: 4mm; margin-bottom: 7mm; }
         * { box-sizing: border-box; }
         html, body { width: 100%; max-width: 100%; margin: 0; padding: 0; }
@@ -39,22 +37,20 @@
         .school-logo-cell { width: 60px; text-align: center !important; }
         .school-logo { width: 50px; height: 50px; object-fit: contain; }
         .school-title-cell { text-align: center !important; }
-        .school-name { font-size: 19px; line-height: 22px; font-weight: 700; text-align: center; white-space: nowrap; }
-        .school-location, .school-year { font-size: 13px; line-height: 16px; font-weight: 700; text-align: center; white-space: nowrap; }
+        
+        /* Adjusted Header Sizes for Landscape */
+        .school-name { font-size: 16px; line-height: 18px; font-weight: 800; color: #1e3a8a; text-align: center; white-space: nowrap; }
+        .school-location { font-size: 12px; line-height: 14px; font-weight: 800; color: #1e3a8a; text-align: center; margin-top: 1px; white-space: nowrap; text-transform: uppercase; }
+        .school-address { font-size: 10px; line-height: 12px; font-weight: 700; color: #475569; text-align: center; white-space: nowrap; margin-top: 2px; }
+        .school-year { margin-top: 2px; font-size: 11px; line-height: 13px; font-weight: 700; color: #475569; text-align: center; white-space: nowrap; }
 
-        /* ---------- Horizontal divider under the school header ---------- */
-        .school-header-divider {
-            border-bottom: 2px solid #000;
-            margin-top: 4px;
-            margin-bottom: 6px;
-        }
+        .school-header-divider { border-bottom: 2px solid #000; margin-top: 4px; margin-bottom: 6px; }
 
         .exam-info { margin-bottom: 5px; }
         .exam-info td { font-size: 11px; padding: 2px 4px; text-align: left; font-weight: 600; white-space: nowrap; }
         .exam-info strong { font-weight: 700; }
 
         .result-sheet-wrapper, .analysis-table-wrapper, .subject-wise-analysis-wrapper { width: 100%; max-width: 100%; overflow: hidden; }
-
         .result-sheet-table, .analysis-table, .subject-wise-analysis-table { width: 100%; max-width: 100%; border-collapse: collapse; border-spacing: 0; table-layout: auto; border: 1px solid #333; font-family: Arial, Helvetica, sans-serif; font-size: 9.5px; min-width: 0; }
 
         .result-sheet-table th, .result-sheet-table td, .analysis-table th, .analysis-table td, .subject-wise-analysis-table th, .subject-wise-analysis-table td { border: 1px solid #333 !important; border-style: solid !important; border-width: 1px !important; text-align: center; vertical-align: middle; color: #111827 !important; min-width: 0; padding: 2px 2px; }
@@ -91,7 +87,6 @@
         .signature-designation { display: block; margin-top: 7px; font-size: 9px; font-weight: 700; white-space: nowrap; }
 
         @media screen { .print-page { padding: 10px; } }
-
     </style>
 </head>
 
@@ -134,7 +129,7 @@ $overallGradeAnalysis     = $sheet['overallGradeAnalysis'];
 $subjectAnalysis          = $sheet['subjectAnalysis'];
 $classTeacherName         = $sheet['classTeacherName'];
 $principalName            = $sheet['principalName'];
-$schoolCode               = $sheet['schoolCode'];
+$schoolCode               = session('school_code', 'shirgaon'); // Forced session check
 
 $displayNumber            = fn ($v) => ResultSheetBladeHelper::displayNumber($v);
 $isSeniorOptionalColumn   = fn ($c) => ResultSheetBladeHelper::isSeniorOptionalColumn($c, $printStandardId);
@@ -150,10 +145,12 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
         <td class="school-title-cell">
             @if($schoolCode === 'chikhali')
                 <div class="school-name">PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI</div>
+                <div class="school-address">S.No. 1517/1, Sonwane Vasti, Chikhali, Tal. Haveli, Dist. Pune, Maharashtra 411062</div>
                 <div class="school-year">Academic Year : {{ $academicYear->year_name ?? '' }}</div>
             @else
                 <div class="school-name">PRAJNANABODHINI ENGLISH MEDIUM SCHOOL &amp; JR. COLLEGE</div>
                 <div class="school-location">SHIRGAON</div>
+                <div class="school-address">Gat No. 227, Shirgaon-Gahunje Rd, At. Post. Shirgaon, Tal. Maval, Dist. Pune, Maharashtra - 410506</div>
                 <div class="school-year">Academic Year : {{ $academicYear->year_name ?? '' }}</div>
             @endif
         </td>
@@ -161,17 +158,13 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
     </tr>
 </table>
 
-{{-- Horizontal divider under the school header --}}
 <div class="school-header-divider"></div>
-
 
 <table class="exam-info">
     <tr>
         <td><strong>Exam :</strong> {{ $exam->display_exam_name ?? $exam->exam_name ?? '' }}</td>
         <td><strong>Standard :</strong> {{ $standard->standard_name ?? '' }}</td>
         <td><strong>Division :</strong> {{ $division->division_name ?? '' }}</td>
-        <td><strong>Class Teacher :</strong> {{ $classTeacherName ?: '-' }}</td>
-        <td><strong>Principal :</strong> {{ $principalName ?: '-' }}</td>
         <td><strong>Total Students :</strong> {{ $sortedResults->count() }}</td>
     </tr>
 </table>

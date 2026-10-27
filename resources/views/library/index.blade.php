@@ -27,13 +27,13 @@
 .lib-btn-gray { background: #6b7280; color: #fff; border-color: #4b5563; }
 .lib-btn-gray:hover { background: #4b5563; }
 
-/* SMALL ACTION BUTTONS — min-width:0 cancels the 110px from .lib-btn */
+/* SMALL ACTION BUTTONS */
 .lib-btn-sm {
-    width: 60px;
-    height: 38px;
-    min-width: 60px;
+    width: 58px;
+    height: 34px;
+    min-width: 58px;
     padding: 0;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 700;
     line-height: 1;
     display: inline-flex;
@@ -50,26 +50,36 @@
 }
 
 .lib-table-wrap { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-.lib-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0; font-size: 13px; }
+.lib-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0; font-size: 12.5px; }
 .lib-table thead tr { background: #1e3a8a; color: #fff; }
-.lib-table th { padding: 9px 6px; font-size: 11px; font-weight: 700; text-align: left; border: 1px solid #d1d5db; color: #fff; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.3px; }
+.lib-table th { padding: 8px 6px; font-size: 11px; font-weight: 700; text-align: left; border: 1px solid #d1d5db; color: #fff; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.3px; }
 .lib-table th.center { text-align: center; }
-.lib-table td { padding: 8px 6px; border: 1px solid #d1d5db; vertical-align: middle; color: #111827; overflow: hidden; text-transform: uppercase; }
+.lib-table td { padding: 8px 6px; border: 1px solid #d1d5db; vertical-align: middle; color: #111827; overflow: hidden; }
 .lib-table tbody tr:nth-child(even) { background: #f9fafb; }
 .lib-table tbody tr:hover { background: #fef9c3; }
 .lib-table td.center { text-align: center; }
 
+/* WRAP classes */
+.lib-wrap {
+    display: block;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
 .lib-nowrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; display: block; }
+.lib-sub { font-size: 11px; color: #6b7280; margin-top: 2px; line-height: 1.2; }
 
-.lib-status { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; text-transform: uppercase; }
+.lib-status { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; text-transform: uppercase; }
 .lib-status-issued   { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
 .lib-status-returned { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
 .lib-status-overdue  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
 
 /* Type badges */
-.lib-type-student { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; text-transform: uppercase;
+.lib-type-student { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; text-transform: uppercase;
                     background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
-.lib-type-teacher { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; text-transform: uppercase;
+.lib-type-teacher { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; text-transform: uppercase;
                     background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
 
 .lib-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; }
@@ -123,6 +133,18 @@
                         <option value="teacher" {{ request('borrower_type') === 'teacher' ? 'selected' : '' }}>Teacher</option>
                     </select>
                 </div>
+
+                {{-- Pages dropdown (records per page) --}}
+                <div class="lib-filter-group">
+                    <label class="lib-filter-label" for="per_page">Pages</label>
+                    <select name="per_page" id="per_page" class="lib-select" style="min-width:90px;"
+                            onchange="this.form.submit()">
+                        @foreach([10, 25, 50, 100, 200] as $n)
+                            <option value="{{ $n }}" {{ (int)($perPage ?? 50) === $n ? 'selected' : '' }}>{{ $n }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <button type="submit" class="lib-btn lib-btn-blue">Search</button>
                 <a href="{{ route('library.index') }}" class="lib-btn lib-btn-gray">Reset</a>
             </div>
@@ -134,16 +156,16 @@
         <div class="lib-table-wrap">
             <table class="lib-table">
                 <colgroup>
-                    <col style="width:4%;">    {{-- Sr.         --}}
-                    <col style="width:14%;">   {{-- Book        --}}
-                    <col style="width:16%;">   {{-- Borrower    --}}
-                    <col style="width:9%;">    {{-- Type        --}}
-                    <col style="width:12%;">   {{-- Class       --}}
-                    <col style="width:8%;">    {{-- Issue Date  --}}
-                    <col style="width:8%;">    {{-- Due Date    --}}
-                    <col style="width:8%;">    {{-- Return Date --}}
-                    <col style="width:9%;">    {{-- Status      --}}
-                    <col style="width:12%;">   {{-- Action      --}}
+                    <col style="width:3.5%;">   {{-- Sr.         --}}
+                    <col style="width:20%;">    {{-- Book        --}}
+                    <col style="width:15%;">    {{-- Borrower    --}}
+                    <col style="width:8%;">     {{-- Type        --}}
+                    <col style="width:11%;">    {{-- Class       --}}
+                    <col style="width:7.5%;">   {{-- Issue Date  --}}
+                    <col style="width:7.5%;">   {{-- Due Date    --}}
+                    <col style="width:7.5%;">   {{-- Return Date --}}
+                    <col style="width:10%;">    {{-- Status      --}}
+                    <col style="width:10%;">    {{-- Action      --}}
                 </colgroup>
 
                 <thead>
@@ -182,12 +204,11 @@
 
                             {{-- BOOK --}}
                             <td>
-                                <div class="lib-nowrap" style="font-weight:600;" title="{{ $issue->book_name }}">
+                                <div class="lib-wrap" style="font-weight:700;">
                                     {{ $issue->book_name }}
                                 </div>
                                 @if($issue->book_code || $issue->author)
-                                    <div class="lib-nowrap" style="font-size:11px;color:#6b7280;"
-                                         title="{{ trim(($issue->book_code ?? '') . ' ' . ($issue->author ?? '')) }}">
+                                    <div class="lib-sub lib-wrap">
                                         @if($issue->book_code){{ $issue->book_code }}@endif
                                         @if($issue->book_code && $issue->author) · @endif
                                         @if($issue->author){{ $issue->author }}@endif
@@ -197,10 +218,10 @@
 
                             {{-- BORROWER --}}
                             <td>
-                                <div class="lib-nowrap" style="font-weight:600;" title="{{ $issue->borrower_name }}">
+                                <div class="lib-wrap" style="font-weight:700;">
                                     {{ $issue->borrower_name }}
                                 </div>
-                                <div class="lib-nowrap" style="font-size:11px;color:#6b7280;">
+                                <div class="lib-sub">
                                     ID: {{ $issue->borrower_id }}
                                 </div>
                             </td>
@@ -216,7 +237,7 @@
 
                             {{-- CLASS --}}
                             <td class="center">
-                                <div class="lib-nowrap" title="{{ $issue->borrower_class }}">
+                                <div class="lib-wrap" title="{{ $issue->borrower_class }}">
                                     {{ $issue->borrower_class ?: '-' }}
                                 </div>
                             </td>
@@ -269,9 +290,10 @@
             </table>
         </div>
 
+        {{-- Pagination — centered, single "Showing …" from Laravel's built-in widget --}}
         @if($issues->hasPages())
-            <div style="margin-top:14px;display:flex;justify-content:center;">
-                {{ $issues->onEachPage(3)->links() }}
+            <div style="margin-top:16px;display:flex;justify-content:center;">
+                {{ $issues->onEachSide(3)->links() }}
             </div>
         @endif
 

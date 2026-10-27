@@ -7,16 +7,12 @@
 .admin-marks-page,
 .admin-marks-page * {
     box-sizing: border-box;
-    font-family: Arial, sans-serif !important;
+    font-family: Arial, Helvetica, sans-serif !important;
 }
 
-.admin-marks-page h2 {
-    margin: 0 0 12px;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    color: #1d4ed8 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+.admin-marks-page {
+    background: #f0f0f0;
+    padding: 20px;
 }
 
 /* =========================================================
@@ -24,35 +20,50 @@
 ========================================================= */
 .admin-marks-card-outer {
     background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 14px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    padding: 18px 20px;
+    max-width: 100%;
+}
+
+.admin-marks-page h2 {
+    margin: 0 0 14px;
+    font-size: 21px !important;
+    font-weight: 700 !important;
+    color: #1D4ED8 !important;
+    letter-spacing: 0.4px;
+    text-transform: none;
 }
 
 /* =========================================================
    MESSAGES
-========================================================= */
+   ========================================================= */
 .admin-info-box {
-    margin-bottom: 10px;
-    padding: 8px 12px;
-    border-radius: 4px;
+    margin-top: 14px;
+    padding: 12px 16px;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 600;
+    line-height: 1.5;
 }
+
 .admin-error-box {
-    background: #fef2f2;
-    border: 1px solid #ef4444;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
     color: #991b1b;
 }
 .admin-success-box {
-    background: #ecfdf5;
-    border: 1px solid #10b981;
-    color: #065f46;
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    color: #166534;
 }
 .admin-error-box ul {
     margin: 0;
-    padding-left: 18px;
+    padding-left: 20px;
+}
+.admin-info-box:first-of-type {
+    margin-top: 0;
 }
 
 /* =========================================================
@@ -63,12 +74,13 @@
     align-items: flex-end;
     flex-wrap: wrap;
     gap: 10px;
+    margin-top: 6px;
 }
 
 .admin-filter-group {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 5px;
     flex: 0 0 auto;
 }
 
@@ -87,9 +99,9 @@
 
 .admin-filter-select {
     height: 32px;
-    padding: 4px 26px 4px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    padding: 4px 28px 4px 10px;
+    border: 1px solid #9CA3AF;
+    border-radius: 6px;
     background: #ffffff;
     color: #111827;
     font-size: 12px;
@@ -103,32 +115,32 @@
 }
 
 .admin-filter-select:focus {
-    border-color: #2563eb;
+    border-color: #2563EB;
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 
 .admin-filter-select:disabled {
-    background: #f3f4f6;
-    color: #9ca3af;
+    background: #F3F4F6;
+    color: #6B7280;
     cursor: not-allowed;
 }
 
 .admin-dropdown-arrow {
     position: absolute;
-    right: 9px;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid #6b7280;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #6b7280;
     pointer-events: none;
 }
 
 /* Widths */
-.admin-select-year       { width: 160px; }
-.admin-select-exam       { width: 220px; }
-.admin-select-teacher    { min-width: 260px; max-width: 320px; }
-.admin-select-subject    { min-width: 200px; max-width: 260px; }
+.admin-select-year       { width: 170px; }
+.admin-select-exam       { width: 230px; }
+.admin-select-teacher    { min-width: 270px; max-width: 330px; }
+.admin-select-subject    { min-width: 210px; max-width: 270px; }
 
 /* =========================================================
    BUTTONS
@@ -136,15 +148,15 @@
 .admin-filter-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex: 0 0 auto;
 }
 
 .admin-erp-btn {
     height: 32px;
-    padding: 4px 16px;
-    border: 0;
-    border-radius: 4px;
+    min-width: 140px;
+    padding: 0 16px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -153,23 +165,29 @@
     justify-content: center;
     text-decoration: none;
     white-space: nowrap;
-    transition: background .15s;
+    transition: background .15s, border-color .15s;
     border: 1px solid transparent;
 }
 
 .admin-btn-blue {
-    background: #2563eb;
+    background: #16A34A;
     color: #ffffff;
-    border-color: #1d4ed8;
+    border-color: #15803D;
 }
-.admin-btn-blue:hover { background: #1d4ed8; }
+.admin-btn-blue:hover {
+    background: #15803D;
+    border-color: #166534;
+}
 
 .admin-btn-gray {
-    background: #6b7280;
+    background: #6B7280;
     color: #ffffff;
-    border-color: #4b5563;
+    border-color: #4B5563;
 }
-.admin-btn-gray:hover { background: #4b5563; }
+.admin-btn-gray:hover {
+    background: #4B5563;
+    border-color: #374151;
+}
 
 .admin-erp-btn:disabled {
     opacity: .65;
@@ -180,6 +198,9 @@
    RESPONSIVE
 ========================================================= */
 @media (max-width: 900px) {
+    .admin-marks-page { padding: 12px; }
+    .admin-marks-card-outer { padding: 14px; }
+
     .admin-filter-row {
         flex-direction: column;
         align-items: stretch;
@@ -201,6 +222,7 @@
 
     .admin-filter-actions .admin-erp-btn {
         flex: 1;
+        min-width: 0;
     }
 }
 </style>

@@ -3,20 +3,37 @@
 namespace App\Console\Commands;
 
 use App\Services\ExamStructureExcelService;
+use App\Services\ExamStructureSyncService;
 use Illuminate\Console\Command;
 
 class ValidateExamStructureCommand extends Command
 {
-    protected $signature = 'exam:structure-validate';
+    protected $signature = 'exam:structure-validate
+                            {--sync       : After validating, rebuild exam_master_subjects from exam_structures}
+                            {--sync-only  : Skip validation and just run the DB sync}
+                            {--standard-id= : Limit --sync / --sync-only to one standard id}
+                            {--exam-type=   : Limit --sync / --sync-only to one exam type (e.g. "TERM 1")}';
 
-    protected $description = 'Validate Academic Exam Structure.xlsx against active Standard Wise Subject mappings.';
+    protected $description = 'Validate the Exam Structure (Excel) AND/OR rebuild exam_master_subjects from exam_structures.';
 
-    public function handle(ExamStructureExcelService $service): int
-    {
+    public function handle(
+        ExamStructureExcelService $excel,
+        ExamStructureSyncService $sync
+    ): int {
+
+        if ($this->option('sync-only')) {
+            return $this->runSync($sync);
+        }
+
         try {
-            $report = $service->validateAll();
+            $report = $excel->validateAll();
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
+            if ($this->option('sync')) {
+                $this->newLine();
+                $this->warn('Continuing with --sync despite validation error...');
+                return $this->runSync($sync);
+            }
             return self::FAILURE;
         }
 
@@ -36,31 +53,49 @@ class ValidateExamStructureCommand extends Command
             ));
 
             foreach ($standard['exam_types'] as $examType => $result) {
-                $errors = $result['errors'] ?? [];
+                $errors   = $result['errors']   ?? [];
                 $warnings = $result['warnings'] ?? [];
-                $errorCount += count($errors);
+                $errorCount   += count($errors);
                 $warningCount += count($warnings);
 
                 $status = empty($errors) ? '<fg=green>OK</>' : '<fg=red>ERROR</>';
                 $this->line(sprintf(
                     '  %-14s %-8s Subjects: %d',
-                    $examType,
-                    $status,
-                    $result['subject_count']
+                    $examType, $status, $result['subject_count']
                 ));
 
-                foreach ($errors as $error) {
-                    $this->error('    ERROR: ' . $error);
-                }
-                foreach ($warnings as $warning) {
-                    $this->warn('    WARNING: ' . $warning);
-                }
+                foreach ($errors   as $e) $this->error('    ERROR: ' . $e);
+                foreach ($warnings as $w) $this->warn('    WARNING: ' . $w);
             }
         }
 
         $this->newLine();
         $this->info("Validation complete. Errors: {$errorCount}; Warnings: {$warningCount}.");
 
+        if ($this->option('sync')) {
+            $this->newLine();
+            $this->runSync($sync);
+            if ($errorCount > 0) return self::FAILURE;
+        }
+
         return $errorCount > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runSync(ExamStructureSyncService $sync): int
+    {
+        $standardId = $this->option('standard-id');
+        $examType   = $this->option('exam-type');
+
+        if ($standardId) {
+            $this->info("Syncing standard_id={$standardId}" . ($examType ? " exam_type={$examType}" : '') . ' ...');
+            $count = $sync->syncStandardFromDatabase((int) $standardId, $examType);
+        } else {
+            $this->info('Syncing ALL active Exam Masters from exam_structures ...');
+            $count = $sync->syncAllFromDatabase();
+        }
+
+        $this->info("✔ Exam Masters updated: {$count}");
+
+        return self::SUCCESS;
     }
 }

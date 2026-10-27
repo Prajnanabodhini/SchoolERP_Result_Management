@@ -3,11 +3,12 @@
 namespace App\Helpers;
 
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class AllocationStatusHelper
 {
     /**
-     * Get active division IDs (used as the "expected divisions" set).
+     * Fallback: all active divisions.
      */
     private static function activeDivisionIds(): array
     {
@@ -22,12 +23,115 @@ class AllocationStatusHelper
     }
 
     /**
+     * ✅ NEW: does this (year, standard, division) have at least one student?
+     * Fails OPEN on exception so ERP outages don't block legit work.
+     */
+    private static function divisionHasStudents($yearId, int $standardId, int $divisionId): bool
+    {
+        try {
+            $students = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
+
+            if (is_array($students))       return count($students) > 0;
+            if ($students instanceof \Countable)   return count($students) > 0;
+            if ($students instanceof \Traversable) {
+                foreach ($students as $_) { return true; }
+                return false;
+            }
+
+            return !empty($students);
+
+        } catch (Throwable $e) {
+            // Fail open — assume division has students
+            return true;
+        }
+    }
+
+    /**
+     * ERP-valid division IDs for a single exam.
+     * ✅ NOW: only returns divisions that actually have students.
+     */
+    private static function validDivisionIdsForExam(int $examId): array
+    {
+        static $cache = [];
+
+        if (array_key_exists($examId, $cache)) {
+            return $cache[$examId];
+        }
+
+        $exam = DB::table('exam_masters')
+            ->where('id', $examId)
+            ->select('id', 'academic_year_id', 'standard_id')
+            ->first();
+
+        if (!$exam) {
+            return $cache[$examId] = self::activeDivisionIds();
+        }
+
+        $erpDivisions = StudentHelper::getERPDivisionsForStandard(
+            (int) $exam->academic_year_id,
+            (int) $exam->standard_id
+        );
+
+        if ($erpDivisions->isEmpty()) {
+            return $cache[$examId] = self::activeDivisionIds();
+        }
+
+        /*
+         |----------------------------------------------------------
+         | ★ Filter out divisions that have no students in ERP.
+         | This is the fix: without it, empty divisions like NURSERY B
+         | are always counted as "required", so their subjects always
+         | show up as pending and never clear.
+         |----------------------------------------------------------
+         */
+        $academicYear = DB::table('academic_years')
+            ->where('id', $exam->academic_year_id)
+            ->first();
+
+        $yearId = $academicYear->old_year_id
+            ?? substr($academicYear->year_name ?? '', 0, 4);
+
+        $withStudents = [];
+        foreach ($erpDivisions as $div) {
+            $divId = (int) $div->id;
+            if (self::divisionHasStudents($yearId, (int) $exam->standard_id, $divId)) {
+                $withStudents[] = $divId;
+            }
+        }
+
+        /*
+         |----------------------------------------------------------
+         | Safety net: if ALL divisions came back empty (likely an
+         | ERP mismatch), fall back to the original list so we don't
+         | accidentally mark the exam as fully unconfigured.
+         |----------------------------------------------------------
+         */
+        if (empty($withStudents)) {
+            $withStudents = $erpDivisions
+                ->pluck('id')
+                ->map(fn ($v) => (int) $v)
+                ->all();
+        }
+
+        return $cache[$examId] = $withStudents;
+    }
+
+    /**
+     * Batch version: [examId => [divisionId, ...]]
+     */
+    private static function validDivisionIdsForExams(array $examIds): array
+    {
+        $out = [];
+
+        foreach ($examIds as $id) {
+            $out[$id] = self::validDivisionIdsForExam((int) $id);
+        }
+
+        return $out;
+    }
+
+    /**
      * Pending count for one exam.
-     *
-     * Logic:
-     *   Required pairs  = subjects × divisions
-     *   Allocated pairs = unique (subject, division) rows from tsa → tca
-     *   Pending         = required − allocated
      *
      * Return:
      *   > 0  → pending subjects
@@ -50,7 +154,7 @@ class AllocationStatusHelper
 
         if (empty($subjectIds)) return -1;
 
-        $divisionIds = self::activeDivisionIds();
+        $divisionIds = self::validDivisionIdsForExam($examId);
         if (empty($divisionIds)) return 0;
 
         $requiredCount = count($subjectIds) * count($divisionIds);
@@ -80,12 +184,12 @@ class AllocationStatusHelper
 
         $exams = DB::table('exam_masters')
             ->whereIn('id', $examIds)
-            ->select('id', 'standard_id')
+            ->select('id', 'standard_id', 'academic_year_id')
             ->get()
             ->keyBy('id');
 
-        $divisionIds   = self::activeDivisionIds();
-        $divisionCount = count($divisionIds);
+        /* Per-exam ERP-valid divisions (already filtered by students) */
+        $divisionByExam = self::validDivisionIdsForExams($examIds);
 
         $subjectCounts = DB::table('exam_master_subjects')
             ->whereIn('exam_master_id', $examIds)
@@ -94,19 +198,17 @@ class AllocationStatusHelper
             ->pluck('cnt', 'exam_master_id')
             ->toArray();
 
-        // Unique (exam, subject, division) allocated triple
+        /* All allocated (exam, subject, division) triples */
         $allocatedRows = DB::table('teacher_subject_allocations as tsa')
             ->join('teacher_class_allocations as tca', 'tca.id', '=', 'tsa.teacher_class_allocation_id')
             ->whereIn('tsa.exam_master_id', $examIds)
-            ->whereIn('tca.division_id', $divisionIds)
             ->select('tsa.exam_master_id', 'tsa.subject_id', 'tca.division_id')
             ->distinct()
             ->get()
-            ->groupBy('exam_master_id')
-            ->map(fn ($rows) => $rows->count())
-            ->toArray();
+            ->groupBy('exam_master_id');
 
         $result = [];
+
         foreach ($examIds as $examId) {
             $exam = $exams[$examId] ?? null;
 
@@ -122,15 +224,24 @@ class AllocationStatusHelper
                 continue;
             }
 
-            if ($divisionCount === 0) {
+            $divisionIds = $divisionByExam[$examId] ?? [];
+
+            if (empty($divisionIds)) {
                 $result[$examId] = 0;
                 continue;
             }
 
-            $requiredCount  = $subjectCount * $divisionCount;
-            $allocatedCount = (int) ($allocatedRows[$examId] ?? 0);
+            $allocatedInValidDivs = 0;
+            if (isset($allocatedRows[$examId])) {
+                foreach ($allocatedRows[$examId] as $row) {
+                    if (in_array((int) $row->division_id, $divisionIds, true)) {
+                        $allocatedInValidDivs++;
+                    }
+                }
+            }
 
-            $result[$examId] = max(0, $requiredCount - $allocatedCount);
+            $requiredCount = $subjectCount * count($divisionIds);
+            $result[$examId] = max(0, $requiredCount - $allocatedInValidDivs);
         }
 
         return $result;
@@ -138,8 +249,6 @@ class AllocationStatusHelper
 
     /**
      * Pending detail per (subject × division) for one exam.
-     * Returns array of objects: [subject_id, subject_name, subject_code,
-     *                            division_id, division_name, allocated]
      */
     public static function subjectStatusForExam(int $examId): array
     {
@@ -156,12 +265,15 @@ class AllocationStatusHelper
             ->orderBy('s.id')
             ->get();
 
+        /* Only ERP-valid divisions for this exam */
+        $divisionIds = self::validDivisionIdsForExam($examId);
+
         $divisions = DB::table('divisions')
+            ->whereIn('id', $divisionIds)
             ->where('is_active', 1)
             ->orderBy('division_name')
             ->get();
 
-        // Allocated: map subject_id → [division_id, ...]
         $allocatedMap = DB::table('teacher_subject_allocations as tsa')
             ->join('teacher_class_allocations as tca', 'tca.id', '=', 'tsa.teacher_class_allocation_id')
             ->where('tsa.exam_master_id', $examId)
@@ -230,9 +342,8 @@ class AllocationStatusHelper
         return array_sum(array_column($summary, 'pending'));
     }
 
-        /**
+    /**
      * Division-wise pending breakdown for one exam.
-     * Returns: ['A' => 3, 'B' => 2] (only divisions with pending > 0)
      */
     public static function pendingBreakdownForExam(int $examId): array
     {
@@ -250,7 +361,10 @@ class AllocationStatusHelper
 
         if (empty($subjectIds)) return [];
 
+        $divisionIds = self::validDivisionIdsForExam($examId);
+
         $divisions = DB::table('divisions')
+            ->whereIn('id', $divisionIds)
             ->where('is_active', 1)
             ->orderBy('division_name')
             ->get();
@@ -260,6 +374,7 @@ class AllocationStatusHelper
             ->where('tsa.exam_master_id', $examId)
             ->where('tca.standard_id', $standardId)
             ->whereIn('tsa.subject_id', $subjectIds)
+            ->whereIn('tca.division_id', $divisionIds)
             ->select('tsa.subject_id', 'tca.division_id')
             ->get()
             ->groupBy('division_id')
@@ -282,8 +397,7 @@ class AllocationStatusHelper
     }
 
     /**
-     * Batch version of pendingBreakdownForExam for multiple exams.
-     * Returns: [exam_id => ['A' => 3, 'B' => 2], ...]
+     * Batch version of pendingBreakdownForExam.
      */
     public static function pendingBreakdownForExams(array $examIds): array
     {
@@ -291,16 +405,28 @@ class AllocationStatusHelper
 
         $exams = DB::table('exam_masters')
             ->whereIn('id', $examIds)
-            ->select('id', 'standard_id')
+            ->select('id', 'standard_id', 'academic_year_id')
             ->get()
             ->keyBy('id');
 
-        $divisions = DB::table('divisions')
+        /* Per-exam ERP-valid divisions (already filtered by students) */
+        $divisionByExam = self::validDivisionIdsForExams($examIds);
+
+        /* Load division names once */
+        $allDivisionIds = [];
+        foreach ($divisionByExam as $ids) {
+            foreach ($ids as $id) {
+                $allDivisionIds[$id] = true;
+            }
+        }
+        $allDivisionIds = array_keys($allDivisionIds);
+
+        $divisionMap = DB::table('divisions')
+            ->whereIn('id', $allDivisionIds)
             ->where('is_active', 1)
             ->orderBy('division_name')
-            ->get();
-
-        $divisionIds = $divisions->pluck('id')->toArray();
+            ->get()
+            ->keyBy('id');
 
         $subjectCounts = DB::table('exam_master_subjects')
             ->whereIn('exam_master_id', $examIds)
@@ -312,7 +438,6 @@ class AllocationStatusHelper
         $allocatedRows = DB::table('teacher_subject_allocations as tsa')
             ->join('teacher_class_allocations as tca', 'tca.id', '=', 'tsa.teacher_class_allocation_id')
             ->whereIn('tsa.exam_master_id', $examIds)
-            ->whereIn('tca.division_id', $divisionIds)
             ->select('tsa.exam_master_id', 'tsa.subject_id', 'tca.division_id')
             ->get()
             ->groupBy('exam_master_id');
@@ -332,18 +457,28 @@ class AllocationStatusHelper
                 continue;
             }
 
-            // Count distinct subjects allocated per division for this exam
+            $divisionIds = $divisionByExam[$examId] ?? [];
+            if (empty($divisionIds)) {
+                $result[$examId] = [];
+                continue;
+            }
+
             $perDivision = [];
             if (isset($allocatedRows[$examId])) {
                 foreach ($allocatedRows[$examId] as $row) {
-                    $perDivision[$row->division_id][] = $row->subject_id;
+                    if (in_array((int) $row->division_id, $divisionIds, true)) {
+                        $perDivision[$row->division_id][] = $row->subject_id;
+                    }
                 }
             }
 
             $breakdown = [];
-            foreach ($divisions as $div) {
-                $allocated = isset($perDivision[$div->id])
-                    ? count(array_unique($perDivision[$div->id]))
+            foreach ($divisionIds as $divId) {
+                $div = $divisionMap[$divId] ?? null;
+                if (!$div) continue;
+
+                $allocated = isset($perDivision[$divId])
+                    ? count(array_unique($perDivision[$divId]))
                     : 0;
                 $pending = $subjectCount - $allocated;
 
