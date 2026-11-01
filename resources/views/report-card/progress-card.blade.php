@@ -223,19 +223,27 @@
 
     $skillSubMap = [];
     $isTenth = preg_match('/\b(10|X|TENTH)\b/i', $std);
+    $isEighthNinth = preg_match('/\b(8|9|VIII|IX|EIGHTH|NINTH)\b/i', $std); // ADDED: Specific check for 8th and 9th
     $isFirstToNinth = preg_match('/\b(1|2|3|4|5|6|7|8|9|I|II|III|IV|V|VI|VII|VIII|IX|FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH)\b/i', $std);
 
     if ($isTenth) {
         $skillSubMap = [
             'SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)',
-            'SKILL 2' => '(ROBOTICS + COMPUTER + VEDIC MATH)',
+            'SKILL 2' => '(ROBOTICS + COMPUTER)', 
+            'SKILL 3' => '',
+            'SKILL 4' => '',
+        ];
+    } elseif ($isEighthNinth) {
+        $skillSubMap = [
+            'SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)',
+            'SKILL 2' => '(ROBOTICS + COMPUTER + VEDIC MATH)', // UPDATED FOR 8TH & 9TH
             'SKILL 3' => '',
             'SKILL 4' => '',
         ];
     } elseif ($isFirstToNinth) {
         $skillSubMap = [
             'SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)',
-            'SKILL 2' => '(ROBOTICS + COMPUTER + ABACUS)',
+            'SKILL 2' => '(ROBOTICS + COMPUTER + ABACUS)', // KEPT ABACUS FOR 1ST TO 7TH
             'SKILL 3' => '',
             'SKILL 4' => '',
         ];
@@ -381,7 +389,6 @@
             else $academicSubjects->push($sub);
         }
 
-        // Removed $savedGraded from $getGrade to freeze Pre-Primary values
         $getGrade = function($name) use ($criteriaGrades, $subjectGrades) {
             $nameUpper = strtoupper(trim($name));
             if (isset($criteriaGrades[$nameUpper])) return $criteriaGrades[$nameUpper];
@@ -489,7 +496,8 @@
                     <td class="label-full">Student Name</td>
                     <td class="value-full name-row-value" colspan="3">
                         @if($isEdit)
-                            <input type="text" name="student_name" class="edit-input" value="{{ $report->studname ?? '' }}">
+                            {{-- FIXED: Changed from $report->studname to $report->full_student_name --}}
+                            <input type="text" name="student_name" class="edit-input" value="{{ $report->full_student_name ?? '' }}">
                         @else
                             {{ $report->full_student_name ?? '' }}
                         @endif
@@ -639,7 +647,6 @@
                         @php $academicGrades = []; $academicCount = 1; @endphp
                         @forelse($academicSubjects as $sub)
                             @php
-                                // Frozen: strictly rely on $sub->grade, ignoring $savedGraded
                                 $g = $sub->grade ?? '-';
                                 if($g !== '-') $academicGrades[] = $g;
                             @endphp
@@ -778,7 +785,15 @@
     @else
         @php
             $_nonSkills = $subjects->filter(fn($s) => empty($s->is_graded))->values();
-            $_skills = $subjects->filter(fn($s) => !empty($s->is_graded))->sortBy(function($s) {
+            // Filter out SKILL 1 and SKILL 4 for Tenth Standard
+            $_skills = $subjects->filter(function($s) use ($std) {
+                if (empty($s->is_graded)) return false;
+                if (preg_match('/\b(10|X|TENTH)\b/i', $std)) {
+                    if (preg_match('/^SKILL\s*1/i', $s->subject_name)) return false;
+                    if (preg_match('/^SKILL\s*4/i', $s->subject_name)) return false;
+                }
+                return true;
+            })->sortBy(function($s) {
                 if (preg_match('/^SKILL\s*([1-9])(?![0-9])/i', $s->subject_name, $m)) return (int)$m[1];
                 return 1000;
             })->values();
@@ -809,12 +824,16 @@
                         @php $academicCounter = 1; @endphp
                         @foreach($_nonSkills as $subject)
                             @php
-                                // FREEZE LOGIC: Only allow manual overrides for DEFENSE SCIENCE and WATER SECURITY
                                 $subjectNameUpper = strtoupper(trim($subject->subject_name));
-                                $isManualOverride = in_array($subjectNameUpper, ['DEFENSE SCIENCE', 'WATER SECURITY']);
+                                $isManualOverride = in_array($subjectNameUpper, ['DEFENSE SCIENCE', 'DEFENCE STUDIES', 'WATER SECURITY']);
                                 $gradeKey = $isManualOverride ? $subjectNameToKey($subject->subject_name) : (int) $subject->subject_id;
                                 $manualGrade = $savedGraded[$gradeKey] ?? '';
-                                $displayGrade = $isManualOverride ? ($manualGrade !== '' ? $manualGrade : '-') : ($subject->grade ?? ($subject->subject_result ?? '-'));
+                                
+                                // 👇 PRIORITIZE OBSERVATION GRADE ($subject->grade) OVER MANUAL OVERRIDE 👇
+                                $dbGrade = (!empty($subject->grade) && $subject->grade !== '-') ? $subject->grade : '';
+                                $displayGrade = $dbGrade !== '' ? $dbGrade : ($manualGrade !== '' ? $manualGrade : '-');
+                                $selectedGrade = $dbGrade !== '' ? $dbGrade : $manualGrade;
+                                // 👆 END LOGIC 👆
                             @endphp
                             <tr>
                                 <td class="center">{{ str_pad($academicCounter++, 2, '0', STR_PAD_LEFT) }}</td>
@@ -830,7 +849,7 @@
                                         <select name="graded_subjects[{{ $gradeKey }}]" class="sd-select" style="height:20px;padding:0 4px;">
                                             <option value="">Select</option>
                                             @foreach($gradeOptions as $gValue => $gLabel)
-                                                <option value="{{ $gValue }}" {{ old("graded_subjects.$gradeKey", $manualGrade) == $gValue ? 'selected' : '' }}>{{ $gLabel }}</option>
+                                                <option value="{{ $gValue }}" {{ old("graded_subjects.$gradeKey", $selectedGrade) == $gValue ? 'selected' : '' }}>{{ $gLabel }}</option>
                                             @endforeach
                                         </select>
                                     @else
@@ -888,12 +907,16 @@
                                 if (preg_match('/^SKILL\s*([1-4])/i', $subject->subject_name, $m)) {
                                     $skillKey = 'SKILL ' . $m[1];
                                 }
-                                // FREEZE LOGIC: Only allow manual overrides for DEFENSE SCIENCE and WATER SECURITY
                                 $subjectNameUpper = strtoupper(trim($subject->subject_name));
-                                $isManualOverride = in_array($subjectNameUpper, ['DEFENSE SCIENCE', 'WATER SECURITY']);
+                                $isManualOverride = in_array($subjectNameUpper, ['DEFENSE SCIENCE', 'DEFENCE STUDIES', 'WATER SECURITY']);
                                 $gradeKey = $isManualOverride ? $subjectNameToKey($subject->subject_name) : (int) $subject->subject_id;
                                 $manualGrade = $savedGraded[$gradeKey] ?? '';
-                                $displayGrade = $isManualOverride ? ($manualGrade !== '' ? $manualGrade : '-') : ($subject->grade ?? ($subject->subject_result ?? '-'));
+                                
+                                // 👇 PRIORITIZE OBSERVATION GRADE ($subject->grade) OVER MANUAL OVERRIDE 👇
+                                $dbGrade = (!empty($subject->grade) && $subject->grade !== '-') ? $subject->grade : '';
+                                $displayGrade = $dbGrade !== '' ? $dbGrade : ($manualGrade !== '' ? $manualGrade : '-');
+                                $selectedGrade = $dbGrade !== '' ? $dbGrade : $manualGrade;
+                                // 👆 END LOGIC 👆
                             @endphp
                             <tr>
                                 <td class="center">{{ str_pad($skillCounter++, 2, '0', STR_PAD_LEFT) }}</td>
@@ -908,7 +931,7 @@
                                         <select name="graded_subjects[{{ $gradeKey }}]" class="sd-select" style="height:20px;padding:0 4px;">
                                             <option value="">Select</option>
                                             @foreach($gradeOptions as $gValue => $gLabel)
-                                                <option value="{{ $gValue }}" {{ old("graded_subjects.$gradeKey", $manualGrade) == $gValue ? 'selected' : '' }}>{{ $gLabel }}</option>
+                                                <option value="{{ $gValue }}" {{ old("graded_subjects.$gradeKey", $selectedGrade) == $gValue ? 'selected' : '' }}>{{ $gLabel }}</option>
                                             @endforeach
                                         </select>
                                     @else

@@ -13,6 +13,7 @@ use App\Models\TeacherClassAllocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Throwable;
 
 class TeacherBulkAllocationController extends Controller
@@ -27,11 +28,16 @@ class TeacherBulkAllocationController extends Controller
             return redirect()->route('teacher-bulk-allocation.index');
         }
 
+        $academicYearId = $request->input('academic_year_id');
+        $standardId     = $request->input('standard_id');
+        $divisionId     = $request->input('division_id');
+        $examMasterId   = $request->input('exam_master_id');
+
         $hasAnyFilterValue =
-            $request->filled('academic_year_id') ||
-            $request->filled('standard_id')      ||
-            $request->filled('division_id')      ||
-            $request->filled('exam_master_id');
+            !empty($academicYearId) ||
+            !empty($standardId)     ||
+            !empty($divisionId)     ||
+            !empty($examMasterId);
 
         $hasQueryString = count($request->query()) > 0;
 
@@ -39,99 +45,96 @@ class TeacherBulkAllocationController extends Controller
             return redirect()->route('teacher-bulk-allocation.index');
         }
 
-        $academicYearId = $request->input('academic_year_id', '');
-        $standardId     = $request->input('standard_id', '');
-        $divisionId     = $request->input('division_id', '');
-        $examMasterId   = $request->input('exam_master_id', '');
-
         $exams = TeacherBulkHelper::exams($academicYearId, $standardId);
 
-        $pairQuery = DB::table('teacher_class_allocations as tca')
-            ->join(
-                'teacher_subject_allocations as tsa',
-                'tsa.teacher_class_allocation_id',
-                '=',
-                'tca.id'
-            )
-            ->select(
-                'tca.id as allocation_id',
-                DB::raw('COALESCE(tsa.exam_master_id, 0) as exam_master_id'),
-                DB::raw('MIN(tsa.id) as first_tsa_id')
-            )
-            ->groupBy(
-                'tca.id',
-                DB::raw('COALESCE(tsa.exam_master_id, 0)')
-            );
+        /* ------------------------------------------------------------------
+         | Fetch directly from Eloquent to respect relationships
+         ------------------------------------------------------------------ */
+        $query = TeacherClassAllocation::withoutGlobalScopes()->with([
+            'teacher', 'academicYear', 'section', 'standard', 'division',
+            'subjectAllocations.exam' // DO NOT ADD subjectAllocations.subject here unless the model has it
+        ]);
 
-        if ($academicYearId !== '') {
-            $pairQuery->where('tca.academic_year_id', (int) $academicYearId);
-        }
-        if ($standardId !== '') {
-            $pairQuery->where('tca.standard_id', (int) $standardId);
-        }
-        if ($divisionId !== '') {
-            $pairQuery->where('tca.division_id', (int) $divisionId);
-        }
-        if ($examMasterId !== '') {
-            $pairQuery->where('tsa.exam_master_id', (int) $examMasterId);
+        // Apply filters independently
+        if (!empty($academicYearId)) $query->where('academic_year_id', $academicYearId);
+        if (!empty($standardId))     $query->where('standard_id', $standardId);
+        if (!empty($divisionId))     $query->where('division_id', $divisionId);
+        
+        if (!empty($examMasterId)) {
+            $query->whereHas('subjectAllocations', function ($q) use ($examMasterId) {
+                $q->where('exam_master_id', $examMasterId);
+            });
         }
 
-        $pairQuery
-            ->orderByRaw('MIN(tsa.id) DESC')
-            ->orderByDesc('tca.id');
+        $allAllocations = $query->orderByDesc('id')->get();
 
-        $pairs = $pairQuery->paginate(25)->withQueryString();
-
-        $allocationIds = collect($pairs->items())
-            ->pluck('allocation_id')
-            ->unique()
-            ->values();
-
-        $allocationModels = TeacherClassAllocation::with([
-            'teacher',
-            'academicYear',
-            'section',
-            'standard',
-            'division',
-            'subjectAllocations.exam',
-        ])
-            ->whereIn('id', $allocationIds)
-            ->get()
-            ->keyBy('id');
-
+        /* ------------------------------------------------------------------
+         | Group by exam_master_id in PHP memory to form the display rows
+         ------------------------------------------------------------------ */
         $rows = collect();
+        foreach ($allAllocations as $alloc) {
+            $groupedByExam = $alloc->subjectAllocations->groupBy(function ($tsa) {
+                return $tsa->exam_master_id ?? 0;
+            });
 
-        foreach ($pairs->items() as $pair) {
-            $alloc = $allocationModels->get($pair->allocation_id);
-            if (!$alloc) continue;
+            // If a specific exam is filtered, only keep that exam group
+            if (!empty($examMasterId)) {
+                $groupedByExam = $groupedByExam->filter(function ($tsas, $examId) use ($examMasterId) {
+                    return (int)$examId === (int)$examMasterId;
+                });
+            }
 
-            $clone = clone $alloc;
-
-            $clone->setRelation(
-                'subjectAllocations',
-                $alloc->subjectAllocations
-                    ->filter(function ($tsa) use ($pair) {
-                        return (int) ($tsa->exam_master_id ?? 0)
-                            === (int) $pair->exam_master_id;
-                    })
-                    ->values()
-            );
-
-            $clone->displayExamMasterId = (int) $pair->exam_master_id;
-            $clone->displayRowId        = (int) $pair->first_tsa_id;
-
-            $rows->push($clone);
+            if ($groupedByExam->isEmpty()) {
+                if (empty($examMasterId)) {
+                    $clone = clone $alloc;
+                    $clone->setRelation('subjectAllocations', collect());
+                    $clone->displayExamMasterId = 0;
+                    $clone->displayRowId = $alloc->id;
+                    $rows->push($clone);
+                }
+            } else {
+                foreach ($groupedByExam as $examId => $tsas) {
+                    $clone = clone $alloc;
+                    $clone->setRelation('subjectAllocations', $tsas->values());
+                    $clone->displayExamMasterId = (int) $examId;
+                    $clone->displayRowId = $tsas->min('id') ?? $alloc->id;
+                    $rows->push($clone);
+                }
+            }
         }
 
-        $pairs->setCollection($rows);
+        // Sort by the old logic (MIN(tsa.id) DESC, tca.id DESC)
+        $rows = $rows->sort(function ($a, $b) {
+            $rowIdA = (int) $a->displayRowId;
+            $rowIdB = (int) $b->displayRowId;
+            if ($rowIdA === $rowIdB) {
+                return (int) $b->id <=> (int) $a->id;
+            }
+            return $rowIdB <=> $rowIdA;
+        })->values();
+
+        /* ------------------------------------------------------------------
+         | Manual Pagination (Same as SkillTeacherAllocationController)
+         ------------------------------------------------------------------ */
+        $perPage = 25;
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $currentItems = $rows->slice(($currentPage - 1) * $perPage, $perPage)->values();
+        
+        $pairs = new LengthAwarePaginator($currentItems, $rows->count(), $perPage, $currentPage, [
+            'path' => LengthAwarePaginator::resolveCurrentPath(),
+            'query' => $request->query(),
+        ]);
 
         TeacherBulkHelper::prepareIndexAllocations($pairs);
 
+        /* ------------------------------------------------------------------
+         | Pending exam / subject status block
+         ------------------------------------------------------------------ */
         $pendingCount  = 0;
         $subjectStatus = [];
         $pendingExam   = null;
 
-        if ($examMasterId !== '') {
+        if (!empty($examMasterId)) {
             $pendingExam = ExamMaster::find((int) $examMasterId);
 
             if ($pendingExam) {
@@ -146,16 +149,25 @@ class TeacherBulkAllocationController extends Controller
             }
         }
 
+        /* ------------------------------------------------------------------
+         | Pending summary
+         ------------------------------------------------------------------ */
         $pendingSummary = [];
         $totalPending   = 0;
 
-        if ($examMasterId === '') {
-            $yearFilter = $academicYearId !== '' ? (int) $academicYearId : null;
+        if (empty($examMasterId)) {
+            $yearFilter = !empty($academicYearId) ? (int) $academicYearId : null;
 
             $pendingSummaryRows = AllocationStatusHelper::summaryForAcademicYear($yearFilter);
 
             $pendingSummaryRows = collect($pendingSummaryRows)
                 ->map(fn ($r) => is_object($r) ? (array) $r : $r)
+                ->when(!empty($standardId), function ($collection) use ($standardId) {
+                    return $collection->filter(fn ($row) => !isset($row['standard_id']) || (string)$row['standard_id'] === (string)$standardId);
+                })
+                ->when(!empty($divisionId), function ($collection) use ($divisionId) {
+                    return $collection->filter(fn ($row) => !isset($row['division_id']) || (string)$row['division_id'] === (string)$divisionId);
+                })
                 ->values()
                 ->all();
 
@@ -404,6 +416,12 @@ class TeacherBulkAllocationController extends Controller
             return back()->withInput()->with('error', implode(' ', $errors));
         }
 
+        // NEW: Check for duplicate allocations before saving. Triggers SweetAlert error if found.
+        $duplicateErrors = $this->validateNoDuplicateAllocations($request);
+        if (!empty($duplicateErrors)) {
+            return back()->withInput()->with('error', implode(' ', $duplicateErrors));
+        }
+
         try {
             DB::transaction(function () use ($request) {
                 foreach ($request->rows as $row) {
@@ -423,26 +441,7 @@ class TeacherBulkAllocationController extends Controller
                         ]);
 
                         foreach ($uniqueSubjects as $subjectId) {
-                            $conflicts = DB::table('teacher_subject_allocations as tsa')
-                                ->join('teacher_class_allocations as tca', 'tsa.teacher_class_allocation_id', '=', 'tca.id')
-                                ->where('tca.academic_year_id', $request->academic_year_id)
-                                ->where('tca.standard_id', $standardId)
-                                ->where('tca.division_id', (int) $divisionId)
-                                ->where('tsa.exam_master_id', $request->exam_master_id)
-                                ->where('tsa.subject_id', (int) $subjectId)
-                                ->select('tsa.id', 'tsa.teacher_class_allocation_id')
-                                ->get();
-
-                            foreach ($conflicts as $conflict) {
-                                DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $conflict->id)->delete();
-                                DB::table('teacher_subject_allocations')->where('id', $conflict->id)->delete();
-                                
-                                $hasOther = DB::table('teacher_subject_allocations')->where('teacher_class_allocation_id', $conflict->teacher_class_allocation_id)->exists();
-                                if (!$hasOther) {
-                                    DB::table('teacher_class_allocations')->where('id', $conflict->teacher_class_allocation_id)->delete();
-                                }
-                            }
-
+                            // Note: Conflict deletion logic removed. Safe to insert because we pre-validated.
                             $tsaId = DB::table('teacher_subject_allocations')->insertGetId([
                                 'teacher_class_allocation_id' => $allocation->id,
                                 'exam_master_id'              => $request->exam_master_id,
@@ -504,7 +503,7 @@ class TeacherBulkAllocationController extends Controller
     }
 
     /* =====================================================================
-     | UPDATE (FIXED AUTO-MIGRATION)
+     | UPDATE
      ===================================================================== */
 
     public function update(Request $request, $id)
@@ -596,24 +595,21 @@ class TeacherBulkAllocationController extends Controller
                 $subjectsToAdd = array_diff($newSubjectIds, $processedNewIds);
 
                 foreach ($subjectsToAdd as $subId) {
-                    $conflicts = DB::table('teacher_subject_allocations as tsa')
+                    // CHANGED: Instead of deleting other teachers' allocations, throw an error to abort and show popup
+                    $conflict = DB::table('teacher_subject_allocations as tsa')
                         ->join('teacher_class_allocations as tca', 'tsa.teacher_class_allocation_id', '=', 'tca.id')
                         ->where('tca.academic_year_id', $request->academic_year_id)
                         ->where('tca.standard_id', $request->standard_id)
                         ->where('tca.division_id', $request->division_id)
                         ->where('tsa.exam_master_id', $examMasterId)
                         ->where('tsa.subject_id', $subId)
-                        ->select('tsa.id', 'tsa.teacher_class_allocation_id')
-                        ->get();
+                        ->select('tsa.id', 'tca.user_id')
+                        ->first();
 
-                    foreach ($conflicts as $conflict) {
-                        DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $conflict->id)->delete();
-                        DB::table('teacher_subject_allocations')->where('id', $conflict->id)->delete();
-                        
-                        $hasOther = DB::table('teacher_subject_allocations')->where('teacher_class_allocation_id', $conflict->teacher_class_allocation_id)->exists();
-                        if (!$hasOther) {
-                            DB::table('teacher_class_allocations')->where('id', $conflict->teacher_class_allocation_id)->delete();
-                        }
+                    if ($conflict) {
+                        $subjectName = DB::table('subjects')->where('id', $subId)->value('subject_name');
+                        $teacherName = DB::table('users')->where('id', $conflict->user_id)->value('name');
+                        throw new \RuntimeException("Cannot add subject '{$subjectName}'. It is already allocated to {$teacherName} for this class and exam. Please edit their existing allocation instead.");
                     }
 
                     $tsaId = DB::table('teacher_subject_allocations')->insertGetId([
@@ -732,5 +728,48 @@ class TeacherBulkAllocationController extends Controller
             $errors[] = "Cannot save: No students found for {$stdName} - {$divName}.";
         }
         return $errors;
+    }
+
+    /**
+     * NEW: Prevent duplicate allocations before entering the transaction.
+     */
+    private function validateNoDuplicateAllocations(Request $request): array
+    {
+        $errors = [];
+        $examMasterId = (int) $request->exam_master_id;
+        $academicYearId = (int) $request->academic_year_id;
+
+        foreach ($request->rows as $row) {
+            $standardId = (int) ($row['standards'][0] ?? 0);
+            if (!$standardId) continue;
+
+            $uniqueSubjects = array_unique($row['subjects'] ?? []);
+
+            foreach ($row['divisions'] as $divisionId) {
+                foreach ($uniqueSubjects as $subjectId) {
+                    // Check if this exact combination already exists in the database
+                    $conflict = DB::table('teacher_subject_allocations as tsa')
+                        ->join('teacher_class_allocations as tca', 'tsa.teacher_class_allocation_id', '=', 'tca.id')
+                        ->where('tca.academic_year_id', $academicYearId)
+                        ->where('tca.standard_id', $standardId)
+                        ->where('tca.division_id', (int) $divisionId)
+                        ->where('tsa.exam_master_id', $examMasterId)
+                        ->where('tsa.subject_id', (int) $subjectId)
+                        ->select('tsa.id', 'tca.user_id')
+                        ->first();
+
+                    if ($conflict) {
+                        $standard = DB::table('standards')->where('id', $standardId)->value('standard_name');
+                        $division = DB::table('divisions')->where('id', $divisionId)->value('division_name');
+                        $subject  = DB::table('subjects')->where('id', $subjectId)->value('subject_name');
+                        $teacher  = DB::table('users')->where('id', $conflict->user_id)->value('name');
+
+                        $errors[] = "Allocation already exists for {$standard} - Div {$division} - Subject: {$subject} (Teacher: {$teacher}). Please edit the existing allocation instead of creating a new one.";
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($errors));
     }
 }

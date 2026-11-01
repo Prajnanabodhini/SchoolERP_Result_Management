@@ -105,10 +105,12 @@ class StudentSkillObservationController extends Controller
     {
         if (is_string($standardOrName)) {
             $stdName = $standardOrName;
+            $std = \App\Models\Standard::where('standard_name', $stdName)->first();
         } elseif (is_object($standardOrName) && isset($standardOrName->standard_name)) {
             $stdName = (string) $standardOrName->standard_name;
+            $std = \App\Models\Standard::where('standard_name', $stdName)->first();
         } else {
-            $std = Standard::find((int) $standardOrName);
+            $std = \App\Models\Standard::find((int) $standardOrName);
             if (!$std) return collect();
             $stdName = (string) $std->standard_name;
         }
@@ -116,8 +118,8 @@ class StudentSkillObservationController extends Controller
         $stdNameLower = strtolower(trim($stdName));
         $targetNames = [];
 
+        // 1. Set base hardcoded subjects based on standard name
         if (preg_match('/(nursery|jr kg|sr kg|jrkg|srkg|pre-primary)/', $stdNameLower)) {
-            // Added DRAWING to the pre-primary list
             $targetNames = [
                 'GROUND ACTIVITIES', 'DRAWING', 'CRAFT', 'CLAY', 'LIFE SKILL', 'SONG', 'INDOOR GAME',
                 'TRG. SENSES', 'ASSEMBLY', 'ACTIVITY BOOK', 'GENERAL SKILLS'
@@ -132,9 +134,26 @@ class StudentSkillObservationController extends Controller
             $targetNames = ['TABLA', 'MUSIC', 'DANCE', 'ACTING', 'SANSKRIT BOOK', 'COMPUTER', 'ROBOTICS', 'VEDIC MATHS', 'PHYSICAL EDUCATION'];
         } elseif (preg_match('/(tenth|\b10\b)/', $stdNameLower)) {
             $targetNames = ['COMPUTER', 'ROBOTICS', 'VEDIC MATHS', 'PHYSICAL EDUCATION'];
-        } else {
-            return $allSubjects;
         }
+
+        // 2. Fetch from DB and MERGE with the hardcoded list
+        if ($std) {
+            $mappedSubjects = DB::table('standard_wise_subjects')
+                ->join('subjects', 'subjects.id', '=', 'standard_wise_subjects.subject_id')
+                ->where('standard_wise_subjects.standard_id', $std->id)
+                ->where('subjects.is_active', 1)
+                ->whereIn('subjects.subject_type_id', [2, 3]) // Skill subjects
+                ->pluck('subjects.subject_name')
+                ->map(fn($n) => strtoupper(trim($n)))
+                ->toArray();
+            
+            // Merge DB subjects with hardcoded ones, ensuring no duplicates
+            if (!empty($mappedSubjects)) {
+                $targetNames = array_values(array_unique(array_merge($targetNames, $mappedSubjects)));
+            }
+        }
+
+        if (empty($targetNames)) return $allSubjects;
 
         $filtered = collect();
 
@@ -145,36 +164,42 @@ class StudentSkillObservationController extends Controller
                 $sName = strtoupper(trim($sub->subject_name));
                 $match = false;
 
-                if ($target === 'SANSKRIT BOOK') {
-                    $match = str_contains($sName, 'SANSKRIT') && str_contains($sName, 'BOOK');
-                    if (!$match && str_contains($sName, 'PATHANTER')) $match = true;
-                    if (!$match && str_contains($sName, 'BHARTI'))    $match = true;
-                    if (!$match && $sName === 'SANSKRIT')             $match = true;
-                } elseif ($target === 'TABLA') {
-                    $match = str_contains($sName, 'TABLA') || str_contains($sName, 'TABALA');
-                } elseif ($target === 'MUSIC') {
-                    $match = str_contains($sName, 'MUSIC');
-                } elseif ($target === 'SONG') {
-                    $match = str_contains($sName, 'SONG');
-                } elseif ($target === 'ACTING') {
-                    $match = str_contains($sName, 'ACTING') || str_contains($sName, 'DRAMA');
-                } elseif ($target === 'BOOKS') {
-                    $match = $sName === 'BOOKS' || $sName === 'BOOK';
-                } elseif ($target === 'INDOOR GAME') {
-                    $match = str_contains($sName, 'INDOOR GAME');
-                } elseif ($target === 'OUTDOOR GAME') {
-                    $match = str_contains($sName, 'OUTDOOR GAME');
-                } elseif ($target === 'VEDIC MATHS') {
-                    $match = str_contains($sName, 'VEDIC MATHS') || str_contains($sName, 'VEDIC MATH') || $sName === 'VEDIC MATHS' || $sName === 'VEDIC MATH';
-                } elseif ($target === 'PHYSICAL EDUCATION') {
-                    $match = str_contains($sName, 'PHYSICAL EDUCATION') || str_contains($sName, 'PHYSICAL ED') || str_contains($sName, 'PHY ED') || str_contains($sName, 'PHY. ED') || $sName === 'PT' || $sName === 'P.E.' || $sName === 'P.E' || $sName === 'PE';
+                // Dynamic matching for newly added subjects
+                if ($sName === $target || str_contains($sName, $target) || str_contains($target, $sName)) {
+                    $match = true;
                 } else {
-                    $match = $sName === $target || str_contains($sName, $target);
+                    // Hardcoded fallback matching logic (for backwards compatibility)
+                    if ($target === 'SANSKRIT BOOK') {
+                        $match = str_contains($sName, 'SANSKRIT') && str_contains($sName, 'BOOK');
+                        if (!$match && str_contains($sName, 'PATHANTER')) $match = true;
+                        if (!$match && str_contains($sName, 'BHARTI'))    $match = true;
+                        if (!$match && $sName === 'SANSKRIT')             $match = true;
+                    } elseif ($target === 'TABLA') {
+                        $match = str_contains($sName, 'TABLA') || str_contains($sName, 'TABALA');
+                    } elseif ($target === 'MUSIC') {
+                        $match = str_contains($sName, 'MUSIC');
+                    } elseif ($target === 'SONG') {
+                        $match = str_contains($sName, 'SONG');
+                    } elseif ($target === 'ACTING') {
+                        $match = str_contains($sName, 'ACTING') || str_contains($sName, 'DRAMA');
+                    } elseif ($target === 'BOOKS') {
+                        $match = $sName === 'BOOKS' || $sName === 'BOOK';
+                    } elseif ($target === 'INDOOR GAME') {
+                        $match = str_contains($sName, 'INDOOR GAME');
+                    } elseif ($target === 'OUTDOOR GAME') {
+                        $match = str_contains($sName, 'OUTDOOR GAME');
+                    } elseif ($target === 'VEDIC MATHS') {
+                        $match = str_contains($sName, 'VEDIC MATHS') || str_contains($sName, 'VEDIC MATH') || $sName === 'VEDIC MATHS' || $sName === 'VEDIC MATH';
+                    } elseif ($target === 'PHYSICAL EDUCATION') {
+                        $match = str_contains($sName, 'PHYSICAL EDUCATION') || str_contains($sName, 'PHYSICAL ED') || str_contains($sName, 'PHY ED') || str_contains($sName, 'PHY. ED') || $sName === 'PT' || $sName === 'P.E.' || $sName === 'P.E' || $sName === 'PE';
+                    } elseif (str_contains($target, 'DEFENCE') || str_contains($target, 'DEFENSE')) {
+                        $match = str_contains($sName, 'DEFENCE') || str_contains($sName, 'DEFENSE');
+                    }
                 }
 
                 if ($match) {
                     $found = clone $sub;
-                    $found->subject_name = $target;
+                    $found->subject_name = $target; // Standardize the name
                     break;
                 }
             }
@@ -192,6 +217,12 @@ class StudentSkillObservationController extends Controller
         if ($subjectName === '') return [];
 
         $name = strtoupper(trim($subjectName));
+
+        // 👇 MODIFIED: Force single "Written Marks" column for these specific subjects 👇
+        if (str_contains($name, 'WATER SECURITY') || str_contains($name, 'DEFENCE STUDIES') || str_contains($name, 'DEFENSE SCIENCE')) {
+            return ['Written Marks']; 
+        }
+        // 👆 END OF MODIFIED LOGIC 👆
 
         // --- New Pre-Primary Criteria ---
         if (str_contains($name, 'GROUND ACTIVITIES')) {
@@ -238,6 +269,25 @@ class StudentSkillObservationController extends Controller
             return strtolower(trim($item)) !== 'marks';
         }));
     }
+
+    /* 👇 NEW HELPER: Calculate Grade from Written Marks 👇 */
+        private function calculateGradeFromMarks($marks): string
+    {
+        $marks = (float) $marks;
+        if ($marks <= 0) return '';
+
+        // Since the max mark is 20, calculate the percentage
+        $maxMarks = 20;
+        $percentage = ($marks / $maxMarks) * 100;
+
+        if ($percentage >= 90) return 'A+'; // 18 to 20
+        if ($percentage >= 75) return 'A';  // 15 to 17.5
+        if ($percentage >= 60) return 'B+'; // 12 to 14.5
+        if ($percentage >= 45) return 'B';  // 9 to 11.5
+        
+        return 'C'; // Below 9
+    }
+    /* 👆 END NEW HELPER 👆 */
 
     private function resolveErpYearId(?AcademicYear $academicYear): string
     {
@@ -426,7 +476,15 @@ class StudentSkillObservationController extends Controller
 
             if (!$isAbsent && empty($observations)) continue;
 
+            // 👇 MODIFIED LOGIC 👇
             $overallGrade = $isAbsent ? 'AB' : SkillCriteriaHelper::computeAverageGrade($observations);
+            $subjectName = strtoupper(trim($subject->subject_name));
+            
+            if (str_contains($subjectName, 'WATER SECURITY') || str_contains($subjectName, 'DEFENCE STUDIES') || str_contains($subjectName, 'DEFENSE SCIENCE')) {
+                $writtenMarks = $observations['Written Marks'] ?? 0;
+                $overallGrade = $isAbsent ? 'AB' : $this->calculateGradeFromMarks($writtenMarks);
+            }
+            // 👆 END MODIFIED LOGIC 👆
 
             $updateData = [
                 'standard_id'      => $standardId,
@@ -441,7 +499,6 @@ class StudentSkillObservationController extends Controller
 
             // Map to new specific columns
             if ($subject) {
-                $subjectName = strtoupper(trim($subject->subject_name));
                 if (str_contains($subjectName, 'GROUND ACTIVITIES')) {
                     $updateData['ground_activities_grade'] = $overallGrade;
                 } elseif (str_contains($subjectName, 'TRG. SENSES')) {
@@ -509,7 +566,15 @@ class StudentSkillObservationController extends Controller
             }
         }
 
+        // 👇 MODIFIED LOGIC 👇
         $overallGrade = $isAbsent ? 'AB' : SkillCriteriaHelper::computeAverageGrade($observations);
+        $subjectName = strtoupper(trim($subject->subject_name));
+
+        if (str_contains($subjectName, 'WATER SECURITY') || str_contains($subjectName, 'DEFENCE STUDIES') || str_contains($subjectName, 'DEFENSE SCIENCE')) {
+            $writtenMarks = $observations['Written Marks'] ?? 0;
+            $overallGrade = $isAbsent ? 'AB' : $this->calculateGradeFromMarks($writtenMarks);
+        }
+        // 👆 END MODIFIED LOGIC 👆
 
         $updateData = [
             'standard_id'      => $standardId,
@@ -523,7 +588,6 @@ class StudentSkillObservationController extends Controller
         ];
 
         // Map to new specific columns
-        $subjectName = strtoupper(trim($subject->subject_name));
         if (str_contains($subjectName, 'GROUND ACTIVITIES')) {
             $updateData['ground_activities_grade'] = $overallGrade;
         } elseif (str_contains($subjectName, 'TRG. SENSES')) {

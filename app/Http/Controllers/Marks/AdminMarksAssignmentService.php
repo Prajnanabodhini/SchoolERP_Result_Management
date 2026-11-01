@@ -257,6 +257,11 @@ class AdminMarksAssignmentService
                 )
             );
 
+        // NEW FIX: If there is an explicit status in the DB, trust it.
+        // Do not override 'PENDING' just because some draft marks exist.
+        if ($storedStatus === 'COMPLETED' || $storedStatus === 'PENDING') {
+            return $storedStatus;
+        }
 
         if (
             !$tsa

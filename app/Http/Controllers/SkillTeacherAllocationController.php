@@ -22,30 +22,37 @@ class SkillTeacherAllocationController extends Controller
 {
     public function index(Request $request)
     {
-        $academicYearId = $request->input('academic_year_id', '');
-        $standardId     = $request->input('standard_id', '');
-        $divisionId     = $request->input('division_id', '');
-        $examMasterId   = $request->input('exam_master_id', '');
+        // Use empty() to safely catch null, '', and 0
+        $academicYearId = $request->input('academic_year_id');
+        $standardId     = $request->input('standard_id');
+        $divisionId     = $request->input('division_id');
+        $examMasterId   = $request->input('exam_master_id');
         
         $subjectType    = $request->input('subject_type', 'grade'); 
 
-        $exams = TeacherBulkHelper::exams($academicYearId, $standardId);
+        $exams = collect();
+        try {
+            if (class_exists(TeacherBulkHelper::class) && method_exists(TeacherBulkHelper::class, 'exams')) {
+                $exams = TeacherBulkHelper::exams($academicYearId, $standardId);
+            }
+        } catch (\Throwable $e) {
+            Log::error("Failed to load exams: " . $e->getMessage());
+        }
 
         $isAllocationGenerated = false;
         $canGenerateAllocation = false;
 
-        if ($subjectType === 'mark' && $academicYearId !== '' && $examMasterId !== '') {
+        if ($subjectType === 'mark' && !empty($academicYearId) && !empty($examMasterId)) {
             $isAllocationGeneratedQuery = DB::table('skill_slot_allocations')
-                ->where('academic_year_id', (int)$academicYearId)
-                ->where('exam_master_id', (int)$examMasterId);
+                ->where('academic_year_id', $academicYearId)
+                ->where('exam_master_id', $examMasterId);
             
-            if ($standardId !== '') {
-                $isAllocationGeneratedQuery->where('standard_id', (int)$standardId);
+            if (!empty($standardId)) {
+                $isAllocationGeneratedQuery->where('standard_id', $standardId);
             }
             
             $isAllocationGenerated = $isAllocationGeneratedQuery->exists();
 
-            // Check if the selected exam is a Term 1 or Term 2 exam
             $selectedExam = ExamMaster::find($examMasterId);
             if ($selectedExam) {
                 $examNameUpper = strtoupper(trim((string) $selectedExam->exam_name));
@@ -62,29 +69,25 @@ class SkillTeacherAllocationController extends Controller
         $totalCount = 0;
 
         if ($subjectType === 'grade') {
-            $query = SkillTeacherClassAllocation::with([
-                'teacher',
-                'academicYear',
-                'section',
-                'standard',
-                'division',
-                'subjectAllocations.exam',
-                'subjectAllocations.subject'
+            $query = SkillTeacherClassAllocation::withoutGlobalScopes()->with([
+                'teacher', 'academicYear', 'section', 'standard', 'division',
+                'subjectAllocations.exam', 'subjectAllocations.subject'
             ]);
 
-            if ($academicYearId !== '') $query->where('academic_year_id', (int) $academicYearId);
-            if ($standardId !== '')     $query->where('standard_id', (int) $standardId);
-            if ($divisionId !== '')     $query->where('division_id', (int) $divisionId);
-            if ($examMasterId !== '') {
+            // Only apply filters if they are not empty
+            if (!empty($academicYearId)) $query->where('academic_year_id', $academicYearId);
+            if (!empty($standardId))     $query->where('standard_id', $standardId);
+            if (!empty($divisionId))     $query->where('division_id', $divisionId);
+            if (!empty($examMasterId)) {
                 $query->whereHas('subjectAllocations', function ($q) use ($examMasterId) {
-                    $q->where('exam_master_id', (int) $examMasterId);
+                    $q->where('exam_master_id', $examMasterId);
                 });
             }
 
             $allGradeAllocations = $query->orderByDesc('id')->get();
             $totalCount = $allGradeAllocations->count();
 
-            // --- CALCULATE SUMMARY FOR GRADE TAB (Same logic as Dashboard) ---
+            // --- CALCULATE SUMMARY FOR GRADE TAB ---
             $sql = <<<'SQL'
                 SELECT
                     stsa.id AS tsa_id, stca.academic_year_id, stca.standard_id, stca.division_id,
@@ -102,10 +105,10 @@ class SkillTeacherAllocationController extends Controller
             SQL;
             
             $b = [];
-            if ($academicYearId !== '') { $sql .= " AND stca.academic_year_id = ? "; $b[] = (int) $academicYearId; }
-            if ($standardId !== '')     { $sql .= " AND stca.standard_id = ? ";     $b[] = (int) $standardId; }
-            if ($divisionId !== '')     { $sql .= " AND stca.division_id = ? ";     $b[] = (int) $divisionId; }
-            if ($examMasterId !== '')   { $sql .= " AND stsa.exam_master_id = ? ";  $b[] = (int) $examMasterId; }
+            if (!empty($academicYearId)) { $sql .= " AND stca.academic_year_id = ? "; $b[] = $academicYearId; }
+            if (!empty($standardId))     { $sql .= " AND stca.standard_id = ? ";     $b[] = $standardId; }
+            if (!empty($divisionId))     { $sql .= " AND stca.division_id = ? ";     $b[] = $divisionId; }
+            if (!empty($examMasterId))   { $sql .= " AND stsa.exam_master_id = ? ";  $b[] = $examMasterId; }
 
             $allRows = collect(DB::select($sql, $b));
 
@@ -193,6 +196,8 @@ class SkillTeacherAllocationController extends Controller
                 $obsKey = $classKey . '_' . $row->exam_master_id . '_' . $row->subject_id;
 
                 $totalStudents = $totalStudentsMap[$classKey] ?? 0;
+                $recordedStudents = $row->recorded_students ?? 0;
+
                 $classObs = $groupedObservations->get($obsKey, collect());
                 $latestObsPerStudent = $classObs->sortByDesc('id')->unique('student_id');
                 $completedStudentsCount = 0;
@@ -209,17 +214,32 @@ class SkillTeacherAllocationController extends Controller
                     $obsData = json_decode($obs->observations, true);
                     if (!is_array($obsData) || empty($obsData)) continue;
 
-                    $savedDataLower = array_change_key_case(array_map('trim', $obsData), CASE_LOWER);
+                    // FIX: Trim keys AND values to prevent matching issues
+                    $savedDataLower = [];
+                    foreach ($obsData as $k => $v) {
+                        $val = is_array($v) ? json_encode($v) : trim((string)$v);
+                        $savedDataLower[strtolower(trim((string)$k))] = $val;
+                    }
 
                     if (!empty($expectedKeysLower)) {
                         $missingKeys = array_diff($expectedKeysLower, array_keys($savedDataLower));
-                        if (!empty($missingKeys)) continue;
+                        // More forgiving check: allow partial matches (e.g. "c.w. (activity book)" vs "c.w. (activity book) ")
+                        $actuallyMissing = false;
+                        foreach ($missingKeys as $mk) {
+                            $found = false;
+                            foreach (array_keys($savedDataLower) as $sk) {
+                                if (str_contains($sk, $mk) || str_contains($mk, $sk)) {
+                                    $found = true; break;
+                                }
+                            }
+                            if (!$found) { $actuallyMissing = true; break; }
+                        }
+                        if ($actuallyMissing) continue;
                     }
 
                     $isComplete = true;
                     foreach ($savedDataLower as $key => $grade) {
                         if (stripos($key, 'remark') !== false) continue;
-                        $grade = trim((string)$grade);
                         if (empty($grade) || preg_match('/^[-\s—–\x{2010}-\x{2015}]*$/u', $grade)) {
                             $isComplete = false; break;
                         }
@@ -233,14 +253,17 @@ class SkillTeacherAllocationController extends Controller
                     if ($isComplete) $completedStudentsCount++;
                 }
 
-                if ($totalStudents > 0 && $completedStudentsCount >= $totalStudents) {
+                // FIX: Add fallback check. If we have completed all recorded students, count as completed.
+                if (
+                    ($totalStudents > 0 && $completedStudentsCount >= $totalStudents) || 
+                    ($recordedStudents > 0 && $completedStudentsCount >= $recordedStudents && $completedStudentsCount > 0)
+                ) {
                     $completedCount++;
                 } else {
                     $pendingCount++;
                 }
             }
 
-            // Paginate manually for the Grade tab
             $perPage = 25;
             $currentPage = LengthAwarePaginator::resolveCurrentPage();
             $currentItems = $allGradeAllocations->slice(($currentPage - 1) * $perPage, $perPage)->values();
@@ -251,7 +274,6 @@ class SkillTeacherAllocationController extends Controller
 
         } 
         elseif ($subjectType === 'mark') {
-            // Use LEFT JOIN to ensure counts are correct even if related records are missing
             $query = DB::table('skill_slot_allocations as ssa')
                 ->leftJoin('standards as st', 'st.id', '=', 'ssa.standard_id')
                 ->leftJoin('divisions as d', 'd.id', '=', 'ssa.division_id')
@@ -259,10 +281,10 @@ class SkillTeacherAllocationController extends Controller
                 ->leftJoin('academic_years as ay', 'ay.id', '=', 'ssa.academic_year_id')
                 ->select('ssa.*', 'st.standard_name', 'd.division_name', 'em.exam_name', 'ay.year_name');
 
-            if ($academicYearId !== '') $query->where('ssa.academic_year_id', (int)$academicYearId);
-            if ($examMasterId !== '')   $query->where('ssa.exam_master_id', (int)$examMasterId);
-            if ($standardId !== '')     $query->where('ssa.standard_id', (int)$standardId);
-            if ($divisionId !== '')     $query->where('ssa.division_id', (int)$divisionId);
+            if (!empty($academicYearId)) $query->where('ssa.academic_year_id', $academicYearId);
+            if (!empty($examMasterId))   $query->where('ssa.exam_master_id', $examMasterId);
+            if (!empty($standardId))     $query->where('ssa.standard_id', $standardId);
+            if (!empty($divisionId))     $query->where('ssa.division_id', $divisionId);
 
             $allAllocations = $query->orderBy('ssa.id', 'desc')->get();
             $totalCount = $allAllocations->count();
@@ -291,8 +313,8 @@ class SkillTeacherAllocationController extends Controller
                 $marksQuery = DB::table('student_skill_marks')
                     ->select('student_id', 'academic_year_id', 'standard_id', 'division_id', 'exam_master_id', 'skill_slot', 'marks_obtained', 'is_absent');
                 
-                if ($academicYearId !== '') $marksQuery->where('academic_year_id', (int)$academicYearId);
-                if ($examMasterId !== '')   $marksQuery->where('exam_master_id', (int)$examMasterId);
+                if (!empty($academicYearId)) $marksQuery->where('academic_year_id', $academicYearId);
+                if (!empty($examMasterId))   $marksQuery->where('exam_master_id', $examMasterId);
                 
                 $allMarks = $marksQuery->get()
                     ->groupBy(fn($item) => $item->academic_year_id . '_' . $item->standard_id . '_' . $item->division_id . '_' . $item->exam_master_id . '_' . $item->skill_slot);
@@ -364,7 +386,7 @@ class SkillTeacherAllocationController extends Controller
         $request->validate([
             'academic_year_id' => 'required|integer',
             'exam_master_id'   => 'required|integer',
-            'standard_id'      => 'nullable|integer', // Added validation
+            'standard_id'      => 'nullable|integer', 
         ]);
 
         $academicYearId = $request->academic_year_id;
@@ -380,13 +402,11 @@ class SkillTeacherAllocationController extends Controller
             $standardId = $examMaster->standard_id;
         }
 
-        // Backend Validation: Ensure it's a Term 1 or Term 2 exam
         $examNameUpper = strtoupper(trim((string) $examMaster->exam_name));
         if (!str_contains($examNameUpper, 'TERM 1') && !str_contains($examNameUpper, 'TERM 2')) {
             return redirect()->back()->with('error', 'Allocations can only be generated for Term 1 and Term 2 exams.');
         }
 
-        // Check if already generated
         $existsQuery = DB::table('skill_slot_allocations')
             ->where('academic_year_id', $academicYearId)
             ->where('exam_master_id', $examMasterId);
@@ -614,6 +634,12 @@ class SkillTeacherAllocationController extends Controller
             return back()->withInput()->with('error', implode(' ', $errors));
         }
 
+        // NEW: Check for duplicate allocations before saving. Triggers SweetAlert error if found.
+        $duplicateErrors = $this->validateNoDuplicateSkillAllocations($request);
+        if (!empty($duplicateErrors)) {
+            return back()->withInput()->with('error', implode(' ', $duplicateErrors));
+        }
+
         try {
             DB::transaction(function () use ($request) {
                 $this->saveAllocation($request);
@@ -683,25 +709,98 @@ class SkillTeacherAllocationController extends Controller
                 $allocation = SkillTeacherClassAllocation::with('subjectAllocations')->findOrFail($id);
                 $allocationIds = $this->findSiblingAllocationIds($allocation);
 
-                SkillTeacherSubjectAllocation::whereIn('skill_teacher_class_allocation_id', $allocationIds)->delete();
-                SkillTeacherClassAllocation::whereIn('id', $allocationIds)->delete();
+                // Load all existing allocations for this group
+                $existingAllocations = SkillTeacherClassAllocation::whereIn('id', $allocationIds)->get();
+                $existingByDivision = $existingAllocations->keyBy('division_id');
 
-                foreach ($request->divisions as $divisionId) {
-                    $newAllocation = SkillTeacherClassAllocation::create([
-                        'user_id'          => $request->user_id,
-                        'academic_year_id' => $request->academic_year_id,
-                        'section_id'       => $request->section_id,
-                        'standard_id'      => $request->standard_id,
-                        'division_id'      => $divisionId,
-                        'is_class_teacher' => false,
-                    ]);
+                $selectedDivisionIds = $request->divisions;
 
-                    foreach ($request->subjects as $subjectId) {
-                        SkillTeacherSubjectAllocation::create([
-                            'skill_teacher_class_allocation_id' => $newAllocation->id,
-                            'exam_master_id'                    => $request->exam_master_id,
-                            'subject_id'                        => $subjectId,
+                // 1. Delete allocations for unchecked divisions
+                foreach ($existingAllocations as $existing) {
+                    if (!in_array($existing->division_id, $selectedDivisionIds)) {
+                        SkillTeacherSubjectAllocation::where('skill_teacher_class_allocation_id', $existing->id)->delete();
+                        $existing->delete();
+                    }
+                }
+
+                // 2. Update existing allocations or create new ones
+                foreach ($selectedDivisionIds as $divisionId) {
+                    if (isset($existingByDivision[$divisionId])) {
+                        // Update existing allocation in place (preserves ID)
+                        $classAlloc = $existingByDivision[$divisionId];
+                        $classAlloc->update([
+                            'user_id'          => $request->user_id,
+                            'academic_year_id' => $request->academic_year_id,
+                            'section_id'       => $request->section_id,
+                            'standard_id'      => $request->standard_id,
+                            'is_class_teacher' => false,
                         ]);
+
+                        // Sync subjects
+                        SkillTeacherSubjectAllocation::where('skill_teacher_class_allocation_id', $classAlloc->id)->delete();
+                        foreach ($request->subjects as $subjectId) {
+                            
+                            // CHANGED: Check for conflicts before creating
+                            $conflict = DB::table('skill_teacher_subject_allocations as stsa')
+                                ->join('skill_teacher_class_allocations as stca', 'stsa.skill_teacher_class_allocation_id', '=', 'stca.id')
+                                ->where('stca.academic_year_id', $request->academic_year_id)
+                                ->where('stca.standard_id', $request->standard_id)
+                                ->where('stca.division_id', $divisionId)
+                                ->where('stsa.exam_master_id', $request->exam_master_id)
+                                ->where('stsa.subject_id', $subjectId)
+                                ->whereNotIn('stca.id', $allocationIds) // Exclude self and siblings
+                                ->select('stca.user_id')
+                                ->first();
+
+                            if ($conflict) {
+                                $subjectName = DB::table('subjects')->where('id', $subjectId)->value('subject_name');
+                                $teacherName = DB::table('users')->where('id', $conflict->user_id)->value('name');
+                                throw new \RuntimeException("Cannot add subject '{$subjectName}'. It is already allocated to {$teacherName} for this class and exam.");
+                            }
+
+                            SkillTeacherSubjectAllocation::create([
+                                'skill_teacher_class_allocation_id' => $classAlloc->id,
+                                'exam_master_id'                    => $request->exam_master_id,
+                                'subject_id'                        => $subjectId,
+                            ]);
+                        }
+                    } else {
+                        // Create new allocation for newly checked divisions
+                        $newAllocation = SkillTeacherClassAllocation::create([
+                            'user_id'          => $request->user_id,
+                            'academic_year_id' => $request->academic_year_id,
+                            'section_id'       => $request->section_id,
+                            'standard_id'      => $request->standard_id,
+                            'division_id'      => $divisionId,
+                            'is_class_teacher' => false,
+                        ]);
+
+                        foreach ($request->subjects as $subjectId) {
+                            
+                            // CHANGED: Check for conflicts before creating
+                            $conflict = DB::table('skill_teacher_subject_allocations as stsa')
+                                ->join('skill_teacher_class_allocations as stca', 'stsa.skill_teacher_class_allocation_id', '=', 'stca.id')
+                                ->where('stca.academic_year_id', $request->academic_year_id)
+                                ->where('stca.standard_id', $request->standard_id)
+                                ->where('stca.division_id', $divisionId)
+                                ->where('stsa.exam_master_id', $request->exam_master_id)
+                                ->where('stsa.subject_id', $subjectId)
+                                ->whereNotIn('stca.id', $allocationIds) // Exclude self and siblings
+                                ->select('stca.user_id')
+                                ->first();
+
+                            if ($conflict) {
+                                $subjectName = DB::table('subjects')->where('id', $subjectId)->value('subject_name');
+                                $teacherName = DB::table('users')->where('id', $conflict->user_id)->value('name');
+                                throw new \RuntimeException("Cannot add subject '{$subjectName}'. It is already allocated to {$teacherName} for this class and exam.");
+                            }
+
+                            SkillTeacherSubjectAllocation::create([
+                                'skill_teacher_class_allocation_id' => $newAllocation->id,
+                                'exam_master_id'                    => $request->exam_master_id,
+                                'subject_id'                        => $subjectId,
+                            ]);
+                        }
                     }
                 }
             });
@@ -793,6 +892,49 @@ class SkillTeacherAllocationController extends Controller
         }
     }
 
+    /**
+     * NEW: Prevent duplicate allocations before entering the transaction.
+     */
+    private function validateNoDuplicateSkillAllocations(Request $request): array
+    {
+        $errors = [];
+        $examMasterId = (int) $request->exam_master_id;
+        $academicYearId = (int) $request->academic_year_id;
+
+        foreach ($request->rows as $row) {
+            $standardId = (int) ($row['standards'][0] ?? 0);
+            if (!$standardId) continue;
+
+            $uniqueSubjects = array_unique($row['subjects'] ?? []);
+
+            foreach ($row['divisions'] as $divisionId) {
+                foreach ($uniqueSubjects as $subjectId) {
+                    // Check if this exact combination already exists in the database
+                    $conflict = DB::table('skill_teacher_subject_allocations as stsa')
+                        ->join('skill_teacher_class_allocations as stca', 'stsa.skill_teacher_class_allocation_id', '=', 'stca.id')
+                        ->where('stca.academic_year_id', $academicYearId)
+                        ->where('stca.standard_id', $standardId)
+                        ->where('stca.division_id', (int) $divisionId)
+                        ->where('stsa.exam_master_id', $examMasterId)
+                        ->where('stsa.subject_id', (int) $subjectId)
+                        ->select('stsa.id', 'stca.user_id')
+                        ->first();
+
+                    if ($conflict) {
+                        $standard = DB::table('standards')->where('id', $standardId)->value('standard_name');
+                        $division = DB::table('divisions')->where('id', $divisionId)->value('division_name');
+                        $subject  = DB::table('subjects')->where('id', $subjectId)->value('subject_name');
+                        $teacher  = DB::table('users')->where('id', $conflict->user_id)->value('name');
+
+                        $errors[] = "Allocation already exists for {$standard} - Div {$division} - Subject: {$subject} (Teacher: {$teacher}). Please edit the existing allocation instead of creating a new one.";
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($errors));
+    }
+
     private function saveAllocation(Request $request)
     {
         foreach ($request->rows as $row) {
@@ -834,54 +976,77 @@ class SkillTeacherAllocationController extends Controller
         foreach ($swapStandardIds as $stdId) {
             if (isset($data[$stdId])) { $key = $stdId; } elseif (isset($data[(string) $stdId])) { $key = (string) $stdId; } else { continue; }
             $entries = $data[$key];
-            if ($entries instanceof \Illuminate\Support\Collection) { $entries = $entries->all(); }
-            if (!is_array($entries)) { continue; }
+            $isColl = $entries instanceof \Illuminate\Support\Collection;
+            $asArray = $isColl ? $entries->all() : $entries;
+            if (!is_array($asArray)) { continue; }
 
-            foreach ($entries as $idx => $sub) {
+            foreach ($asArray as $idx => $sub) {
                 if (is_array($sub)) { $name = strtoupper(trim((string) ($sub['subject_name'] ?? ''))); } elseif (is_object($sub)) { $name = strtoupper(trim((string) ($sub->subject_name ?? ''))); } elseif (is_string($sub)) { $name = strtoupper(trim($sub)); } else { continue; }
                 if ($name !== 'ABACUS') { continue; }
                 if (is_array($sub)) {
-                    $data[$key][$idx]['subject_name'] = 'VEDIC MATHS'; $data[$key][$idx]['short_name'] = 'VM';
-                    if ($vedicMathsId > 0) { $data[$key][$idx]['id'] = $vedicMathsId; }
+                    $asArray[$idx]['subject_name'] = 'VEDIC MATHS'; $asArray[$idx]['short_name'] = 'VM';
+                    if ($vedicMathsId > 0) { $asArray[$idx]['id'] = $vedicMathsId; }
                 } elseif (is_object($sub)) {
                     $sub->subject_name = 'VEDIC MATHS'; $sub->short_name = 'VM';
                     if ($vedicMathsId > 0) { $sub->id = $vedicMathsId; }
-                } elseif (is_string($sub)) { $data[$key][$idx] = 'VEDIC MATHS'; }
+                } elseif (is_string($sub)) { $asArray[$idx] = 'VEDIC MATHS'; }
             }
+            $data[$key] = $isColl ? collect($asArray) : $asArray;
         }
 
         if ($physicalEduId > 0) {
             foreach ($physicalEduStandardIds as $stdId) {
                 if (isset($data[$stdId])) { $key = $stdId; } elseif (isset($data[(string) $stdId])) { $key = (string) $stdId; } else { continue; }
-                $entries = $data[$key]; $isColl = $entries instanceof \Illuminate\Support\Collection; $asArray = $isColl ? $entries->all() : $entries;
+                $entries = $data[$key]; 
+                $isColl = $entries instanceof \Illuminate\Support\Collection; 
+                $asArray = $isColl ? $entries->all() : $entries;
                 if (!is_array($asArray)) { continue; }
+                
                 $alreadyPresent = false;
                 foreach ($asArray as $sub) {
                     if (is_array($sub)) { $name = strtoupper(trim((string) ($sub['subject_name'] ?? ''))); } elseif (is_object($sub)) { $name = strtoupper(trim((string) ($sub->subject_name ?? ''))); } elseif (is_string($sub)) { $name = strtoupper(trim($sub)); } else { continue; }
                     if ($name === 'PHYSICAL EDUCATION' || $name === 'PE' || $name === 'PT') { $alreadyPresent = true; break; }
                 }
                 if ($alreadyPresent) { continue; }
-                if ($isColl) { $asArray->push((object) ['id' => $physicalEduId, 'subject_name' => 'PHYSICAL EDUCATION', 'short_name' => 'PE']); $data[$key] = $asArray; } 
-                else { $asArray[] = ['id' => $physicalEduId, 'subject_name' => 'PHYSICAL EDUCATION', 'short_name' => 'PE']; $data[$key] = $asArray; }
+                
+                if ($isColl) { 
+                    $entries->push((object) ['id' => $physicalEduId, 'subject_name' => 'PHYSICAL EDUCATION', 'short_name' => 'PE']); 
+                    $data[$key] = $entries; 
+                } else { 
+                    $asArray[] = ['id' => $physicalEduId, 'subject_name' => 'PHYSICAL EDUCATION', 'short_name' => 'PE']; 
+                    $data[$key] = $asArray; 
+                }
             }
         }
 
         if ($craftId > 0 || $drawingId > 0) {
             foreach ($craftDrawingStandardIds as $stdId) {
                 if (isset($data[$stdId])) { $key = $stdId; } elseif (isset($data[(string) $stdId])) { $key = (string) $stdId; } else { continue; }
-                $entries = $data[$key]; $isColl = $entries instanceof \Illuminate\Support\Collection; $asArray = $isColl ? $entries->all() : $entries;
+                $entries = $data[$key]; 
+                $isColl = $entries instanceof \Illuminate\Support\Collection; 
+                $asArray = $isColl ? $entries->all() : $entries;
                 if (!is_array($asArray)) { continue; }
+                
                 $namesPresent = [];
                 foreach ($asArray as $sub) {
                     if (is_array($sub)) { $namesPresent[] = strtoupper(trim((string) ($sub['subject_name'] ?? ''))); } elseif (is_object($sub)) { $namesPresent[] = strtoupper(trim((string) ($sub->subject_name ?? ''))); } elseif (is_string($sub)) { $namesPresent[] = strtoupper(trim($sub)); }
                 }
+                
                 if ($craftId > 0 && !in_array('CRAFT', $namesPresent, true)) {
-                    if ($isColl) { $asArray->push((object) ['id' => $craftId, 'subject_name' => 'CRAFT', 'short_name' => 'CRAFT']); } else { $asArray[] = ['id' => $craftId, 'subject_name' => 'CRAFT', 'short_name' => 'CRAFT']; }
+                    if ($isColl) { 
+                        $entries->push((object) ['id' => $craftId, 'subject_name' => 'CRAFT', 'short_name' => 'CRAFT']); 
+                    } else { 
+                        $asArray[] = ['id' => $craftId, 'subject_name' => 'CRAFT', 'short_name' => 'CRAFT']; 
+                    }
                 }
                 if ($drawingId > 0 && !in_array('DRAWING', $namesPresent, true)) {
-                    if ($isColl) { $asArray->push((object) ['id' => $drawingId, 'subject_name' => 'DRAWING', 'short_name' => 'DRAWING']); } else { $asArray[] = ['id' => $drawingId, 'subject_name' => 'DRAWING', 'short_name' => 'DRAWING']; }
+                    if ($isColl) { 
+                        $entries->push((object) ['id' => $drawingId, 'subject_name' => 'DRAWING', 'short_name' => 'DRAWING']); 
+                    } else { 
+                        $asArray[] = ['id' => $drawingId, 'subject_name' => 'DRAWING', 'short_name' => 'DRAWING']; 
+                    }
                 }
-                $data[$key] = $asArray;
+                $data[$key] = $isColl ? $entries : $asArray;
             }
         }
 
@@ -912,6 +1077,63 @@ class SkillTeacherAllocationController extends Controller
             });
             $data[$key] = $isColl ? collect(array_values($filteredArray)) : array_values($filteredArray);
         }
+
+        // =====================================================================
+        // AUTOMATICALLY APPEND NEW SKILL SUBJECTS (DEFENCE STUDIES & WATER SECURITY) FOR 9TH & 10TH
+        // =====================================================================
+        $highSchoolStandardIds = [9, 10]; // Assuming 9th and 10th Standard IDs
+        $newSkillSubjectNames = ['DEFENCE STUDIES', 'WATER SECURITY', 'DEFENSE SCIENCE'];
+        
+        // Fetch the new subjects from the database to ensure they exist
+        $newSubjects = Subject::where('is_active', 1)
+            ->where(function($q) use ($newSkillSubjectNames) {
+                foreach ($newSkillSubjectNames as $name) {
+                    $q->orWhereRaw('UPPER(TRIM(subject_name)) = ?', [$name]);
+                }
+            })->get();
+
+        if ($newSubjects->isNotEmpty()) {
+            foreach ($highSchoolStandardIds as $stdId) {
+                if (isset($data[$stdId])) { $key = $stdId; } 
+                elseif (isset($data[(string) $stdId])) { $key = (string) $stdId; } 
+                else { continue; }
+                
+                $entries = $data[$key]; 
+                $isColl = $entries instanceof \Illuminate\Support\Collection; 
+                $asArray = $isColl ? $entries->all() : $entries;
+                if (!is_array($asArray)) { continue; }
+                
+                $namesPresent = [];
+                foreach ($asArray as $sub) {
+                    if (is_array($sub)) { $namesPresent[] = strtoupper(trim((string) ($sub['subject_name'] ?? ''))); } 
+                    elseif (is_object($sub)) { $namesPresent[] = strtoupper(trim((string) ($sub->subject_name ?? ''))); } 
+                    elseif (is_string($sub)) { $namesPresent[] = strtoupper(trim($sub)); }
+                }
+                
+                foreach ($newSubjects as $ns) {
+                    $nsName = strtoupper(trim($ns->subject_name));
+                    
+                    // Prevent duplicate additions (e.g., checking if a variant of Defence Studies is already there)
+                    $alreadyExists = false;
+                    foreach ($namesPresent as $presentName) {
+                        if ($presentName === $nsName) { $alreadyExists = true; break; }
+                        if (str_contains($presentName, 'DEFENCE') && str_contains($nsName, 'DEFENCE')) { $alreadyExists = true; break; }
+                        if (str_contains($presentName, 'DEFENSE') && str_contains($nsName, 'DEFENSE')) { $alreadyExists = true; break; }
+                    }
+                    
+                    if (!$alreadyExists) {
+                        if ($isColl) { 
+                            $entries->push((object) ['id' => $ns->id, 'subject_name' => $ns->subject_name, 'short_name' => $ns->short_name ?? $nsName]); 
+                        } else { 
+                            $asArray[] = ['id' => $ns->id, 'subject_name' => $ns->subject_name, 'short_name' => $ns->short_name ?? $nsName]; 
+                        }
+                        $namesPresent[] = $nsName; // Prevent duplicates in the same loop
+                    }
+                }
+                $data[$key] = $isColl ? $entries : $asArray;
+            }
+        }
+        // =====================================================================
 
         return $data;
     }

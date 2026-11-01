@@ -89,12 +89,18 @@ class StudentHelper
         return DB::connection('sqlsrv_olderp')
             ->table('SubStudentMst as s')
             ->join('FeeMstStudent as f', 'f.Studentid', '=', 's.Studentid')
+            ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'f.casteid')
+            ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
             ->select(
                 's.Studentid',
                 's.regno',
                 's.rollno',
                 'f.studname',
                 'f.fathername',
+                'f.casteid',
+                'mc.Caste as caste',
+                'cat.Categoryname as category_name',
+                'f.gender',
                 DB::raw("RTRIM(f.studname) + ' ' + RTRIM(f.fathername) as full_name")
             )
             ->where('s.yearid', $yearId)
@@ -134,10 +140,21 @@ class StudentHelper
 
         return DB::table('SubStudentMst as s')
             ->join('FeeMstStudent as f', 'f.Studentid', '=', 's.Studentid')
+            ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'f.casteid')
+            ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
             ->where('s.yearid', $yearId)
             ->where('s.standardid', $standardMap->standardid)
             ->where('s.divisionid', $divisionMap->divisionid)
-            ->select('s.Studentid', 's.rollno', 's.regno', 'f.studname')
+            ->select(
+                's.Studentid', 
+                's.rollno', 
+                's.regno', 
+                'f.studname',
+                'f.gender',
+                'f.casteid',
+                'mc.Caste as caste',
+                'cat.Categoryname as category_name'
+            )
             ->orderBy('s.rollno')
             ->get();
     }
@@ -146,6 +163,8 @@ class StudentHelper
     {
         return DB::table('SubStudentMst as s')
             ->join('FeeMstStudent as f', 'f.Studentid', '=', 's.Studentid')
+            ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'f.casteid')
+            ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
             ->where('s.yearid', $yearId)
             ->where('s.sectionid', $sectionId)
             ->where('s.standardid', $standardId)
@@ -154,6 +173,10 @@ class StudentHelper
                 's.Studentid',
                 's.regno',
                 's.rollno',
+                'f.gender',
+                'f.casteid',
+                'mc.Caste as caste',
+                'cat.Categoryname as category_name',
                 DB::raw("CONCAT(f.studname, ' ', f.fathername) as studname")
             )
             ->orderByRaw('CAST(s.rollno AS UNSIGNED)')
@@ -170,6 +193,8 @@ class StudentHelper
     {
         return DB::table('SubStudentMst as s')
             ->join('FeeMstStudent as f', 'f.Studentid', '=', 's.Studentid')
+            ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'f.casteid')
+            ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
             ->where('s.yearid', $yearId)
             ->where('s.standardid', $oldStandardId)
             ->where('s.divisionid', $oldDivisionId)
@@ -177,6 +202,10 @@ class StudentHelper
                 's.Studentid',
                 's.regno',
                 's.rollno',
+                'f.gender',
+                'f.casteid',
+                'mc.Caste as caste',
+                'cat.Categoryname as category_name',
                 DB::raw("CONCAT(f.studname, ' ', f.fathername) as studname")
             )
             ->orderByRaw('CAST(s.rollno AS UNSIGNED)')
@@ -241,20 +270,8 @@ class StudentHelper
         );
     }
 
-    /* =====================================================================
-     | ⭐ MAIN ERP FETCH — ORDER BY moved to PHP to avoid full table scan
-     | ===================================================================== */
-
     public static function getStudentsDirectERP($yearId, $laravelStandardId, $laravelDivisionId)
     {
-        /*
-        | Resolve both supported year inputs:
-        | - local academic_years.id
-        | - legacy ERP yearid / year-name prefix
-        |
-        | standard_year_mappings is keyed by the local academic-year ID, while
-        | SubStudentMst and the MSSQL masters use the legacy ERP yearid.
-        */
         $inputYearId = trim((string) $yearId);
         $academicYear = DB::table('academic_years')
             ->where('id', $yearId)
@@ -311,7 +328,6 @@ class StudentHelper
         $divisionName = strtoupper(trim($division->division_name));
         $erpStandardId = null;
 
-        // Preserve existing special ERP mappings for XII Science and Commerce.
         if (in_array($standardName, ['TWELFTH SCIENCE', '12TH SCIENCE', '12 SCIENCE', 'XII SCIENCE'], true)) {
             $erpStandard = DB::connection('sqlsrv_olderp')
                 ->table('StandardMst')
@@ -342,7 +358,6 @@ class StudentHelper
                 $erpStandardId = $standardMap->old_standard_id;
             }
 
-            // Keep the existing fallback for standards without a year-specific map.
             if (!$erpStandardId && !empty($standard->old_standard_id)) {
                 $erpStandardId = $standard->old_standard_id;
             }
@@ -376,10 +391,6 @@ class StudentHelper
             return collect();
         }
 
-        /*
-        | Keep sorting in PHP. SQL-side numeric casts previously caused slow
-        | scans of SubStudentMst in the legacy ERP.
-        */
         $rows = DB::connection('sqlsrv_olderp')
             ->table('SubStudentMst as ss')
             ->join('FeeMstStudent as fs', 'fs.Studentid', '=', 'ss.Studentid')
@@ -420,37 +431,6 @@ class StudentHelper
             return collect();
         }
 
-        /* Log same-student records that disagree on roll number or name. */
-        $duplicateStudentGroups = $rows
-            ->filter(fn ($row) => trim((string) ($row->Studentid ?? '')) !== '')
-            ->groupBy(fn ($row) => (string) $row->Studentid)
-            ->filter(fn ($group) => $group->count() > 1);
-
-        foreach ($duplicateStudentGroups as $studentId => $studentRows) {
-            $rollNumbers = $studentRows
-                ->map(fn ($row) => trim((string) ($row->rollno ?? '')))
-                ->filter(fn ($roll) => $roll !== '')
-                ->unique()
-                ->values();
-            $studentNames = $studentRows
-                ->map(fn ($row) => trim((string) ($row->full_name ?? '')))
-                ->filter(fn ($name) => $name !== '')
-                ->unique()
-                ->values();
-
-            if ($rollNumbers->count() > 1 || $studentNames->count() > 1) {
-                Log::warning('Duplicate Studentid has conflicting data in the legacy ERP.', [
-                    'student_id' => $studentId,
-                    'erp_year_id' => $erpYearId,
-                    'erp_standard_id' => $erpStandardId,
-                    'erp_division_id' => $erpDivision->divisionid,
-                    'roll_numbers' => $rollNumbers->all(),
-                    'student_names' => $studentNames->all(),
-                ]);
-            }
-        }
-
-        // Keep numeric roll numbers first and deduplicate only by Studentid.
         $students = $rows
             ->sortBy(function ($row) {
                 $roll = trim((string) ($row->rollno ?? ''));
@@ -463,27 +443,33 @@ class StudentHelper
             ->unique(fn ($row) => (string) $row->Studentid)
             ->values();
 
-        /* Different students with the same roll are retained and logged. */
-        $duplicateRollGroups = $students
-            ->filter(fn ($row) => trim((string) ($row->rollno ?? '')) !== '')
-            ->groupBy(fn ($row) => strtoupper(trim((string) $row->rollno)))
-            ->filter(fn ($group) => $group->pluck('Studentid')->unique()->count() > 1);
+        $studentIds = $students->pluck('Studentid')->filter()->unique()->values()->all();
+        if (!empty($studentIds)) {
+            $casteMap = DB::connection('sqlsrv_olderp')
+                ->table('FeeMstStudent as fs')
+                ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'fs.casteid')
+                ->leftJoin('MstSubCaste as msc', 'msc.subcasteid', '=', 'fs.subcasteid')
+                ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
+                ->whereIn('fs.Studentid', $studentIds)
+                ->select(
+                    'fs.Studentid',
+                    DB::raw('mc.Caste AS caste'),
+                    DB::raw('msc.subcaste AS subcaste'),
+                    DB::raw('cat.Categoryname AS category_name')
+                )
+                ->get()
+                ->keyBy('Studentid');
 
-        foreach ($duplicateRollGroups as $rollNumber => $rollRows) {
-            Log::warning('Different students have the same roll number in the selected legacy ERP class.', [
-                'erp_year_id' => $erpYearId,
-                'erp_standard_id' => $erpStandardId,
-                'erp_division_id' => $erpDivision->divisionid,
-                'roll_number' => $rollNumber,
-                'student_ids' => $rollRows->pluck('Studentid')->map(fn ($id) => (string) $id)->values()->all(),
-                'student_names' => $rollRows->pluck('full_name')->values()->all(),
-            ]);
+            foreach ($students as $student) {
+                $row = $casteMap->get($student->Studentid);
+                $student->caste         = $row->caste         ?? null;
+                $student->subcaste      = $row->subcaste      ?? null;
+                $student->category_name = $row->category_name ?? null;
+            }
         }
 
         return $students;
     }
-
-    /* ===================================================================== */
 
     public static function getERPDivisions($yearId, $laravelStandardId)
     {
@@ -506,52 +492,8 @@ class StudentHelper
 
     public static function getStudentsDirectERPWithCaste($yearId, $laravelStandardId, $laravelDivisionId)
     {
-        $students = self::getStudentsDirectERP(
-            $yearId,
-            $laravelStandardId,
-            $laravelDivisionId
-        );
-
-        if ($students->isEmpty()) {
-            return $students;
-        }
-
-        $studentIds = $students
-            ->pluck('Studentid')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        if (empty($studentIds)) {
-            return $students;
-        }
-
-        $casteMap = DB::connection('sqlsrv_olderp')
-            ->table('FeeMstStudent as fs')
-            ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'fs.casteid')
-            ->leftJoin('MstSubCaste as msc', 'msc.subcasteid', '=', 'fs.subcasteid')
-            ->whereIn('fs.Studentid', $studentIds)
-            ->select(
-                'fs.Studentid',
-                DB::raw('mc.Caste AS caste'),
-                DB::raw('msc.subcaste AS subcaste')
-            )
-            ->get()
-            ->keyBy('Studentid');
-
-        foreach ($students as $student) {
-            $row = $casteMap->get($student->Studentid);
-            $student->caste    = $row->caste    ?? null;
-            $student->subcaste = $row->subcaste ?? null;
-        }
-
-        return $students;
+        return self::getStudentsDirectERP($yearId, $laravelStandardId, $laravelDivisionId);
     }
-
-    /* =====================================================================
-     | ERP-VALID DIVISIONS PER STANDARD — fast, single ERP query
-     | ===================================================================== */
 
     public static function getERPDivisionsForStandard($academicYearId, $laravelStandardId): \Illuminate\Support\Collection
     {
@@ -589,11 +531,6 @@ class StudentHelper
                 ->values()
                 ->all();
         } catch (\Throwable $e) {
-            Log::warning('getERPDivisionsForStandard: SubStudentMst query failed', [
-                'year_id'     => $yearId,
-                'standard_id' => $laravelStandardId,
-                'message'     => $e->getMessage(),
-            ]);
             return collect();
         }
 
@@ -610,11 +547,6 @@ class StudentHelper
                 ->pluck('division', 'divisionid')
                 ->toArray();
         } catch (\Throwable $e) {
-            Log::warning('getERPDivisionsForStandard: DivisionMst query failed', [
-                'year_id'     => $yearId,
-                'standard_id' => $laravelStandardId,
-                'message'     => $e->getMessage(),
-            ]);
             return collect();
         }
 
@@ -676,7 +608,6 @@ class StudentHelper
                 ->distinct()
                 ->get();
         } catch (\Throwable $e) {
-            Log::warning('getERPDivisionsByStandard: ' . $e->getMessage());
             return [];
         }
 
@@ -698,7 +629,6 @@ class StudentHelper
                 ->pluck('division', 'divisionid')
                 ->toArray();
         } catch (\Throwable $e) {
-            Log::warning('getERPDivisionsByStandard: DivisionMst failed: ' . $e->getMessage());
             return [];
         }
 
@@ -846,10 +776,6 @@ class StudentHelper
         return null;
     }
 
-    /* =====================================================================
-     | STUDENT PERSONAL INFORMATION
-     | ===================================================================== */
-
     public static function getStudentPersonalInfo($studentId, $yearId, $sectionId = null)
     {
         if (!$studentId || !$yearId) {
@@ -870,6 +796,8 @@ class StudentHelper
                          ->on('div.yearid',     '=', 's.yearid');
                 })
                 ->leftJoin('studmast as sm', 'sm.regno', '=', 's.regno')
+                ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'f.casteid')
+                ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
                 ->where('s.Studentid', $studentId)
                 ->where('s.yearid', $yearId);
 
@@ -908,6 +836,8 @@ class StudentHelper
                 'f.fathermobile         as father_mobile',
                 'f.mothermobile         as mother_mobile',
                 'f.resphone1            as residence_phone',
+                'mc.Caste               as caste',
+                'cat.Categoryname       as category_name',
                 DB::raw('std.standard AS standard_name'),
                 DB::raw('div.division AS division_name')
             )
@@ -916,12 +846,6 @@ class StudentHelper
             return $row ?: null;
 
         } catch (\Throwable $e) {
-            Log::warning('StudentHelper::getStudentPersonalInfo failed', [
-                'student_id' => $studentId,
-                'year_id'    => $yearId,
-                'section_id' => $sectionId,
-                'message'    => $e->getMessage(),
-            ]);
             return null;
         }
     }
@@ -941,10 +865,6 @@ class StudentHelper
 
         return implode(', ', array_unique($parts));
     }
-
-    /* =====================================================================
-     | LIGHTWEIGHT ERP FETCH — used by ResultSheetDataService
-     | ===================================================================== */
 
     public static function getStudentsDirectERPSlim($yearId, $laravelStandardId, $laravelDivisionId)
     {
@@ -1006,8 +926,7 @@ class StudentHelper
 
         if (!$erpDivision) return collect();
 
-        /* Only 6 columns. No ORDER BY. Sorting is done in ResultSheetHelper. */
-        return DB::connection('sqlsrv_olderp')
+        $students = DB::connection('sqlsrv_olderp')
             ->table('SubStudentMst as ss')
             ->join('FeeMstStudent as fs', 'fs.Studentid', '=', 'ss.Studentid')
             ->select(
@@ -1022,5 +941,37 @@ class StudentHelper
             ->where('ss.standardid', $erpStandardId)
             ->where('ss.divisionid', $erpDivision->divisionid)
             ->get();
+
+        if ($students->isEmpty()) {
+            return $students;
+        }
+
+        $studentIds = $students->pluck('Studentid')->filter()->unique()->values()->all();
+
+        if (!empty($studentIds)) {
+            $casteMap = DB::connection('sqlsrv_olderp')
+                ->table('FeeMstStudent as fs')
+                ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'fs.casteid')
+                ->leftJoin('MstSubCaste as msc', 'msc.subcasteid', '=', 'fs.subcasteid')
+                ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
+                ->whereIn('fs.Studentid', $studentIds)
+                ->select(
+                    'fs.Studentid',
+                    DB::raw('mc.Caste AS caste'),
+                    DB::raw('msc.subcaste AS subcaste'),
+                    DB::raw('cat.Categoryname AS category_name')
+                )
+                ->get()
+                ->keyBy('Studentid');
+
+            foreach ($students as $student) {
+                $row = $casteMap->get($student->Studentid);
+                $student->caste         = $row->caste         ?? null;
+                $student->subcaste      = $row->subcaste      ?? null;
+                $student->category_name = $row->category_name ?? null;
+            }
+        }
+
+        return $students;
     }
 }

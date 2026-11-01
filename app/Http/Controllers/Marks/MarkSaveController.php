@@ -133,7 +133,8 @@ class MarkSaveController extends Controller
             $sameDivision = (int) $existingMark->division_id === (int) $allocation->division_id;
 
             if ($sameStandard && $sameDivision) {
-                if ((int) $existingMark->is_locked === 1) {
+                // ONLY block if it's locked AND belongs to the SAME teacher allocation
+                if ((int) $existingMark->is_locked === 1 && (int)$existingMark->teacher_subject_allocation_id === (int)$teacherSubjectAllocation->id) {
                     return back()->withInput()->with('error', 'Marks for Student ID ' . $studentId . ' have already been submitted for ' . $actualSubject->subject_name . ' in ' . $exam->exam_name . '. Marks cannot be modified.');
                 }
                 continue;
@@ -147,12 +148,14 @@ class MarkSaveController extends Controller
             return back()->withInput()->with('error', 'Marks could not be saved for Student ID ' . $studentId . '. A mark record already exists for ' . $actualSubject->subject_name . ' in ' . $exam->exam_name . ' under ' . $existingStandardName . ' / ' . $existingDivisionName . '. You are trying to save marks under ' . $currentStandardName . ' / ' . $currentDivisionName . '. Please verify the selected Standard and Division.');
         }
 
+        // ONLY check if marks locked by the current teacher
         $marksLocked = StudentMark::where('academic_year_id', $allocation->academic_year_id)
             ->where('section_id', $allocation->section_id)
             ->where('standard_id', $allocation->standard_id)
             ->where('division_id', $allocation->division_id)
             ->where('exam_master_id', $exam->id)
             ->where('subject_id', $actualSubjectId)
+            ->where('teacher_subject_allocation_id', $teacherSubjectAllocation->id)
             ->where('is_locked', 1)
             ->exists();
 
@@ -185,7 +188,7 @@ class MarkSaveController extends Controller
                 if ($existingMark) {
                     $existingMark->standard_id = $allocation->standard_id;
                     $existingMark->division_id = $allocation->division_id;
-                    $existingMark->teacher_subject_allocation_id = $teacherSubjectAllocation->id;
+                    $existingMark->teacher_subject_allocation_id = $teacherSubjectAllocation->id; // Transfer ownership
                     $existingMark->theory_max_marks = $theoryMaxMarks;
                     $existingMark->theory_passing_marks = $theoryPassingMarks;
                     $existingMark->oral_max_marks = $oralMaxMarks;
@@ -344,7 +347,8 @@ class MarkSaveController extends Controller
                     DB::rollBack();
                     return response()->json(['success' => false, 'message' => 'This student already has marks for this Exam and Subject under another Standard or Division.'], 422);
                 }
-                if ((int)$mark->is_locked === 1) {
+                // 🔥 FIXED: ONLY BLOCK IF LOCKED BY THE SAME TEACHER ALLOCATION
+                if ((int)$mark->is_locked === 1 && (int)$mark->teacher_subject_allocation_id === (int)$teacherSubjectAllocation->id) {
                     DB::rollBack();
                     return response()->json(['success' => false, 'message' => 'Marks have already been submitted for this student.'], 422);
                 }
@@ -352,7 +356,7 @@ class MarkSaveController extends Controller
 
             $mark->standard_id = $allocation->standard_id;
             $mark->division_id = $allocation->division_id;
-            $mark->teacher_subject_allocation_id = $teacherSubjectAllocation->id;
+            $mark->teacher_subject_allocation_id = $teacherSubjectAllocation->id; // Transfer ownership
 
             $mark->theory_max_marks = $theoryMaxMarks;
             $mark->theory_passing_marks = $theoryPassingMarks;
@@ -367,7 +371,7 @@ class MarkSaveController extends Controller
 
             $mark->is_absent = $isAbsent ? 1 : 0;
             $mark->is_optional = $isOptional ? 1 : 0;
-            $mark->is_locked = 0;
+            $mark->is_locked = 0; // Unlock it since new teacher is editing
 
             $mark->updated_by = Auth::id();
             if (!$mark->exists) {

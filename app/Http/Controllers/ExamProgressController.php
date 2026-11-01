@@ -32,12 +32,6 @@ class ExamProgressController extends Controller
         return in_array($role, ['administrator', 'admin'], true);
     }
 
-    /**
-     * Skill subjects that are subset-allocated: only a portion of the class
-     * is enrolled (e.g. 10 of 40 students in Tabla). For these we mark the
-     * allocation COMPLETED as soon as at least one student has been graded,
-     * and we skip the costly total-students ERP lookup.
-     */
     private function isSubsetAllocatedSkillSubject(?string $subjectName): bool
     {
         $name = strtoupper(trim((string) $subjectName));
@@ -83,10 +77,6 @@ class ExamProgressController extends Controller
 
         if ($subjectType === 'skill') {
 
-            // -----------------------------------------------------------------
-            // 1) Fetch allocations (no heavy subqueries — the subquery that
-            //    computed recorded_students was running for every row).
-            // -----------------------------------------------------------------
             $sql = <<<'SQL'
                 SELECT
                     stsa.id                AS tsa_id,
@@ -134,40 +124,6 @@ class ExamProgressController extends Controller
 
             $allRows = collect(DB::select($sql, $bindings));
 
-            $hardcodedCriteria = [
-                48  => ['Accuracy', 'Neatness & Presentation', 'Creativity'],
-                49  => ['Pronunciation', 'Recitation (Stotra)', 'Concept Clearance', 'Writing'],
-                50  => ['Attentiveness', 'Learning', 'Presentation', 'Grace'],
-                51  => ['Attentiveness', 'Learning', 'Presentation', 'Improvisation'],
-                53  => ['Attentiveness', 'Learning', 'Presentation', 'Accompanying singer during performance'],
-                54  => ['Reading', 'Meaningful Learning', 'Vocabulary', 'Ability to Express', 'Library Notes'],
-                55  => ['Learning', 'Book Completion', 'Accuracy', 'Speed', 'Marks'],
-                56  => ['Learning', 'Book Completion', 'Accuracy', 'Speed', 'Marks'],
-                57  => ['Learning', 'C.W. (activity book)', 'Practical Marks', 'Innovative Thinking'],
-                58  => ['Learning', 'C.W. (activity book)', 'Practical Marks', 'Innovative Thinking', 'Written Marks'],
-                59  => ['Attentiveness', 'Learning', 'Presentation', 'Voice Quality', 'Rhythm & Melody'],
-                60  => ['Attentiveness', 'Learning', 'Presentation', 'Retelling & Sequence'],
-                61  => ['Folding Accuracy', 'Handling Coordination', 'Neatness & Presentation', 'Creativity'],
-                63  => ['Oral', 'PT Practical Exam', 'Uniform', 'PT Periods'],
-                64  => ['Coordination', 'Attentiveness', 'Neatness'],
-                65  => ['Coordination', 'Attentiveness', 'Neatness'],
-                66  => ['Shape & Size', 'Neatness & Finishing', 'Creativity', 'Independent Work'],
-                99  => ['Attentiveness', 'Learning', 'Presentation'],
-                100 => ['Object Recognition', 'Handling Skills', 'Ease Participation', 'Neatness & Completion'],
-                101 => ['Attentiveness', 'Learning', 'Presentation'],
-                102 => ['Attentiveness', 'Learning', 'Presentation'],
-                106 => ['FLEXIBILITY', 'STAMINA', 'GROSS MOTOR SKILL'],
-                107 => ['Grade'],
-                108 => ['ANTHEM, PLEDGE, ETC.', 'STOTRA (SANSKRIT, MARATHI)'],
-                109 => ['Grade'],
-                110 => ['ATTENTIVENESS', 'FOOD HABITS', 'NEATNESS', 'INTERACTION WITH OTHERS', 'EXPRESSION OF FEELINGS', 'FOLLOWING INSTRUCTIONS', 'PARTICIPATION IN SCHOOL ACTIVITY', 'HAPPINESS & ENERGY LEVEL', 'OBEDIENCE', 'HELPING']
-            ];
-
-            // -----------------------------------------------------------------
-            // 2) Compute total students ONLY for classes that have at least one
-            //    non-subset skill allocation. Subset skills (Music / Dance /
-            //    Acting / Tabla) never need a total count.
-            // -----------------------------------------------------------------
             $classesNeedingTotal = [];
             foreach ($allRows as $r) {
                 if ($this->isSubsetAllocatedSkillSubject($r->subject_name ?? '')) continue;
@@ -203,10 +159,6 @@ class ExamProgressController extends Controller
                 }
             }
 
-            // -----------------------------------------------------------------
-            // 3) Fetch observations with a single simple WHERE IN — replaces
-            //    the giant (a OR b OR c …) clause that was killing the query.
-            // -----------------------------------------------------------------
             $allObservations = collect();
             if ($allRows->isNotEmpty()) {
                 $allObservations = DB::table('student_skill_observations')
@@ -223,9 +175,6 @@ class ExamProgressController extends Controller
                 fn($item) => $item->academic_year_id . '_' . $item->standard_id . '_' . $item->division_id . '_' . $item->exam_master_id . '_' . $item->subject_id
             );
 
-            // -----------------------------------------------------------------
-            // 4) Compute status per allocation
-            // -----------------------------------------------------------------
             foreach ($allRows as $row) {
                 $classKey = $row->academic_year_id . '_' . $row->standard_id . '_' . $row->division_id;
                 $obsKey   = $classKey . '_' . $row->exam_master_id . '_' . $row->subject_id;
@@ -235,9 +184,6 @@ class ExamProgressController extends Controller
                 $completedStudentsCount = 0;
 
                 $isSubset = $this->isSubsetAllocatedSkillSubject($row->subject_name ?? '');
-
-                $expectedKeys      = $hardcodedCriteria[$row->subject_id] ?? [];
-                $expectedKeysLower = array_map('strtolower', $expectedKeys);
 
                 foreach ($latestObsPerStudent as $obs) {
                     if (in_array($obs->is_absent, [1, true, '1'])) {
@@ -250,37 +196,21 @@ class ExamProgressController extends Controller
 
                     $savedDataLower = array_change_key_case(array_map('trim', $obsData), CASE_LOWER);
 
-                    // FIX: For subset subjects (Music, Dance, etc.), if ANY grade is entered, count it.
-                    // This avoids strict criteria mismatches and correctly marks the subject as completed.
-                    if ($isSubset) {
-                        $hasAnyGrade = false;
-                        foreach ($savedDataLower as $key => $grade) {
-                            if (stripos($key, 'remark') !== false) continue;
-                            $grade = trim((string) $grade);
-                            if (!empty($grade) && !preg_match('/^[-\s—–\x{2010}-\x{2015}]*$/u', $grade)) {
-                                $hasAnyGrade = true;
-                                break;
-                            }
-                        }
-                        if ($hasAnyGrade) {
-                            $completedStudentsCount++;
-                        }
-                        continue; // Skip strict validation for subsets
-                    }
-
-                    if (!empty($expectedKeysLower)) {
-                        $missingKeys = array_diff($expectedKeysLower, array_keys($savedDataLower));
-                        if (!empty($missingKeys)) continue;
-                    }
-
                     $isComplete = true;
+                    $hasAnyGrade = false;
                     foreach ($savedDataLower as $key => $grade) {
                         if (stripos($key, 'remark') !== false) continue;
                         $grade = trim((string) $grade);
-                        if (empty($grade) || preg_match('/^[-\s—–\x{2010}-\x{2015}]*$/u', $grade)) {
+                        if (!empty($grade) && !preg_match('/^[-\s—–\x{2010}-\x{2015}]*$/u', $grade)) {
+                            $hasAnyGrade = true;
+                        } else {
                             $isComplete = false;
                             break;
                         }
+                    }
+                    
+                    if (!$hasAnyGrade) {
+                         $isComplete = false;
                     }
 
                     if ($isComplete) {
@@ -294,7 +224,6 @@ class ExamProgressController extends Controller
                 }
 
                 if ($isSubset) {
-                    // Music / Dance / Acting / Tabla — subset-allocated
                     $row->effective_status = $completedStudentsCount > 0 ? 'COMPLETED' : 'PENDING';
                 } else {
                     $totalStudents = $totalStudentsMap[$classKey] ?? 0;
@@ -344,7 +273,6 @@ class ExamProgressController extends Controller
                     }
                 }
 
-                // Narrow marks query to the classes / exams actually in scope
                 $marksQuery = DB::table('student_skill_marks')
                     ->select('student_id', 'academic_year_id', 'standard_id', 'division_id', 'exam_master_id', 'skill_slot', 'marks_obtained', 'is_absent')
                     ->whereIn('academic_year_id', $allocations->pluck('academic_year_id')->unique()->filter()->values()->all())
@@ -423,7 +351,19 @@ class ExamProgressController extends Controller
                     subj.subject_code     AS subject_code,
                     subj.id               AS resolved_subject_id,
                     CASE
-                        WHEN UPPER(TRIM(COALESCE(tms.status, ''))) = 'COMPLETED' THEN 'COMPLETED'
+                        WHEN UPPER(TRIM(COALESCE(tms.status, ''))) = 'COMPLETED' 
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM student_marks sm_old
+                                 WHERE sm_old.academic_year_id = tms.academic_year_id
+                                   AND sm_old.section_id       = tca.section_id
+                                   AND sm_old.standard_id      = tms.standard_id
+                                   AND sm_old.division_id      = tms.division_id
+                                   AND sm_old.exam_master_id   = tms.exam_master_id
+                                   AND sm_old.subject_id       = subj.id
+                                   AND sm_old.teacher_subject_allocation_id != tms.teacher_subject_allocation_id
+                                   AND sm_old.is_locked        = 1
+                             )
+                        THEN 'COMPLETED'
                         WHEN EXISTS (
                             SELECT 1 FROM student_marks sm
                             WHERE sm.academic_year_id = tms.academic_year_id
@@ -432,10 +372,11 @@ class ExamProgressController extends Controller
                               AND sm.division_id      = tms.division_id
                               AND sm.exam_master_id   = tms.exam_master_id
                               AND sm.subject_id       = subj.id
+                              AND sm.teacher_subject_allocation_id = tms.teacher_subject_allocation_id
                               AND sm.is_locked        = 1
                         )
                         THEN 'COMPLETED'
-                        ELSE UPPER(TRIM(COALESCE(tms.status, 'PENDING')))
+                        ELSE 'PENDING'
                     END                   AS effective_status
                 FROM teacher_marks_status tms
                 INNER JOIN teacher_subject_allocations tsa ON tsa.id = tms.teacher_subject_allocation_id

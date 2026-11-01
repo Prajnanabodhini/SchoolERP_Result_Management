@@ -24,6 +24,9 @@ class StudentSkillMarkController extends Controller
         
         // Matches "1", "2", "FIRST", "SECOND", "1ST", "2ND"
         $isPrimary = (bool) preg_match('/\b(1|2|I|II|FIRST|SECOND|1ST|2ND)\b/i', $stdName);
+        
+        // ADDED: Detect Tenth Standard
+        $isTenth = (bool) preg_match('/\b(10|X|TENTH)\b/i', $stdName);
 
         if ($slot === 'S3') {
             return [
@@ -76,6 +79,25 @@ class StudentSkillMarkController extends Controller
                             'NB' => 20,
                             'Handling' => 10,
                             'Exam' => 20,
+                        ],
+                    ],
+                ];
+            }
+
+            // ADDED: For Tenth standard, remove Abacus entirely. Total becomes 70.
+            if ($isTenth) {
+                return [
+                    'label' => 'WORK EXP (Computer + Robotics)',
+                    'categories' => [
+                        'Computer' => [
+                            'NB' => 10,
+                            'Practical' => 15,
+                            'W' => 10,
+                        ],
+                        'Robotics' => [
+                            'NB' => 10,
+                            'Practical' => 15,
+                            'W' => 10,
                         ],
                     ],
                 ];

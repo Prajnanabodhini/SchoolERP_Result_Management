@@ -313,8 +313,14 @@ td.grade-cell{background:#FEFCE8;color:#CA8A04;font-size:13px;}
                                     $colSpan = count($criteria); 
                                     $c = $palette[$colorIndex % count($palette)];
                                     $colorIndex++;
+                                    
+                                    $displaySubName = $subName;
+                                    $stdName = strtoupper(trim($standard->standard_name ?? ''));
+                                    if (strtoupper(trim($subName)) === 'ABACUS' && in_array($stdName, ['EIGHTH', 'NINTH', 'TENTH', 'VIII', 'IX', 'X'])) {
+                                        $displaySubName = 'ABACUS/VEDIC MATH';
+                                    }
                                 @endphp
-                                <th colspan="{{ $colSpan }}" class="th-cat" style="background-color: {{ $c['top'] }}; border-color: {{ $c['top'] }};">{{ $subName }}</th>
+                                <th colspan="{{ $colSpan }}" class="th-cat" style="background-color: {{ $c['top'] }}; border-color: {{ $c['top'] }};">{{ $displaySubName }}</th>
                             @endforeach
 
                             <th rowspan="2" class="th-total subject-sep">Total<br>({{ $grandMax }})</th>
@@ -437,20 +443,16 @@ td.grade-cell{background:#FEFCE8;color:#CA8A04;font-size:13px;}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('marksFilterForm');
-    const yearSel = document.getElementById('ms_year');
-    const standardSel = document.getElementById('ms_standard');
-    const examSel = document.getElementById('ms_exam');
-
-    if (yearSel) yearSel.addEventListener('change', () => {
-        standardSel.value = '';
-        examSel.value = '';
-        form.submit();
-    });
-
-    if (standardSel) standardSel.addEventListener('change', () => {
-        examSel.value = '';
-        form.submit();
-    });
+    
+    // Auto-submit when ANY of the dropdowns change
+    if (form) {
+        const selects = form.querySelectorAll('select');
+        selects.forEach(function(select) {
+            select.addEventListener('change', function() {
+                form.submit();
+            });
+        });
+    }
 
     function gradeFromPct(p) {
         if (p >= 91) return 'A1';

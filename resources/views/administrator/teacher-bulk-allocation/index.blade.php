@@ -5,25 +5,25 @@
     <div style="width:100%;background:white;border-radius:10px;padding:14px;border:1px solid #d1d5db;box-shadow:0 3px 8px rgba(0,0,0,.12);box-sizing:border-box;">
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h2 style="margin:0;color:#1d4ed8;font-size:21px;font-weight:bold;">
+            <h2 style="margin:0;color:#1d4ed8;font-size:20px;font-weight:bold;">
                 Teacher Bulk Allocation
             </h2>
         </div>
 
         @if(session('success'))
-            <div style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;font-size:13px;">
+            <div style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;font-size:12px;">
                 {{ session('success') }}
             </div>
         @endif
 
         @if(session('error'))
-            <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;font-size:13px;">
+            <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;font-size:12px;">
                 {{ session('error') }}
             </div>
         @endif
 
         @if($errors->any())
-            <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-size:13px;">
+            <div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:9px 12px;border-radius:6px;margin-bottom:12px;font-size:12px;">
                 <strong>Please correct the following:</strong>
                 <ul style="margin:5px 0 0 18px;">
                     @foreach($errors->all() as $error)
@@ -47,12 +47,12 @@
                 <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
                     <span style="color:#dc2626;font-size:18px;line-height:1;flex-shrink:0;margin-top:1px;">⚠</span>
                     <div style="flex:1;">
-                        <div style="font-size:14px;font-weight:bold;color:#991b1b;">
+                        <div style="font-size:13px;font-weight:bold;color:#991b1b;">
                             {{ $totalPending }} {{ \Illuminate\Support\Str::plural('allocation', $totalPending) }}
                             pending across
                             {{ count($pendingSummary) }} {{ \Illuminate\Support\Str::plural('exam', count($pendingSummary)) }}
                         </div>
-                        <div style="font-size:12px;color:#7f1d1d;margin-top:3px;">
+                        <div style="font-size:11px;color:#7f1d1d;margin-top:3px;">
                             Click any exam below to allocate teachers for its pending subjects.
                         </div>
                     </div>
@@ -75,8 +75,8 @@
                                 border:1px solid #fca5a5;
                                 color:#991b1b;
                                 border-radius:6px;
-                                padding:5px 10px;
-                                font-size:12px;
+                                padding:4px 8px;
+                                font-size:11px;
                                 font-weight:600;
                                 text-decoration:none;
                                 transition:background .15s;
@@ -86,7 +86,7 @@
                         >
                             <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;flex-shrink:0;"></span>
                             {{ $item->exam_name }}
-                            <span style="background:#fee2e2;color:#991b1b;border-radius:10px;padding:0 7px;font-size:11px;font-weight:700;line-height:16px;">
+                            <span style="background:#fee2e2;color:#991b1b;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;line-height:16px;">
                                 {{ $item->pending }}
                             </span>
                         </a>
@@ -98,7 +98,7 @@
 
             <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
                 <span style="color:#16a34a;font-size:16px;line-height:1;">✓</span>
-                <span style="font-size:13px;font-weight:bold;color:#166534;">
+                <span style="font-size:12px;font-weight:bold;color:#166534;">
                     All exams have teachers allocated — nothing pending
                 </span>
             </div>
@@ -127,7 +127,7 @@
                             <div style="flex-shrink:0;font-size:18px;color:#dc2626;line-height:1;margin-top:1px;">⚠</div>
                             <div style="flex:1;">
                                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-                                    <div style="font-size:14px;font-weight:bold;color:#991b1b;">
+                                    <div style="font-size:13px;font-weight:bold;color:#991b1b;">
                                         {{ $pendingCount }}
                                         {{ \Illuminate\Support\Str::plural('allocation', $pendingCount) }}
                                         still pending for
@@ -144,7 +144,7 @@
                                             color:#991b1b;
                                             border-radius:6px;
                                             padding:4px 10px;
-                                            font-size:12px;
+                                            font-size:11px;
                                             font-weight:700;
                                             text-decoration:none;
                                             white-space:nowrap;
@@ -154,19 +154,19 @@
                                         onmouseover="this.style.background='#fee2e2';"
                                         onmouseout="this.style.background='#ffffff';"
                                     >
-                                        <span style="font-size:14px;line-height:1;">←</span>
+                                        <span style="font-size:12px;line-height:1;">←</span>
                                         Back to All Exams
                                     </a>
                                 </div>
 
-                                <div style="font-size:12px;color:#7f1d1d;margin-bottom:8px;">
+                                <div style="font-size:11px;color:#7f1d1d;margin-bottom:8px;">
                                     <strong>Pending Subjects (division-wise):</strong>
                                 </div>
                                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
                                     @foreach($groupedPending as $item)
-                                        <span style="display:inline-flex;align-items:center;gap:5px;background:#ffffff;border:1px solid #fca5a5;color:#991b1b;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;">
+                                        <span style="display:inline-flex;align-items:center;gap:5px;background:#ffffff;border:1px solid #fca5a5;color:#991b1b;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;">
                                             {{ $item->subject_name }}
-                                            <span style="background:#fee2e2;color:#991b1b;border-radius:10px;padding:0 6px;font-size:11px;font-weight:700;">
+                                            <span style="background:#fee2e2;color:#991b1b;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;">
                                                 {{ implode(', ', $item->divisions) }}
                                             </span>
                                         </span>
@@ -180,7 +180,7 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <span style="color:#16a34a;font-size:16px;line-height:1;">✓</span>
-                                <span style="font-size:13px;font-weight:bold;color:#166534;">
+                                <span style="font-size:12px;font-weight:bold;color:#166534;">
                                     All subjects have teachers allocated in every division for
                                     <strong>{{ $pendingExam->exam_name }}</strong>
                                 </span>
@@ -196,7 +196,7 @@
                                     color:#166534;
                                     border-radius:6px;
                                     padding:4px 10px;
-                                    font-size:12px;
+                                    font-size:11px;
                                     font-weight:700;
                                     text-decoration:none;
                                     white-space:nowrap;
@@ -206,7 +206,7 @@
                                 onmouseover="this.style.background='#dcfce7';"
                                 onmouseout="this.style.background='#ffffff';"
                             >
-                                <span style="font-size:14px;line-height:1;">←</span>
+                                <span style="font-size:12px;line-height:1;">←</span>
                                 Back to All Exams
                             </a>
                         </div>
@@ -221,10 +221,10 @@
                 <div style="display:flex;align-items:flex-end;gap:8px;width:100%;flex-wrap:wrap;">
 
                     <div style="flex:0 0 170px;max-width:170px;">
-                        <label for="standard_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:13px;">
+                        <label for="standard_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:12px;">
                             Standard
                         </label>
-                        <select name="standard_id" id="standard_id" style="width:100%;height:35px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;background:#fff;font-size:13px;box-sizing:border-box;">
+                        <select name="standard_id" id="standard_id" style="width:100%;height:32px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;background:#fff;font-size:12px;box-sizing:border-box;">
                             <option value="">All Standards</option>
                             @foreach($standards as $standard)
                                 <option value="{{ $standard->id }}" {{ (string)$standardId === (string)$standard->id ? 'selected' : '' }}>
@@ -235,10 +235,10 @@
                     </div>
 
                     <div style="flex:0 0 130px;max-width:130px;">
-                        <label for="division_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:13px;">
+                        <label for="division_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:12px;">
                             Division
                         </label>
-                        <select name="division_id" id="division_id" style="width:100%;height:35px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;background:#fff;font-size:13px;box-sizing:border-box;">
+                        <select name="division_id" id="division_id" style="width:100%;height:32px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;background:#fff;font-size:12px;box-sizing:border-box;">
                             <option value="">All</option>
                             @foreach($divisions as $division)
                                 <option value="{{ $division->id }}" {{ (string)$divisionId === (string)$division->id ? 'selected' : '' }}>
@@ -249,10 +249,10 @@
                     </div>
 
                     <div style="flex:0 0 220px;max-width:220px;">
-                        <label for="exam_master_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:13px;">
+                        <label for="exam_master_id" style="display:block;font-weight:600;margin-bottom:4px;font-size:12px;">
                             Exam
                         </label>
-                        <select name="exam_master_id" id="exam_master_id" style="width:100%;height:35px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;background:#fff;font-size:13px;box-sizing:border-box;">
+                        <select name="exam_master_id" id="exam_master_id" style="width:100%;height:32px;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;background:#fff;font-size:12px;box-sizing:border-box;">
                             <option value="">All Exams</option>
                             @foreach($exams as $exam)
                                 <option
@@ -266,15 +266,15 @@
                         </select>
                     </div>
 
-                    <button type="submit" style="width:80px;height:35px;background:#16a34a;color:white;border:none;padding:0;border-radius:5px;cursor:pointer;font-weight:600;font-size:13px;box-sizing:border-box;">
+                    <button type="submit" style="width:75px;height:32px;background:#16a34a;color:white;border:none;padding:0;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;box-sizing:border-box;">
                         Search
                     </button>
 
-                    <a href="{{ route('teacher-bulk-allocation.index') }}?reset=1" style="width:70px;height:35px;display:inline-flex;align-items:center;justify-content:center;background:#6b7280;color:white;padding:0;border-radius:5px;text-decoration:none;font-weight:600;font-size:13px;box-sizing:border-box;">
+                    <a href="{{ route('teacher-bulk-allocation.index') }}?reset=1" style="width:65px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:#6b7280;color:white;padding:0;border-radius:5px;text-decoration:none;font-weight:600;font-size:12px;box-sizing:border-box;">
                         Reset
                     </a>
 
-                    <a href="{{ route('teacher-bulk-allocation.create') }}" style="width:auto;min-width:145px;height:35px;display:inline-flex;align-items:center;justify-content:center;background:#16a34a;color:white;padding:0 14px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:13px;margin-left:auto;box-sizing:border-box;">
+                    <a href="{{ route('teacher-bulk-allocation.create') }}" style="width:auto;min-width:130px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:#16a34a;color:white;padding:0 12px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:12px;margin-left:auto;box-sizing:border-box;">
                         + New Allocation
                     </a>
 
@@ -282,31 +282,31 @@
             </form>
         </div>
 
-        <div style="width:100%;overflow:hidden;">
-            <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0;font-size:13px;">
+        <div style="width:100%;overflow-x:auto;">
+            <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0;font-size:11px;">
                 <colgroup>
-                    <col style="width:5%;">
-                    <col style="width:12%;">
-                    <col style="width:8%;">
-                    <col style="width:13%;">
-                    <col style="width:11%;">
-                    <col style="width:4%;">
-                    <col style="width:15%;">
-                    <col style="width:20%;">
-                    <col style="width:12%;">
+                    <col style="width:5%;">   <!-- ID -->
+                    <col style="width:14%;">  <!-- Teacher -->
+                    <col style="width:9%;">   <!-- Academic Year -->
+                    <col style="width:11%;">  <!-- Section -->
+                    <col style="width:10%;">  <!-- Standard -->
+                    <col style="width:4%;">   <!-- Div. -->
+                    <col style="width:14%;">  <!-- Exam -->
+                    <col style="width:20%;">  <!-- Subjects -->
+                    <col style="width:13%;">  <!-- Action -->
                 </colgroup>
 
                 <thead>
                     <tr style="background:#1e3a8a;color:white;">
-                        <th style="padding:8px 4px;border:1px solid #d1d5db;text-align:center;font-size:13px;font-weight:bold;white-space:nowrap;">ID</th>
-                        <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Teacher</th>
-                        <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Academic Year</th>
-                        <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Section</th>
-                        <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Standard</th>
-                        <th style="padding:8px 4px;border:1px solid #d1d5db;text-align:center;font-size:13px;font-weight:bold;white-space:nowrap;">Div.</th>
-                        <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Exam</th>
-                        <th style="padding:8px 5px;border:1px solid #d1d5db;text-align:left;font-size:13px;font-weight:bold;white-space:nowrap;">Subjects</th>
-                        <th style="padding:8px 4px;border:1px solid #d1d5db;text-align:center;font-size:13px;font-weight:bold;white-space:nowrap;">Action</th>
+                        <th style="padding:6px 2px;border:1px solid #d1d5db;text-align:center;font-size:11px;font-weight:bold;white-space:nowrap;">ID</th>
+                        <th style="padding:6px 4px;border:1px solid #d1d5db;text-align:left;font-size:11px;font-weight:bold;white-space:nowrap;">Teacher</th>
+                        <th style="padding:6px 4px;border:1px solid #d1d5db;text-align:left;font-size:11px;font-weight:bold;white-space:nowrap;">Academic Year</th>
+                        <th style="padding:6px 4px;border:1px solid #d1d5db;text-align:left;font-size:11px;font-weight:bold;white-space:nowrap;">Section</th>
+                        <th style="padding:6px 4px;border:1px solid #d1d5db;text-align:left;font-size:11px;font-weight:bold;white-space:nowrap;">Standard</th>
+                        <th style="padding:6px 2px;border:1px solid #d1d5db;text-align:center;font-size:11px;font-weight:bold;white-space:nowrap;">Div.</th>
+                        <th style="padding:6px 4px;border:1px solid #d1d5db;text-align:left;font-size:11px;font-weight:bold;white-space:nowrap;">Exam</th>
+                        <th style="padding:6px 4px;border:1px solid #d1d5db;text-align:left;font-size:11px;font-weight:bold;white-space:nowrap;">Subjects</th>
+                        <th style="padding:6px 2px;border:1px solid #d1d5db;text-align:center;font-size:11px;font-weight:bold;white-space:nowrap;">Action</th>
                     </tr>
                 </thead>
 
@@ -320,31 +320,31 @@
 
                     <tr style="background:{{ $loop->even ? '#f9fafb' : '#ffffff' }};">
                         {{-- ✅ Show the child link's ID (unique per exam) --}}
-                        <td style="padding:7px 4px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;font-size:13px;font-weight:bold;color:#1e3a8a;">
+                        <td style="padding:5px 2px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;font-size:11px;font-weight:bold;color:#1e3a8a;">
                             {{ $allocation->displayRowId ?? $allocation->id }}
                         </td>
 
-                        <td style="padding:7px 5px;border:1px solid #d1d5db;font-weight:bold;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:13px;">
+                        <td style="padding:5px 4px;border:1px solid #d1d5db;font-weight:bold;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:11px;">
                             {{ optional($allocation->teacher)->name ?? '-' }}
                         </td>
 
-                        <td style="padding:7px 5px;border:1px solid #d1d5db;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:13px;">
+                        <td style="padding:5px 4px;border:1px solid #d1d5db;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:11px;">
                             {{ optional($allocation->academicYear)->year_name ?? '-' }}
                         </td>
 
-                        <td style="padding:7px 5px;border:1px solid #d1d5db;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:13px;">
+                        <td style="padding:5px 4px;border:1px solid #d1d5db;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:11px;">
                             {{ optional($allocation->section)->section_name ?? '-' }}
                         </td>
 
-                        <td style="padding:7px 5px;border:1px solid #d1d5db;font-weight:600;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:13px;">
+                        <td style="padding:5px 4px;border:1px solid #d1d5db;font-weight:600;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:11px;">
                             {{ optional($allocation->standard)->standard_name ?? '-' }}
                         </td>
 
-                        <td style="padding:7px 4px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;font-size:13px;">
+                        <td style="padding:5px 2px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;font-size:11px;">
                             {{ optional($allocation->division)->division_name ?? '-' }}
                         </td>
 
-                        <td style="padding:7px 5px;border:1px solid #d1d5db;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:13px;">
+                        <td style="padding:5px 4px;border:1px solid #d1d5db;vertical-align:middle;overflow-wrap:anywhere;word-break:break-word;font-size:11px;">
                             @if($examNames->isNotEmpty())
                                 {{ $examNames->implode(', ') }}
                             @else
@@ -352,29 +352,29 @@
                             @endif
                         </td>
 
-                        <td style="padding:6px 5px;border:1px solid #d1d5db;vertical-align:middle;overflow:hidden;">
+                        <td style="padding:5px 4px;border:1px solid #d1d5db;vertical-align:middle;overflow:hidden;">
                             @if(isset($allocation->displaySubjects) && $allocation->displaySubjects->isNotEmpty())
-                                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;width:100%;">
+                                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;width:100%;">
                                     @foreach($allocation->displaySubjects as $subject)
-                                        <span style="display:inline-flex;align-items:center;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;border-radius:4px;padding:3px 6px;font-size:12px;font-weight:bold;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box;">
+                                        <span style="display:inline-flex;align-items:center;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;border-radius:3px;padding:2px 4px;font-size:10px;font-weight:bold;line-height:1.1;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box;">
                                             {{ $subject->subject_name }}
                                         </span>
                                     @endforeach
                                 </div>
                             @else
-                                <span style="color:#9ca3af;font-size:13px;">No subjects</span>
+                                <span style="color:#9ca3af;font-size:11px;">No subjects</span>
                             @endif
                         </td>
 
-                        <td style="padding:6px 3px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;">
-                            <div style="display:flex;justify-content:center;align-items:center;gap:5px;flex-wrap:wrap;">
-                                <a href="{{ route('teacher-bulk-allocation.edit', $allocation->id) }}" style="width:64px;height:30px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:#2563eb;color:white;padding:0;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;">
+                        <td style="padding:5px 2px;border:1px solid #d1d5db;text-align:center;vertical-align:middle;">
+                            <div style="display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:nowrap;">
+                                <a href="{{ route('teacher-bulk-allocation.edit', $allocation->id) }}" style="min-width:45px;height:24px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:#2563eb;color:white;padding:0 6px;border-radius:3px;text-decoration:none;font-size:10px;font-weight:bold;white-space:nowrap;">
                                     Edit
                                 </a>
-                                <form method="POST" action="{{ route('teacher-bulk-allocation.destroy', $allocation->id) }}" onsubmit="return confirm('Are you sure you want to delete this allocation?');" style="display:inline-block;margin:0;padding:0;">
+                                <form method="POST" action="{{ route('teacher-bulk-allocation.destroy', $allocation->id) }}" onsubmit="return confirm('Are you sure you want to delete this allocation?');" style="display:inline-flex;margin:0;padding:0;">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" style="width:64px;height:30px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:#dc2626;color:white;border:none;padding:0;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">
+                                    <button type="submit" style="min-width:45px;height:24px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:#dc2626;color:white;border:none;padding:0 6px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:bold;white-space:nowrap;">
                                         Delete
                                     </button>
                                 </form>
@@ -383,10 +383,10 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" style="padding:25px 10px;text-align:center;color:#6b7280;border:1px solid #d1d5db;font-size:13px;">
+                        <td colspan="9" style="padding:20px 10px;text-align:center;color:#6b7280;border:1px solid #d1d5db;font-size:12px;">
                             No teacher allocations found.
                             <div style="margin-top:10px;">
-                                <a href="{{ route('teacher-bulk-allocation.create') }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;background:#16a34a;color:white;padding:0 14px;border-radius:5px;text-decoration:none;font-weight:bold;font-size:13px;">
+                                <a href="{{ route('teacher-bulk-allocation.create') }}" style="display:inline-flex;align-items:center;justify-content:center;height:30px;background:#16a34a;color:white;padding:0 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:12px;">
                                     Create First Allocation
                                 </a>
                             </div>

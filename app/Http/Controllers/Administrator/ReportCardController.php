@@ -377,7 +377,6 @@ class ReportCardController extends Controller
             
         if ($marks->isEmpty()) return collect();
 
-        // Resolve names in PHP to avoid SQL join issues
         $marks = $marks->map(function($m) {
             $m->master_subject_name = !empty($m->sws_name) ? $m->sws_name : $m->master_name;
             unset($m->master_name, $m->sws_name);
@@ -435,7 +434,6 @@ class ReportCardController extends Controller
                 's.subject_name as master_name', 'sws.subject_name as sws_name'
             ])->get();
 
-        // Resolve names in PHP
         $examSubjects = $examSubjects->map(function ($ex) {
             $ex->subject_name = !empty($ex->sws_name) ? $ex->sws_name : $ex->master_name;
             unset($ex->master_name, $ex->sws_name);
@@ -523,7 +521,6 @@ class ReportCardController extends Controller
                 's.subject_name as master_name', 'sws.subject_name as sws_name'
             ])->get();
 
-        // Resolve names in PHP
         $examSubjects = $examSubjects->map(function ($ex) {
             $ex->subject_name = !empty($ex->sws_name) ? $ex->sws_name : $ex->master_name;
             unset($ex->master_name, $ex->sws_name);
@@ -541,14 +538,39 @@ class ReportCardController extends Controller
                 if (!empty($mark->skill_subject_name)) { $name = strtoupper(trim($mark->skill_subject_name)); if ($isCurrentExam || !isset($skillGrades[$name])) $skillGrades[$name] = $grade; }
             }
         }
-        if ($isPrePrimary) {
-            foreach (DB::table('student_skill_observations as sso')->leftJoin('subjects as s', 's.id', '=', 'sso.subject_id')->where('sso.student_id', $studentId)->where('sso.exam_master_id', $examId)->where('sso.academic_year_id', $academicYearId)->select('sso.*', 's.subject_name')->get() as $obs) {
+        
+        // 👇 MODIFIED: Allow fetching observation grades for High School standards too 👇
+        if ($isPrePrimary || $this->isHighSchoolStandard($standardName)) {
+            $newSkillSubjects = ['WATER SECURITY', 'DEFENCE STUDIES', 'DEFENSE SCIENCE'];
+            
+            $query = DB::table('student_skill_observations as sso')
+                ->leftJoin('subjects as s', 's.id', '=', 'sso.subject_id')
+                ->where('sso.student_id', $studentId)
+                ->where('sso.exam_master_id', $examId)
+                ->where('sso.academic_year_id', $academicYearId);
+
+            // If it's a high school standard, only fetch the new specific subjects from observations
+            if (!$isPrePrimary) {
+                $query->where(function($q) use ($newSkillSubjects) {
+                    foreach ($newSkillSubjects as $subName) {
+                        $q->orWhereRaw('UPPER(TRIM(s.subject_name)) = ?', [$subName]);
+                    }
+                });
+            }
+
+            foreach ($query->select('sso.*', 's.subject_name')->get() as $obs) {
                 if (isset($obs->subject_id) && $obs->subject_id > 0) {
                     $grade = (isset($obs->is_absent) && $obs->is_absent == 1) ? 'AB' : (!empty($obs->overall_grade) ? strtoupper(trim($obs->overall_grade)) : null);
-                    if ($grade) { $skillGrades[(int) $obs->subject_id] = $grade; if (!empty($obs->subject_name)) $skillGrades[strtoupper(trim($obs->subject_name))] = $grade; }
+                    if ($grade) { 
+                        $skillGrades[(int) $obs->subject_id] = $grade; 
+                        if (!empty($obs->subject_name)) {
+                            $skillGrades[strtoupper(trim($obs->subject_name))] = $grade; 
+                        }
+                    }
                 }
             }
         }
+        // 👆 END OF MODIFIED BLOCK 👆
 
         $examSubjects = $examSubjects->map(function ($ex) use ($isPrePrimary, $prePrimarySkills) {
             $isSkill = false; $name = strtoupper(trim((string)$ex->subject_name));
@@ -649,7 +671,7 @@ class ReportCardController extends Controller
         $existingNames = $examSubjects->map(fn ($s) => strtoupper(trim((string) $s->subject_name)))->all();
         $is9thOr10th = $this->isHighSchoolStandard($standardName);
         $additional = [
-            ['display' => 'DEFENSE SCIENCE', 'search' => ['DEFENSE SCIENCE', 'DISCI', 'D.S.', 'DS'], 'order' => 900, 'only_hs' => true],
+            ['display' => 'DEFENCE STUDIES', 'search' => ['DEFENCE STUDIES', 'DEFENSE SCIENCE', 'DISCI', 'D.S.', 'DS'], 'order' => 900, 'only_hs' => true],
             ['display' => 'WATER SECURITY', 'search' => ['WATER SECURITY', 'W. SECURITY', 'W\.S.', 'WS'], 'order' => 901, 'only_hs' => true],
             ['display' => 'SKILL 1 - ARTS', 'search' => ['ART', 'DRAWING', 'A/D/M/T', 'ARTS', 'CRAFT', 'COLOURING'], 'order' => 902, 'only_hs' => false],
             ['display' => 'SKILL 2 - WORK EXP', 'search' => ['WORK EXPERIENCE', 'W EXP', 'W\.E.', 'WORK EDUCATION', 'VEDIC MATH', 'ABACUS', 'COMPUTER', 'ROBOTICS'], 'order' => 903, 'only_hs' => false],

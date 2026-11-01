@@ -340,17 +340,6 @@ class MarkEntryController extends Controller
             $practicalPassingMarks = $flags['practicalPassingMarks'];
             $totalMaxMarks         = $flags['totalMaxMarks'];
             $totalPassingMarks     = $flags['totalPassingMarks'];
-
-            Log::info('Marks Entry — Subject Config Resolved', [
-                'exam_id'            => $exam->id,
-                'standard_id'        => $selectedClassAllocation->standard_id,
-                'candidate_ids'      => $candidateSubjectIds,
-                'matched_subject_id' => $subjectConfig->subject_id ?? null,
-                'show_theory'        => $showTheory,
-                'show_oral'          => $showOral,
-                'show_practical'     => $showPractical,
-                'total_max'          => $totalMaxMarks,
-            ]);
         }
 
         /*
@@ -397,7 +386,9 @@ class MarkEntryController extends Controller
 
         if ($teacherSubjectAllocation && $exam) {
             $currentStatus = strtoupper(trim((string) ($marksStatus->status ?? '')));
-            if ($currentStatus === 'COMPLETED') {
+            
+            // Only lock if the status belongs to this exact allocation ID
+            if ($currentStatus === 'COMPLETED' && $marksStatus->teacher_subject_allocation_id == $teacherSubjectAllocation->id) {
                 $marksLocked = true;
                 $message = 'Marks entry has already been completed and is locked.';
             }
@@ -416,7 +407,8 @@ class MarkEntryController extends Controller
                     ->get()
                     ->keyBy(function ($mark) { return (string) $mark->student_id; });
 
-            if ($existingMarks->where('is_locked', 1)->isNotEmpty()) {
+            // Only lock if the existing locked marks belong to THIS allocation
+            if ($existingMarks->where('is_locked', 1)->where('teacher_subject_allocation_id', $teacherSubjectAllocation->id)->isNotEmpty()) {
                 $marksLocked = true;
             }
         }
@@ -436,6 +428,176 @@ class MarkEntryController extends Controller
             'existingMarks', 'isOptionalEnabled', 'passingPercentage',
             'totalMaxMarks', 'totalPassingMarks'
         ));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | AUTO-SAVE (AJAX)
+    |--------------------------------------------------------------------------
+    */
+    public function autoSave(Request $request)
+    {
+        try {
+            $examId = $request->input('exam_master_id');
+            $studentId = $request->input('student_id');
+            $tsaId = $request->input('teacher_subject_allocation_id');
+            
+            $tsa = TeacherSubjectAllocation::with('allocation')->find($tsaId);
+            if (!$tsa || !$tsa->allocation) {
+                return response()->json(['success' => false, 'message' => 'Invalid teaching assignment.']);
+            }
+
+            $allocation = $tsa->allocation;
+            $subjectId = $tsa->subject_id;
+
+            $mark = StudentMark::where('academic_year_id', $allocation->academic_year_id)
+                ->where('section_id', $allocation->section_id)
+                ->where('standard_id', $allocation->standard_id)
+                ->where('division_id', $allocation->division_id)
+                ->where('exam_master_id', $examId)
+                ->where('subject_id', $subjectId)
+                ->where('student_id', $studentId)
+                ->first();
+
+            if (!$mark) {
+                $mark = new StudentMark();
+                $mark->academic_year_id = $allocation->academic_year_id;
+                $mark->section_id = $allocation->section_id;
+                $mark->standard_id = $allocation->standard_id;
+                $mark->division_id = $allocation->division_id;
+                $mark->exam_master_id = $examId;
+                $mark->subject_id = $subjectId;
+                $mark->student_id = $studentId;
+            }
+
+            // Assign to current teacher allocation
+            $mark->teacher_subject_allocation_id = $tsaId;
+            
+            // Extract values properly from the array payload sent by JS
+            $mark->is_absent = (int) $request->input("is_absent.{$studentId}", 0);
+            $mark->is_optional = (int) $request->input("is_optional.{$studentId}", 0);
+            
+            $theory = $request->input("theory_marks.{$studentId}");
+            $oral = $request->input("oral_marks.{$studentId}");
+            $practical = $request->input("practical_marks.{$studentId}");
+
+            if ($theory !== null) $mark->theory_obtained_marks = $theory;
+            if ($oral !== null) $mark->oral_obtained_marks = $oral;
+            if ($practical !== null) $mark->practical_obtained_marks = $practical;
+            
+            // NEVER lock on auto-save. Let the teacher keep editing.
+            $mark->is_locked = 0;
+            
+            $mark->save();
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SAVE (DRAFT)
+    |--------------------------------------------------------------------------
+    */
+    public function save(Request $request)
+    {
+        return $this->processMarks($request, false);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUBMIT (FINAL - LOCKS MARKS)
+    |--------------------------------------------------------------------------
+    */
+    public function submit(Request $request)
+    {
+        return $this->processMarks($request, true);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PROCESS MARKS
+    |--------------------------------------------------------------------------
+    */
+    private function processMarks(Request $request, $isFinalSubmit)
+    {
+        try {
+            $examId = $request->input('exam_master_id');
+            $tsaId = $request->input('teacher_subject_allocation_id');
+            $studentIds = $request->input('student_ids', []);
+            
+            $tsa = TeacherSubjectAllocation::with('allocation')->find($tsaId);
+            if (!$tsa || !$tsa->allocation) {
+                return redirect()->back()->with('error', 'Invalid teaching assignment.');
+            }
+
+            $allocation = $tsa->allocation;
+            $subjectId = $tsa->subject_id;
+
+            foreach ($studentIds as $studentId) {
+                $mark = StudentMark::where('academic_year_id', $allocation->academic_year_id)
+                    ->where('section_id', $allocation->section_id)
+                    ->where('standard_id', $allocation->standard_id)
+                    ->where('division_id', $allocation->division_id)
+                    ->where('exam_master_id', $examId)
+                    ->where('subject_id', $subjectId)
+                    ->where('student_id', $studentId)
+                    ->first();
+
+                if (!$mark) {
+                    $mark = new StudentMark();
+                    $mark->academic_year_id = $allocation->academic_year_id;
+                    $mark->section_id = $allocation->section_id;
+                    $mark->standard_id = $allocation->standard_id;
+                    $mark->division_id = $allocation->division_id;
+                    $mark->exam_master_id = $examId;
+                    $mark->subject_id = $subjectId;
+                    $mark->student_id = $studentId;
+                }
+
+                $mark->teacher_subject_allocation_id = $tsaId;
+                
+                $mark->is_absent = (int) $request->input("is_absent.{$studentId}", 0);
+                $mark->is_optional = (int) $request->input("is_optional.{$studentId}", 0);
+                
+                $theory = $request->input("theory_marks.{$studentId}");
+                $oral = $request->input("oral_marks.{$studentId}");
+                $practical = $request->input("practical_marks.{$studentId}");
+
+                $mark->theory_obtained_marks = ($theory !== null && $theory !== '') ? $theory : null;
+                $mark->oral_obtained_marks = ($oral !== null && $oral !== '') ? $oral : null;
+                $mark->practical_obtained_marks = ($practical !== null && $practical !== '') ? $practical : null;
+                
+                $mark->is_locked = $isFinalSubmit ? 1 : 0;
+                $mark->save();
+            }
+
+            if ($isFinalSubmit) {
+                TeacherMarksStatus::updateOrCreate(
+                    [
+                        'teacher_subject_allocation_id' => $tsaId,
+                        'exam_master_id' => $examId,
+                    ],
+                    [
+                        'subject_id' => $subjectId,
+                        'teacher_id' => Auth::id(),
+                        'academic_year_id' => $allocation->academic_year_id,
+                        'standard_id' => $allocation->standard_id,
+                        'division_id' => $allocation->division_id,
+                        'status' => 'COMPLETED',
+                    ]
+                );
+                return redirect()->back()->with('success', 'Marks submitted and locked successfully.');
+            } else {
+                return redirect()->back()->with('success', 'Marks saved as draft successfully.');
+            }
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     /*
@@ -563,11 +725,6 @@ class MarkEntryController extends Controller
             return (int) $assignmentExam->academic_year_id === (int) $allocation->academic_year_id;
         })->values();
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT CONFIG — same source of truth as Marks Entry
-        |--------------------------------------------------------------------------
-        */
         if ($exam && $teacherSubjectAllocation && $selectedClassAllocation) {
 
             $candidateSubjectIds = array_filter([

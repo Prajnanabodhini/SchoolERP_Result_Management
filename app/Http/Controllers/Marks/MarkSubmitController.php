@@ -12,6 +12,7 @@ use App\Models\TeacherMarksStatus;
 use App\Models\TeacherSubjectAllocation;
 use App\Models\ExamMaster;
 use App\Models\ExamMasterSubject;
+use App\Models\MarkAuditLog; // <-- ADDED IMPORT
 
 use App\Helpers\ExamHelper;
 use App\Helpers\MarksHelper;
@@ -334,7 +335,7 @@ class MarkSubmitController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | AUTO-SAVE MARKS FROM REQUEST
+        | AUTO-SAVE MARKS FROM REQUEST (WITH AUDIT LOGGING)
         |--------------------------------------------------------------------------
         | This ensures users can click "Submit Final Marks" without clicking
         | "Save Marks" first. It saves the form data to the database immediately.
@@ -354,26 +355,81 @@ class MarkSubmitController extends Controller
                 $oral = isset($request->oral_marks[$studentId]) && $request->oral_marks[$studentId] !== '' ? $request->oral_marks[$studentId] : 0;
                 $practical = isset($request->practical_marks[$studentId]) && $request->practical_marks[$studentId] !== '' ? $request->practical_marks[$studentId] : 0;
 
-                StudentMark::updateOrCreate(
+                // 1. Fetch existing mark BEFORE updating to capture old values for audit log
+                // 🔥 FIXED: We removed 'teacher_subject_allocation_id' from this query so it finds the OLD teacher's record too
+                $existingMark = StudentMark::where([
+                    'academic_year_id'              => $allocation->academic_year_id,
+                    'section_id'                    => $allocation->section_id,
+                    'standard_id'                   => $allocation->standard_id,
+                    'division_id'                   => $allocation->division_id,
+                    'exam_master_id'                => $examId,
+                    'subject_id'                    => $actualSubjectId,
+                    'student_id'                    => $studentId,
+                ])->first();
+
+                $oldTheory = $existingMark->theory_obtained_marks ?? null;
+                $oldOral = $existingMark->oral_obtained_marks ?? null;
+                $oldPractical = $existingMark->practical_obtained_marks ?? null;
+                $oldOptional = (int) ($existingMark->is_optional ?? 0);
+                $oldAbsent = (int) ($existingMark->is_absent ?? 0);
+
+                // 2. Save to student_marks table
+                // 🔥 FIXED: We removed 'teacher_subject_allocation_id' from the search array and put it in the update array
+                $savedMark = StudentMark::updateOrCreate(
                     [
                         'academic_year_id'              => $allocation->academic_year_id,
                         'section_id'                    => $allocation->section_id,
                         'standard_id'                   => $allocation->standard_id,
                         'division_id'                   => $allocation->division_id,
                         'exam_master_id'                => $examId,
-                        'teacher_subject_allocation_id' => $tsaId,
                         'subject_id'                    => $actualSubjectId,
                         'student_id'                    => $studentId,
                     ],
                     [
+                        'teacher_subject_allocation_id' => $tsaId, // Transfer ownership to new teacher
                         'theory_obtained_marks'         => $theory,
                         'oral_obtained_marks'           => $oral,
                         'practical_obtained_marks'      => $practical,
                         'is_absent'                     => $isAbsent,
                         'is_optional'                   => $isOptional,
+                        'is_locked'                     => 0, // Ensure it's unlocked for final submit
                         'updated_by'                    => Auth::id(),
                     ]
                 );
+
+                // 3. Write to mark_audit_logs table
+                // Only log if it's a new entry OR the marks/status actually changed
+                $hasChanged = 
+                    !$existingMark || 
+                    $oldTheory != $theory || 
+                    $oldOral != $oral || 
+                    $oldPractical != $practical || 
+                    $oldOptional != $isOptional || 
+                    $oldAbsent != $isAbsent;
+
+                if ($hasChanged) {
+                    $remarks = 'Teacher Final Submit';
+                    if ($isAbsent) $remarks = 'Teacher Final Submit - ABSENT';
+                    elseif ($isOptional) $remarks = 'Teacher Final Submit - OPTIONAL';
+
+                    MarkAuditLog::create([
+                        'student_mark_id'       => $savedMark->id,
+                        'student_id'            => $studentId,
+                        'exam_master_id'        => $examId,
+                        'subject_id'            => $actualSubjectId,
+                        'teacher_id'            => Auth::id(),
+                        'action'                => 'TEACHER_UPDATE',
+                        'old_theory_marks'      => $oldTheory,
+                        'new_theory_marks'      => $theory,
+                        'old_oral_marks'        => $oldOral,
+                        'new_oral_marks'        => $oral,
+                        'old_practical_marks'   => $oldPractical,
+                        'new_practical_marks'   => $practical,
+                        'remarks'               => $remarks,
+                        'ip_address'            => $request->ip(),
+                        'user_agent'            => $request->userAgent(),
+                    ]);
+                }
             }
         }
 

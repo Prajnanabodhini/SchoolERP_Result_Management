@@ -369,6 +369,28 @@
 }
 
 /* =========================================================
+   WRITTEN MARKS INPUT (plain text box — no spinners)
+   ========================================================= */
+.mark-input {
+    width: 100%;
+    max-width: 80px;
+    height: 28px;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #fff;
+    color: #111827;
+    outline: none;
+}
+.mark-input:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+/* =========================================================
    AVERAGE GRADE
    ========================================================= */
 .avg-grade {
@@ -473,12 +495,16 @@
     $gradeScale  = \App\Helpers\SkillCriteriaHelper::gradeScale();
     $gradeLabels = \App\Helpers\SkillCriteriaHelper::gradeLabels();
 
-    /* Split criteria into "grade" and "remark" categories */
+    /* Split criteria into "grade", "mark", and "remark" categories */
     $gradeCriteria  = [];
     $remarkCriteria = [];
+    $markCriteria   = [];
+
     foreach ($criteria as $c) {
         if (stripos($c, 'remark') !== false) {
             $remarkCriteria[] = $c;
+        } elseif (stripos($c, 'written') !== false || stripos($c, 'marks') !== false) {
+            $markCriteria[] = $c;
         } else {
             $gradeCriteria[] = $c;
         }
@@ -683,6 +709,9 @@
                         @foreach($gradeCriteria as $c)
                             <col class="col-grade">
                         @endforeach
+                        @foreach($markCriteria as $c)
+                            <col class="col-grade">
+                        @endforeach
                         <col class="col-avg">
                         @foreach($remarkCriteria as $c)
                             <col class="col-remark">
@@ -701,6 +730,13 @@
                             @foreach($gradeCriteria as $criterion)
                                 <th class="center th-grade" title="{{ $criterion }}">
                                     {{ $criterion }}
+                                </th>
+                            @endforeach
+
+                            {{-- Render Written Marks Column --}}
+                            @foreach($markCriteria as $criterion)
+                                <th class="center th-grade" style="background:#b45309;" title="{{ $criterion }} - 20M">
+                                    {{ $criterion }} - 20M
                                 </th>
                             @endforeach
 
@@ -759,6 +795,23 @@
                                                 <option value="{{ $g }}" {{ $val == $g ? 'selected' : '' }}>{{ $g }}</option>
                                             @endforeach
                                         </select>
+                                    </td>
+                                @endforeach
+
+                                {{-- Numeric Input for Written Marks (plain text box — no spinners) --}}
+                                @foreach($markCriteria as $criterion)
+                                    @php $val = $savedData[$criterion] ?? ''; @endphp
+                                    <td class="center">
+                                        <input type="text"
+                                               name="observations[{{ $student->Studentid }}][criteria][{{ $criterion }}]"
+                                               data-criterion="{{ $criterion }}"
+                                               value="{{ $val }}"
+                                               class="criterion-input student-{{ $student->Studentid }} mark-input"
+                                               placeholder="0 - 20"
+                                               inputmode="numeric"
+                                               maxlength="2"
+                                               autocomplete="off"
+                                               {{ $isAbsent ? 'disabled' : '' }}>
                                     </td>
                                 @endforeach
 
@@ -870,6 +923,23 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        // 1. Check for Written Marks first (Out of 20)
+        const markInput = row.querySelector('.mark-input');
+        if (markInput && markInput.value !== '') {
+            const marks = parseFloat(markInput.value);
+            if (!isNaN(marks)) {
+                const percentage = (marks / 20) * 100;
+                if (percentage >= 90) avgInput.value = 'A+';
+                else if (percentage >= 75) avgInput.value = 'A';
+                else if (percentage >= 60) avgInput.value = 'B+';
+                else if (percentage >= 45) avgInput.value = 'B';
+                else if (marks > 0) avgInput.value = 'C';
+                else avgInput.value = '';
+                return; // Stop here, don't average dropdowns
+            }
+        }
+
+        // 2. Fallback to Dropdowns (Existing Logic)
         const grades = [];
         row.querySelectorAll('.grade-input-dropdown').forEach(function (sel) {
             const v = (sel.value || '').trim().toUpperCase();
@@ -966,6 +1036,21 @@ document.addEventListener('DOMContentLoaded', function () {
         sel.addEventListener('change', function () {
             computeRowAverage(this.closest('tr')); // Update UI instantly
             triggerAutoSave(this);                 // Send to server
+        });
+    });
+
+    /* Attach Auto-Save and live calculation to Written Marks inputs */
+    document.querySelectorAll('.mark-input').forEach(function (input) {
+        input.addEventListener('input', function () {
+            // Allow digits only, clamp to 20
+            let v = this.value.replace(/[^0-9]/g, '');
+            if (v !== '' && parseInt(v, 10) > 20) v = '20';
+            this.value = v;
+
+            computeRowAverage(this.closest('tr')); // Live update grade
+        });
+        input.addEventListener('blur', function () {
+            triggerAutoSave(this); // Save to DB on click away
         });
     });
 

@@ -455,22 +455,25 @@ Route::middleware(['auth'])->group(function () {
     );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | SUBJECTS
-    |--------------------------------------------------------------------------
-    */
+        /* --------------------------------------------------------------------------
+     | SUBJECTS
+     | -------------------------------------------------------------------------- */
+    
+    // 👇 THESE MUST GO FIRST 👇
+    Route::get('subjects/manage', [SubjectController::class, 'manage'])->name('subjects.manage');
+    Route::post('subjects/save-mappings', [SubjectController::class, 'saveMappings'])->name('subjects.save-mappings');
+    
+    Route::get('subjects/edit-master/{subject}',   [SubjectController::class, 'editMaster'])
+    ->name('subjects.edit-master');
+    
+    Route::put('subjects/update-master/{subject}', [SubjectController::class, 'updateMaster'])
+    ->name('subjects.update-master');
 
+    // 👇 NOW PUT THE RESOURCE ROUTE 👇
     Route::resource(
         'subjects',
         SubjectController::class
     );
-
-    Route::get('subjects/edit-master/{subject}',   [SubjectController::class, 'editMaster'])
-    ->name('subjects.edit-master');
-Route::put('subjects/update-master/{subject}', [SubjectController::class, 'updateMaster'])
-    ->name('subjects.update-master');
-
     /*
     |--------------------------------------------------------------------------
     | STANDARD SUBJECT ALLOCATION

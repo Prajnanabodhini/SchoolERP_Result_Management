@@ -420,13 +420,19 @@ class MarkViewController extends Controller
             }
         }
 
-        /* LOAD SAVED MARKS */
+                /* LOAD SAVED MARKS */
         $existingMarks = collect();
 
-        if ($selectedTsa && $exam) {
+        if ($selectedTsa && $exam && $allocation) {
+            $actualSubjectId = $selectedSubject->id ?? $selectedTsa->subject_id;
+            
             $existingMarks = StudentMark::query()
+                ->where('academic_year_id', $allocation->academic_year_id)
+                ->where('section_id', $allocation->section_id)
+                ->where('standard_id', $allocation->standard_id)
+                ->where('division_id', $allocation->division_id)
                 ->where('exam_master_id', $exam->id)
-                ->where('teacher_subject_allocation_id', $selectedTsa->id)
+                ->where('subject_id', $actualSubjectId)
                 ->get()
                 ->keyBy('student_id');
         }

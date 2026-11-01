@@ -4,23 +4,29 @@
     <meta charset="UTF-8">
     <title>Examination Result Sheet</title>
     <style>
-        @page { size: A4 landscape; margin-top: 20mm; margin-left: 15mm; margin-right: 4mm; margin-bottom: 7mm; }
+        @page { size: A4 landscape; margin-top: 10mm; margin-left: 10mm; margin-right: 10mm; margin-bottom: 10mm; }
         * { box-sizing: border-box; }
         html, body { width: 100%; max-width: 100%; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #111827; background: #fff; overflow-x: hidden; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #111827; background: #fff; }
 
         @media print {
-            html, body { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; overflow-x: hidden !important; }
+            html, body { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
             .no-print { display: none !important; }
             .print-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
             a[href]::after { content: none !important; display: none !important; }
             a { text-decoration: none !important; color: inherit !important; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
+            thead { display: table-header-group !important; }
+            tfoot { display: table-footer-group !important; }
             tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-            .analysis-block, .signature-area, .subject-wise-analysis-wrapper { page-break-inside: avoid !important; break-inside: avoid !important; }
-            .signature-area { break-inside: avoid !important; }
-            .result-sheet-wrapper, .analysis-table-wrapper, .subject-wise-analysis-wrapper { width: 100% !important; max-width: 100% !important; overflow: hidden !important; position: relative !important; }
+            .analysis-block, .signature-area { page-break-inside: avoid !important; break-inside: avoid !important; }
+            .result-sheet-wrapper, .analysis-table-wrapper, .subject-wise-analysis-wrapper, .caste-wise-analysis-wrapper {
+                width: 100% !important; max-width: 100% !important;
+                overflow: visible !important; position: static !important;
+                page-break-inside: auto !important; break-inside: auto !important;
+            }
+            .result-sheet-table, .analysis-table, .subject-wise-analysis-table, .caste-wise-analysis-table {
+                page-break-inside: auto !important; break-inside: auto !important;
+            }
         }
 
         .print-controls { position: fixed; top: 10px; right: 10px; z-index: 99999; display: flex; align-items: center; gap: 8px; }
@@ -29,7 +35,7 @@
         .excel-button { background: #15803d; }
         .close-button { background: #6b7280; }
 
-        .print-page { width: 100%; max-width: 100%; padding: 0; margin: 0; overflow: hidden; }
+        .print-page { width: 100%; max-width: 100%; padding: 0; margin: 0; }
         .school-header, .exam-info { width: 100%; max-width: 100%; border-collapse: collapse; border-spacing: 0; table-layout: auto; }
         .school-header { margin-bottom: 4px; }
         .school-header td, .exam-info td { border: none !important; vertical-align: middle; }
@@ -37,32 +43,36 @@
         .school-logo-cell { width: 60px; text-align: center !important; }
         .school-logo { width: 50px; height: 50px; object-fit: contain; }
         .school-title-cell { text-align: center !important; }
-        
-        /* Adjusted Header Sizes for Landscape */
+
         .school-name { font-size: 16px; line-height: 18px; font-weight: 800; color: #1e3a8a; text-align: center; white-space: nowrap; }
         .school-location { font-size: 12px; line-height: 14px; font-weight: 800; color: #1e3a8a; text-align: center; margin-top: 1px; white-space: nowrap; text-transform: uppercase; }
         .school-address { font-size: 10px; line-height: 12px; font-weight: 700; color: #475569; text-align: center; white-space: nowrap; margin-top: 2px; }
         .school-year { margin-top: 2px; font-size: 11px; line-height: 13px; font-weight: 700; color: #475569; text-align: center; white-space: nowrap; }
 
         .school-header-divider { border-bottom: 2px solid #000; margin-top: 4px; margin-bottom: 6px; }
-
         .exam-info { margin-bottom: 5px; }
         .exam-info td { font-size: 11px; padding: 2px 4px; text-align: left; font-weight: 600; white-space: nowrap; }
         .exam-info strong { font-weight: 700; }
 
-        .result-sheet-wrapper, .analysis-table-wrapper, .subject-wise-analysis-wrapper { width: 100%; max-width: 100%; overflow: hidden; }
-        .result-sheet-table, .analysis-table, .subject-wise-analysis-table { width: 100%; max-width: 100%; border-collapse: collapse; border-spacing: 0; table-layout: auto; border: 1px solid #333; font-family: Arial, Helvetica, sans-serif; font-size: 9.5px; min-width: 0; }
+        .result-sheet-wrapper, .analysis-table-wrapper, .subject-wise-analysis-wrapper, .caste-wise-analysis-wrapper { width: 100%; max-width: 100%; }
 
-        .result-sheet-table th, .result-sheet-table td, .analysis-table th, .analysis-table td, .subject-wise-analysis-table th, .subject-wise-analysis-table td { border: 1px solid #333 !important; border-style: solid !important; border-width: 1px !important; text-align: center; vertical-align: middle; color: #111827 !important; min-width: 0; padding: 2px 2px; }
+        .result-sheet-table, .analysis-table, .subject-wise-analysis-table, .caste-wise-analysis-table {
+            width: 100%; max-width: 100%; border-collapse: collapse; border-spacing: 0; table-layout: auto;
+            border: 1px solid #333; font-family: Arial, Helvetica, sans-serif; font-size: 9.5px;
+        }
 
-        .result-sheet-table th { background: #dbeafe; font-size: 9.5px; font-weight: 700 !important; line-height: 1.05; white-space: nowrap !important; overflow: visible; overflow-wrap: normal !important; word-break: normal !important; }
+        .result-sheet-table th, .result-sheet-table td, .analysis-table th, .analysis-table td, .subject-wise-analysis-table th, .subject-wise-analysis-table td, .caste-wise-analysis-table th, .caste-wise-analysis-table td {
+            border: 1px solid #333 !important; text-align: center; vertical-align: middle; color: #111827 !important; padding: 2px 2px;
+        }
+
+        .result-sheet-table th { background: #dbeafe; font-size: 9.5px; font-weight: 700 !important; line-height: 1.05; white-space: nowrap !important; }
         .result-sheet-table td { font-size: 9.5px; font-weight: 500; line-height: 1.05; white-space: nowrap !important; }
-        .result-sheet-table td:first-child { white-space: nowrap !important; font-weight: 700; width: auto !important; min-width: 0 !important; }
+        .result-sheet-table td:first-child { white-space: nowrap !important; font-weight: 700; }
 
-        .student-name-cell { text-align: left !important; width: auto !important; min-width: 0 !important; max-width: none !important; white-space: nowrap !important; font-weight: 700 !important; overflow: visible !important; text-overflow: clip !important; overflow-wrap: normal !important; word-break: normal !important; color: #111827 !important; line-height: 1.05 !important; }
+        .student-name-cell { text-align: left !important; white-space: nowrap !important; font-weight: 700 !important; color: #111827 !important; line-height: 1.05 !important; }
 
-        .subject-name { display: block; font-size: 9px; font-weight: 700 !important; line-height: 1.05; white-space: nowrap !important; overflow-wrap: normal !important; word-break: normal !important; }
-        .subject-max { display: block; font-size: 7px; font-weight: 700 !important; line-height: 7.5px; white-space: nowrap !important; overflow-wrap: normal !important; word-break: normal !important; }
+        .subject-name { display: block; font-size: 9px; font-weight: 700 !important; line-height: 1.05; white-space: nowrap !important; }
+        .subject-max { display: block; font-size: 7px; font-weight: 700 !important; line-height: 7.5px; white-space: nowrap !important; }
         .optional-label { display: block; font-size: 6px; line-height: 6.5px; font-weight: 700; white-space: nowrap !important; }
 
         .optional-mark { color: #92400e !important; font-weight: 700 !important; }
@@ -70,20 +80,21 @@
         .pass-result { color: #166534 !important; font-weight: 700 !important; }
         .pending-result { color: #92400e !important; font-weight: 700 !important; }
 
-        .analysis-block { width: 100%; max-width: 100%; margin-top: 7px; overflow: hidden; }
+        .analysis-block { width: 100%; max-width: 100%; margin-top: 7px; }
         .analysis-title { font-size: 12px; font-weight: 700 !important; color: #1d4ed8; margin: 5px 0 3px; white-space: nowrap; }
 
-        .analysis-table, .subject-wise-analysis-table { width: 100%; max-width: 100%; border-collapse: collapse; border-spacing: 0; table-layout: auto; border: 1px solid #333; font-family: Arial, Helvetica, sans-serif; font-size: 9.5px; min-width: 0; }
-        .analysis-table th, .analysis-table td, .subject-wise-analysis-table th, .subject-wise-analysis-table td { font-size: 9.5px; padding: 2px 2px; white-space: nowrap !important; min-width: 0; }
-        .analysis-table th, .subject-wise-analysis-table th { background: #dbeafe; font-weight: 700 !important; }
-        .analysis-table td:first-child, .subject-analysis-name { text-align: left !important; font-weight: 700 !important; white-space: nowrap !important; overflow-wrap: normal !important; word-break: normal !important; }
-        .subject-wise-analysis-table td:first-child { text-align: left !important; font-weight: 700 !important; white-space: nowrap !important; overflow-wrap: normal !important; word-break: normal !important; }
+        .analysis-table, .subject-wise-analysis-table, .caste-wise-analysis-table { width: 100%; border-collapse: collapse; border: 1px solid #333; font-size: 9.5px; }
+        .analysis-table th, .analysis-table td, .subject-wise-analysis-table th, .subject-wise-analysis-table td, .caste-wise-analysis-table th, .caste-wise-analysis-table td { font-size: 9.5px; padding: 2px 2px; white-space: nowrap !important; }
+        .analysis-table th, .subject-wise-analysis-table th, .caste-wise-analysis-table th { background: #dbeafe; font-weight: 700 !important; }
+        .analysis-table td:first-child, .subject-analysis-name, .caste-analysis-name { text-align: left !important; font-weight: 700 !important; white-space: nowrap !important; }
         .analysis-total-row, .analysis-total-row td { font-weight: 700 !important; background: #e5e7eb !important; }
 
-        .signature-area { width: 100%; max-width: 100%; display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; page-break-inside: avoid; break-inside: avoid; }
-        .signature-box { width: 200px; text-align: center; font-size: 10px; font-weight: 700; page-break-inside: avoid; }
+        .caste-wise-analysis-table th, .caste-wise-analysis-table td { font-size: 8.5px; padding: 1.5px 1.5px; }
+
+        .signature-area { width: 100%; max-width: 100%; display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; }
+        .signature-box { width: 200px; text-align: center; font-size: 10px; font-weight: 700; }
         .signature-line { display: block; border-bottom: 1px solid #111827; width: 100%; height: 16px; margin-bottom: 3px; }
-        .signature-name { display: block; font-size: 10px; font-weight: 700; line-height: 11px; text-transform: uppercase; white-space: nowrap !important; overflow: visible; overflow-wrap: normal; word-break: normal; }
+        .signature-name { display: block; font-size: 10px; font-weight: 700; line-height: 11px; text-transform: uppercase; white-space: nowrap !important; }
         .signature-designation { display: block; margin-top: 7px; font-size: 9px; font-weight: 700; white-space: nowrap; }
 
         @media screen { .print-page { padding: 10px; } }
@@ -98,8 +109,8 @@
         <button type="button" class="print-button" onclick="window.print()">Print / Save PDF</button>
         <a href="{{ route('result-sheet.export-excel', [
                 'academic_year_id' => request('academic_year_id'),
-                'exam_master_id' => request('exam_master_id'),
-                'division_id' => request('division_id')
+                'exam_master_id'   => request('exam_master_id'),
+                'division_id'      => request('division_id')
             ]) }}" class="excel-button">Save as Excel</a>
         <button type="button" class="close-button" onclick="window.close()">Close</button>
     </div>
@@ -116,24 +127,30 @@ $sheet = ResultSheetBladeHelper::buildSheetData([
     'principal'        => $principal ?? null,
     'principalName'    => $principalName ?? null,
     'passPercentage'   => $passPercentage ?? null,
+    'examMasterId'     => request('exam_master_id'),
 ]);
 
 $academicDisplayColumns   = $sheet['columns'];
 $sortedResults            = $sheet['students'];
 $printStandardId          = $sheet['standardId'];
-$printPassPercentage      = $sheet['passingPercentage'];
+$printPassPercentage      = (int) $sheet['passingPercentage'];
 $studentCalculations      = $sheet['calculations'];
 $displayTotalMaxMarks     = $sheet['displayTotalMaxMarks'];
 $isSeniorOptionalStandard = $sheet['isSeniorOptionalStandard'];
+$isScienceStandard12      = $sheet['isScienceStandard12'];
 $overallGradeAnalysis     = $sheet['overallGradeAnalysis'];
 $subjectAnalysis          = $sheet['subjectAnalysis'];
+$casteWiseAnalysis        = $sheet['casteWiseAnalysis'] ?? [];
 $classTeacherName         = $sheet['classTeacherName'];
 $principalName            = $sheet['principalName'];
-$schoolCode               = session('school_code', 'shirgaon'); // Forced session check
+$schoolCode               = $sheet['schoolCode'] ?? session('school_code', 'shirgaon');
 
 $displayNumber            = fn ($v) => ResultSheetBladeHelper::displayNumber($v);
 $isSeniorOptionalColumn   = fn ($c) => ResultSheetBladeHelper::isSeniorOptionalColumn($c, $printStandardId);
-$isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsoryColumn($c, $printStandardId);
+
+$allGradesWithAbsent      = ['A1','A2','B1','B2','C1','C2','D','E1','E2','ABSENT'];
+$allGradesNoFail          = ['A1','A2','B1','B2','C1','C2','D','E1','E2'];
+$casteList                = ['SC','ST','VJNT','NT','OBC','SBC','OPEN'];
 @endphp
 
 
@@ -146,12 +163,12 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
             @if($schoolCode === 'chikhali')
                 <div class="school-name">PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI</div>
                 <div class="school-address">S.No. 1517/1, Sonwane Vasti, Chikhali, Tal. Haveli, Dist. Pune, Maharashtra 411062</div>
-                <div class="school-year">Academic Year : {{ $academicYear->year_name ?? '' }}</div>
+                <div class="school-year">Academic Year : {{ data_get($academicYear ?? null, 'year_name', '') }}</div>
             @else
                 <div class="school-name">PRAJNANABODHINI ENGLISH MEDIUM SCHOOL &amp; JR. COLLEGE</div>
                 <div class="school-location">SHIRGAON</div>
                 <div class="school-address">Gat No. 227, Shirgaon-Gahunje Rd, At. Post. Shirgaon, Tal. Maval, Dist. Pune, Maharashtra - 410506</div>
-                <div class="school-year">Academic Year : {{ $academicYear->year_name ?? '' }}</div>
+                <div class="school-year">Academic Year : {{ data_get($academicYear ?? null, 'year_name', '') }}</div>
             @endif
         </td>
         <td style="width:60px;border:none!important;"></td>
@@ -162,13 +179,12 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
 
 <table class="exam-info">
     <tr>
-        <td><strong>Exam :</strong> {{ $exam->display_exam_name ?? $exam->exam_name ?? '' }}</td>
-        <td><strong>Standard :</strong> {{ $standard->standard_name ?? '' }}</td>
-        <td><strong>Division :</strong> {{ $division->division_name ?? '' }}</td>
+        <td><strong>Exam :</strong> {{ data_get($exam ?? null, 'display_exam_name', data_get($exam ?? null, 'exam_name', '')) }}</td>
+        <td><strong>Standard :</strong> {{ data_get($standard ?? null, 'standard_name', '') }}</td>
+        <td><strong>Division :</strong> {{ data_get($division ?? null, 'division_name', '') }}</td>
         <td><strong>Total Students :</strong> {{ $sortedResults->count() }}</td>
     </tr>
 </table>
-
 
 <div class="result-sheet-wrapper">
     <table class="result-sheet-table">
@@ -178,17 +194,14 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
                 <th>Student Name</th>
                 @foreach($academicDisplayColumns as $column)
                     @php
-                        $subjectMax = (float) ($column->max_marks ?? 0);
-                        $subjectPassing = ResultSheetBladeHelper::resolveSubjectPassing($column, $printStandardId);
-                        $subjectIsOptional = $isSeniorOptionalStandard
-                            ? $isSeniorOptionalColumn($column)
-                            : ((int) ($column->is_optional ?? 0) === 1);
+                        $subjectName       = (string) (data_get($column, 'subject_name', data_get($column, 'subject_code', '-')) ?: '-');
+                        $subjectMax        = (float) data_get($column, 'max_marks', 0);
+                        $subjectPassing    = ResultSheetBladeHelper::resolveSubjectPassing($column, $printStandardId);
+                        $subjectIsOptional = $isSeniorOptionalStandard ? $isSeniorOptionalColumn($column) : ((int) data_get($column, 'is_optional', 0) === 1);
                     @endphp
                     <th colspan="2">
-                        <span class="subject-name">{{ $column->subject_name ?? $column->subject_code ?? '-' }}</span>
-                        @if($subjectIsOptional)
-                            <span class="optional-label">Optional Subject</span>
-                        @endif
+                        <span class="subject-name">{{ $subjectName }}</span>
+                        @if($subjectIsOptional)<span class="optional-label">Optional Subject</span>@endif
                         <span class="subject-max">Max = {{ $displayNumber($subjectMax) }}</span>
                         <span class="subject-max">Pass = {{ $displayNumber($subjectPassing) }}</span>
                     </th>
@@ -199,69 +212,42 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
                 <th>Result</th>
             </tr>
             <tr>
-                <th></th>
-                <th></th>
-                @foreach($academicDisplayColumns as $column)
-                    <th>Marks</th>
-                    <th>Grade</th>
-                @endforeach
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
+                <th></th><th></th>
+                @foreach($academicDisplayColumns as $column)<th>Marks</th><th>Grade</th>@endforeach
+                <th></th><th></th><th></th><th></th>
             </tr>
         </thead>
         <tbody>
             @forelse($sortedResults as $student)
-                @php
-                    $studentCalc = $studentCalculations[ResultSheetBladeHelper::getStudentKey($student)] ?? null;
-                @endphp
+                @php $studentCalc = $studentCalculations[ResultSheetBladeHelper::getStudentKey($student)] ?? null; @endphp
                 @if($studentCalc)
                     <tr>
-                        <td>{{ $student->roll_no ?: '-' }}</td>
-                        <td class="student-name-cell" title="{{ $student->full_student_name ?? '' }}">{{ $student->full_student_name ?: '-' }}</td>
+                        <td>{{ data_get($student, 'roll_no') ?: '-' }}</td>
+                        <td class="student-name-cell" title="{{ data_get($student, 'full_student_name', '') }}">{{ data_get($student, 'full_student_name') ?: '-' }}</td>
                         @foreach($studentCalc['subject_details'] as $detail)
-                            @php
-                                $mark = $detail['mark'] ?? '-';
-                                $grade = $detail['grade'] ?? '-';
-                                $isOptional = !empty($detail['optional']);
-                            @endphp
+                            @php $mark = $detail['mark'] ?? '-'; $grade = $detail['grade'] ?? '-'; $isOptional = !empty($detail['optional']); @endphp
                             <td>
-                                @if($isOptional)
-                                    <span class="optional-mark">OPT</span>
-                                @elseif(strtoupper(trim((string) $mark)) === 'AB')
-                                    <span class="absent-mark">AB</span>
-                                @elseif($mark === '-')
-                                    -
-                                @elseif(is_numeric($mark))
-                                    {{ $displayNumber($mark) }}
-                                @else
-                                    {{ $mark }}
-                                @endif
+                                @if($isOptional)<span class="optional-mark">OPT</span>
+                                @elseif(strtoupper(trim((string) $mark)) === 'AB')<span class="absent-mark">AB</span>
+                                @elseif($mark === '-') -
+                                @elseif(is_numeric($mark)){{ $displayNumber($mark) }}
+                                @else{{ $mark }}@endif
                             </td>
                             <td>
-                                @if($isOptional)
-                                    <span class="optional-mark">OPT</span>
-                                @elseif(strtoupper(trim((string) $grade)) === 'AB')
-                                    <span class="absent-mark">AB</span>
-                                @elseif($grade === '-')
-                                    -
-                                @else
-                                    {{ $grade }}
-                                @endif
+                                @if($isOptional)<span class="optional-mark">OPT</span>
+                                @elseif(strtoupper(trim((string) $grade)) === 'AB')<span class="absent-mark">AB</span>
+                                @elseif(strtoupper(trim((string) $grade)) === 'F')<span class="fail-result">F</span>
+                                @elseif($grade === '-') -
+                                @else{{ $grade }}@endif
                             </td>
                         @endforeach
                         <td>{{ $displayNumber($studentCalc['total_marks']) }}</td>
                         <td>{{ $studentCalc['percentage'] === null ? '-' : ((int) round($studentCalc['percentage']) . '%') }}</td>
                         <td>{{ $studentCalc['grade'] }}</td>
                         <td>
-                            @if($studentCalc['result'] === 'PASS')
-                                <span class="pass-result">PASS</span>
-                            @elseif($studentCalc['result'] === 'FAIL')
-                                <span class="fail-result">FAIL</span>
-                            @else
-                                <span class="pending-result">PENDING</span>
-                            @endif
+                            @if($studentCalc['result'] === 'PASS')<span class="pass-result">PASS</span>
+                            @elseif($studentCalc['result'] === 'FAIL')<span class="fail-result">FAIL</span>
+                            @else<span class="pending-result">PENDING</span>@endif
                         </td>
                     </tr>
                 @endif
@@ -274,24 +260,15 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
     </table>
 </div>
 
-
 <div class="analysis-block">
     <div class="analysis-title">Overall Grade / Result Analysis</div>
     <table class="analysis-table">
         <thead>
-            <tr>
-                <th>Grade / Result</th>
-                <th>Range</th>
-                <th>Girls</th>
-                <th>Boys</th>
-                <th>Total</th>
-            </tr>
+            <tr><th>Grade / Result</th><th>Range</th><th>Girls</th><th>Boys</th><th>Total</th></tr>
         </thead>
         <tbody>
-            @foreach(['A1','A2','B1','B2','C1','C2','D','E1','E2'] as $grade)
-                @php
-                    $row = $overallGradeAnalysis[$grade] ?? ['range' => '-', 'girls' => 0, 'boys' => 0, 'total' => 0];
-                @endphp
+            @foreach($allGradesWithAbsent as $grade)
+                @php $row = $overallGradeAnalysis[$grade] ?? ['range' => '-', 'girls' => 0, 'boys' => 0, 'total' => 0]; @endphp
                 <tr>
                     <td>{{ $grade }}</td>
                     <td>{{ $row['range'] ?? '-' }}</td>
@@ -301,8 +278,7 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
                 </tr>
             @endforeach
             <tr class="analysis-total-row">
-                <td>TOTAL</td>
-                <td>TOTAL</td>
+                <td>TOTAL</td><td>TOTAL</td>
                 <td>{{ $overallGradeAnalysis['TOTAL']['girls'] ?? 0 }}</td>
                 <td>{{ $overallGradeAnalysis['TOTAL']['boys'] ?? 0 }}</td>
                 <td>{{ $overallGradeAnalysis['TOTAL']['total'] ?? 0 }}</td>
@@ -311,33 +287,29 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
     </table>
 </div>
 
-
 <div class="analysis-block">
     <div class="analysis-title">Subject Wise Analysis</div>
     <table class="subject-wise-analysis-table">
         <thead>
             <tr>
                 <th rowspan="2">Subject</th>
-                @foreach(['A1','A2','B1','B2','C1','C2','D','E1','E2','ABSENT'] as $category)
+                @foreach(array_merge($allGradesNoFail, ['ABSENT']) as $category)
                     <th colspan="2">{{ $category }}</th>
                 @endforeach
             </tr>
             <tr>
-                @for($i = 0; $i < 10; $i++)
-                    <th>Girls</th>
-                    <th>Boys</th>
-                @endfor
+                @for($i = 0; $i < count($allGradesNoFail) + 1; $i++)<th>Girls</th><th>Boys</th>@endfor
             </tr>
         </thead>
         <tbody>
             @foreach($academicDisplayColumns as $column)
                 @php
-                    $subjectCode = trim((string) ($column->subject_code ?? $column->subject_id ?? $column->subject_name ?? ''));
+                    $subjectCode = trim((string) (data_get($column, 'subject_code') ?? data_get($column, 'subject_id') ?? data_get($column, 'subject_name') ?? ''));
                     $analysis = $subjectAnalysis[$subjectCode] ?? [];
                 @endphp
                 <tr>
-                    <td class="subject-analysis-name">{{ $column->subject_name ?? $subjectCode ?? '-' }}</td>
-                    @foreach(['A1','A2','B1','B2','C1','C2','D','E1','E2'] as $category)
+                    <td class="subject-analysis-name">{{ data_get($column, 'subject_name', $subjectCode) ?: '-' }}</td>
+                    @foreach($allGradesNoFail as $category)
                         <td>{{ $analysis[$category . '_girls'] ?? 0 }}</td>
                         <td>{{ $analysis[$category . '_boys'] ?? 0 }}</td>
                     @endforeach
@@ -349,6 +321,47 @@ $isSeniorCompulsoryColumn = fn ($c) => ResultSheetBladeHelper::isSeniorCompulsor
     </table>
 </div>
 
+<div class="analysis-block">
+    <div class="analysis-title">Caste-Wise Grade Analysis</div>
+    <table class="caste-wise-analysis-table">
+        <thead>
+            <tr>
+                <th rowspan="2">CASTE</th>
+                @foreach($allGradesWithAbsent as $grade)
+                    <th colspan="2">{{ $grade }}</th>
+                @endforeach
+                <th colspan="2">TOTAL</th>
+            </tr>
+            <tr>
+                @for($i = 0; $i < count($allGradesWithAbsent); $i++)<th>G</th><th>B</th>@endfor
+                <th>G</th><th>B</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($casteList as $caste)
+                @php $row = $casteWiseAnalysis[$caste] ?? []; @endphp
+                <tr>
+                    <td class="caste-analysis-name">{{ $caste }}</td>
+                    @foreach($allGradesWithAbsent as $grade)
+                        <td>{{ $row[$grade . '_girls'] ?? 0 }}</td>
+                        <td>{{ $row[$grade . '_boys'] ?? 0 }}</td>
+                    @endforeach
+                    <td>{{ $row['total_girls'] ?? 0 }}</td>
+                    <td>{{ $row['total_boys'] ?? 0 }}</td>
+                </tr>
+            @endforeach
+            <tr class="analysis-total-row">
+                <td>TOTAL</td>
+                @foreach($allGradesWithAbsent as $grade)
+                    <td>{{ $casteWiseAnalysis['TOTAL'][$grade . '_girls'] ?? 0 }}</td>
+                    <td>{{ $casteWiseAnalysis['TOTAL'][$grade . '_boys'] ?? 0 }}</td>
+                @endforeach
+                <td>{{ $casteWiseAnalysis['TOTAL']['total_girls'] ?? 0 }}</td>
+                <td>{{ $casteWiseAnalysis['TOTAL']['total_boys'] ?? 0 }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 
 <div class="signature-area">
     <div class="signature-box">

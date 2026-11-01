@@ -929,6 +929,10 @@ class EditMarkHelper
                 )
             );
 
+        // NEW FIX: If there is an explicit status in the DB, trust it.
+        if ($storedStatus === 'COMPLETED' || $storedStatus === 'PENDING') {
+            return $storedStatus;
+        }
 
         if (
             (int) $academicYearId <= 0

@@ -41,10 +41,10 @@ return [
             'route' => 'subjects.index'
         ],
 
-        [
-            'name'  => 'Standard Subject Allocation',
-            'route' => 'standard-subject-allocation.index'
-        ],
+        // [
+        //     'name'  => 'Standard Subject Allocation',
+        //     'route' => 'standard-subject-allocation.index'
+        // ],
 
         [
             'name'  => 'Student Master',

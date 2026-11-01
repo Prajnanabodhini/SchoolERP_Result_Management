@@ -1,34 +1,17 @@
-@if(!auth()->check())
-<script>
-    window.location.href = "{{ route('login') }}";
-</script>
-@endif
-
 <!DOCTYPE html>
-
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
 <head>
-
     <meta charset="utf-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1">
-
-    <meta name="csrf-token"
-          content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>
         {{ config('app.name', 'Laravel') }}
     </title>
 
-    <link rel="preconnect"
-          href="https://fonts.bunny.net">
-
-    <link
-        href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap"
-        rel="stylesheet"
-    />
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
     @vite([
         'resources/css/app.css',
@@ -36,15 +19,12 @@
         'resources/js/app.js'
     ])
 
-
     <style>
-
         /*
         |--------------------------------------------------------------------------
         | GLOBAL ERP RESPONSIVE
         |--------------------------------------------------------------------------
         */
-
         * {
             box-sizing: border-box;
         }
@@ -70,13 +50,11 @@
             border: 1px solid #ccc;
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | SCHOOL HEADER
         |--------------------------------------------------------------------------
         */
-
         .school-header {
             background: #8B4513;
             color: white;
@@ -114,24 +92,20 @@
             font-weight: 700;
         }
 
-        /* Address Styling */
         .school-address {
             margin-top: 4px;
             font-size: 14px;
             font-weight: 600;
-            color: #f3f4f6; /* Slightly off-white */
+            color: #f3f4f6;
             letter-spacing: 0.5px;
         }
-
 
         /*
         |--------------------------------------------------------------------------
         | MOBILE
         |--------------------------------------------------------------------------
         */
-
         @media (max-width: 768px) {
-
             body {
                 font-size: 14px;
             }
@@ -169,13 +143,6 @@
                 align-items: stretch;
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | MOBILE SCHOOL HEADER
-            |--------------------------------------------------------------------------
-            */
-
             .school-header {
                 padding: 8px;
             }
@@ -195,211 +162,115 @@
             .school-name p {
                 font-size: 13px;
             }
-            
-            /* Mobile address font size */
+
             .school-address {
                 font-size: 10px;
             }
         }
-
     </style>
-
 </head>
-
 
 <body class="font-sans antialiased m-0">
 
+    {{-- Auth Redirect Logic safely inside body --}}
+    @if(!auth()->check())
+        <script>
+            window.location.href = "{{ route('login') }}";
+        </script>
+    @endif
 
-<div class="erp-layout-container">
+    <div class="erp-layout-container">
 
+        <!-- SCHOOL HEADER -->
+        @php
+            $schoolCode = session('school_code', 'shirgaon');
+        @endphp
 
-    <!-- ==============================================================
-         SCHOOL HEADER
-         ============================================================== -->
+        <div class="school-header">
+            <div class="school-header-inner">
+                <img src="{{ asset('images/school-logo.png') }}" alt="School Logo" class="school-logo">
 
-    @php
-        // Fetch the school code from session. Defaults to 'shirgaon'.
-        $schoolCode = session('school_code', 'shirgaon');
-    @endphp
-
-
-    <div class="school-header">
-
-        <div class="school-header-inner">
-
-            <img
-                src="{{ asset('images/school-logo.png') }}"
-                alt="School Logo"
-                class="school-logo"
-            >
-
-
-            <div class="school-name">
-
-                {{-- Condition 1: Chikhali School --}}
-                @if($schoolCode === 'chikhali')
-
-                    <h1>
-                        PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI
-                    </h1>
-                    
-                    <div class="school-address">
-                        S.No. 1517/1, Sonwane Vasti, Chikhali, Tal. Haveli, Dist. Pune, Maharashtra 411062
-                    </div>
-
-                {{-- Condition 2: Shirgaon School (Default) --}}
-                @else
-
-                    <h1>
-                        PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE
-                    </h1>
-
-                    <p>
-                        SHIRGAON
-                    </p>
-                    
-                    <div class="school-address">
-                        Tal. Maval, Dist. Pune, Maharashtra - 410506
-                    </div>
-
-                @endif
-
-
+                <div class="school-name">
+                    @if($schoolCode === 'chikhali')
+                        <h1>PRAJNANABODHINI ENGLISH MEDIUM SCHOOL CHIKHALI</h1>
+                        <div class="school-address">
+                            S.No. 1517/1, Sonwane Vasti, Chikhali, Tal. Haveli, Dist. Pune, Maharashtra 411062
+                        </div>
+                    @else
+                        <h1>PRAJNANABODHINI ENGLISH MEDIUM SCHOOL & JR. COLLEGE</h1>
+                        <p>SHIRGAON</p>
+                        <div class="school-address">
+                            Tal. Maval, Dist. Pune, Maharashtra - 410506
+                        </div>
+                    @endif
+                </div>
             </div>
-
         </div>
+
+        <!-- ERROR MESSAGE -->
+        @if(session('error'))
+            <script>
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Error',
+                    text: '{{ session('error') }}'
+                });
+            </script>
+        @endif
+
+        <!-- NAVIGATION -->
+        @if(auth()->check())
+            @include('layouts.navigation')
+        @endif
+
+        <!-- ACADEMIC YEAR / SECTION -->
+        @if(session('year_name'))
+            <div class="bg-blue-100 border-b-2 border-blue-300 px-4 py-2 text-center font-bold text-blue-900">
+                Academic Year : {{ session('year_name') }}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                Section : {{ session('section_name') }}
+            </div>
+        @endif
+
+        <!-- OPTIONAL HEADER SLOT -->
+        @isset($header)
+            <header class="bg-white shadow border-b">
+                <div class="max-w-7xl mx-auto py-2 px-4">
+                    {{ $header }}
+                </div>
+            </header>
+        @endisset
+
+        <!-- MAIN CONTENT -->
+        <main class="min-h-screen bg-gradient-to-br from-red-100 via-yellow-100 to-orange-100 p-4">
+            @isset($slot)
+                {{ $slot }}
+            @else
+                @yield('content')
+            @endisset
+        </main>
 
     </div>
 
+    @include('components.toast')
 
-    <!-- ==============================================================
-         ERROR MESSAGE
-         ============================================================== -->
-
-    @if(session('error'))
-
-        <script>
-            Swal.fire({
-                icon: 'error',
-                title: 'Validation Error',
-                text: '{{ session('error') }}'
-            });
-        </script>
-
-    @endif
-
-
-    <!-- ==============================================================
-         NAVIGATION
-         ============================================================== -->
-
-    @if(auth()->check())
-
-        @include('layouts.navigation')
-
-    @endif
-
-
-    <!-- ==============================================================
-         ACADEMIC YEAR / SECTION
-         ============================================================== -->
-
-    @if(session('year_name'))
-
-        <div
-            class="bg-blue-100 border-b-2 border-blue-300 px-4 py-2
-                   text-center font-bold text-blue-900"
-        >
-
-            Academic Year :
-            {{ session('year_name') }}
-
-            &nbsp;&nbsp;|&nbsp;&nbsp;
-
-            Section :
-            {{ session('section_name') }}
-
-        </div>
-
-    @endif
-
-
-    <!-- ==============================================================
-         OPTIONAL HEADER SLOT
-         ============================================================== -->
-
-    @isset($header)
-
-        <header class="bg-white shadow border-b">
-
-            <div class="max-w-7xl mx-auto py-2 px-4">
-
-                {{ $header }}
-
-            </div>
-
-        </header>
-
-    @endisset
-
-
-    <!-- ==============================================================
-         MAIN CONTENT
-         ============================================================== -->
-
-    <main
-        class="min-h-screen bg-gradient-to-br
-               from-red-100 via-yellow-100 to-orange-100 p-4"
-    >
-
-        @isset($slot)
-
-            {{ $slot }}
-
-        @else
-
-            @yield('content')
-
-        @endisset
-
-    </main>
-
-
-</div>
-
-
-@include('components.toast')
-
-
-<script>
-    /*
-    |--------------------------------------------------------------------------
-    | SESSION CHECK
-    |--------------------------------------------------------------------------
-    |
-    | Keep disabled unless required.
-    |
-    */
-
-    // setInterval(function () {
-
-    //     fetch('/check-session')
-    //         .then(response => response.json())
-    //         .then(data => {
-
-    //             if (!data.authenticated) {
-
-    //                 alert('Session expired. Please login again.');
-
-    //                 window.location.href = '/login';
-    //             }
-
-    //         });
-
-    // }, 60000);
-</script>
-
+    <script>
+        /*
+        |--------------------------------------------------------------------------
+        | SESSION CHECK
+        |--------------------------------------------------------------------------
+        */
+        // setInterval(function () {
+        //     fetch('/check-session')
+        //         .then(response => response.json())
+        //         .then(data => {
+        //             if (!data.authenticated) {
+        //                 alert('Session expired. Please login again.');
+        //                 window.location.href = '/login';
+        //             }
+        //         });
+        // }, 60000);
+    </script>
 
 </body>
-
 </html>
