@@ -78,8 +78,20 @@
         .attendance-table td.month-cell { white-space: nowrap; line-height: 1.15; text-align: left; padding: 2.5px 4px; font-size: 10.5px; font-weight: 400; }
         .attendance-table td.month-cell .overlap { font-weight: 400; font-size: 10px; line-height: 1.15; text-transform: uppercase; }
 
-        /* ===== DESCRIPTIVE ROW ===== */
-        .descriptive-table .descriptive-comment-row td { height: 28px; vertical-align: top; padding: 4px 6px; background: #fff; font-size: 11px; }
+        /* ===== DESCRIPTIVE ROW (FIXED) ===== */
+        .descriptive-table .descriptive-comment-row td { 
+            height: auto !important; /* Allows the row to expand */
+            min-height: 28px; 
+            vertical-align: top; 
+            padding: 6px 8px; 
+            background: #fff; 
+            font-size: 11px; 
+            white-space: normal !important; /* Forces text to wrap */
+            word-wrap: break-word !important; /* Breaks long words */
+            overflow: visible !important; /* Removes the hidden overflow */
+            text-overflow: clip !important; /* Removes the "..." */
+            line-height: 1.3;
+        }
 
         /* ===== PERSONAL INFO TABLE ===== */
         .info-table { width: 100%; border-collapse: collapse; font-size: 10.5px; table-layout: fixed; }
@@ -97,11 +109,11 @@
         .skills-flex-col .data-table { height: 100%; }
 
         /* ===== IMPORTANT NOTE ===== */
-        .important-note { border: 1px solid #000; background: #fff; padding: 3px 8px; font-size: 10.5px; margin-bottom: 3px; flex: none; }
-        .important-note .title { font-weight: 800; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #000; padding-bottom: 1.5px; margin-bottom: 2px; letter-spacing: 0.3px; }
-        .important-note .greeting { text-align: center; font-weight: 400; margin-bottom: 1.5px; font-size: 10.5px; }
-        .important-note ul { margin: 0 0 0 14px; padding: 0; }
-        .important-note li { margin-bottom: 0; font-weight: 400; }
+        .important-note { border: 1px solid #000; background: #fff; padding: 4px 9px; font-size: 11.5px; line-height: 1.25; margin-bottom: 3px; flex: none; }
+        .important-note .title { font-weight: 800; text-transform: uppercase; font-size: 11.5px; border-bottom: 1px solid #000; padding-bottom: 1.5px; margin-bottom: 2.5px; letter-spacing: 0.3px; }
+        .important-note .greeting { text-align: center; font-weight: 400; margin-bottom: 2px; font-size: 11.5px; }
+        .important-note ul { margin: 0 0 0 16px; padding: 0; }
+        .important-note li { margin-bottom: 0; font-weight: 400; font-size: 11.5px; }
 
         /* ===== SIGNATURES ===== */
         .signatures { display: flex; justify-content: space-between; margin-top: auto; padding-top: 6px; page-break-inside: avoid; break-inside: avoid; flex: none; }
@@ -223,37 +235,17 @@
 
     $skillSubMap = [];
     $isTenth = preg_match('/\b(10|X|TENTH)\b/i', $std);
-    $isEighthNinth = preg_match('/\b(8|9|VIII|IX|EIGHTH|NINTH)\b/i', $std); // ADDED: Specific check for 8th and 9th
+    $isEighthNinth = preg_match('/\b(8|9|VIII|IX|EIGHTH|NINTH)\b/i', $std);
     $isFirstToNinth = preg_match('/\b(1|2|3|4|5|6|7|8|9|I|II|III|IV|V|VI|VII|VIII|IX|FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH)\b/i', $std);
 
     if ($isTenth) {
-        $skillSubMap = [
-            'SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)',
-            'SKILL 2' => '(ROBOTICS + COMPUTER)', 
-            'SKILL 3' => '',
-            'SKILL 4' => '',
-        ];
+        $skillSubMap = ['SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)', 'SKILL 2' => '(ROBOTICS + COMPUTER)', 'SKILL 3' => '', 'SKILL 4' => ''];
     } elseif ($isEighthNinth) {
-        $skillSubMap = [
-            'SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)',
-            'SKILL 2' => '(ROBOTICS + COMPUTER + VEDIC MATH)', // UPDATED FOR 8TH & 9TH
-            'SKILL 3' => '',
-            'SKILL 4' => '',
-        ];
+        $skillSubMap = ['SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)', 'SKILL 2' => '(ROBOTICS + COMPUTER + VEDIC MATH)', 'SKILL 3' => '', 'SKILL 4' => ''];
     } elseif ($isFirstToNinth) {
-        $skillSubMap = [
-            'SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)',
-            'SKILL 2' => '(ROBOTICS + COMPUTER + ABACUS)', // KEPT ABACUS FOR 1ST TO 7TH
-            'SKILL 3' => '',
-            'SKILL 4' => '',
-        ];
+        $skillSubMap = ['SKILL 1' => '(DRAWING + ACTING/DANCE/MUSIC/TABLA)', 'SKILL 2' => '(ROBOTICS + COMPUTER + ABACUS)', 'SKILL 3' => '', 'SKILL 4' => ''];
     } else {
-        $skillSubMap = [
-            'SKILL 1' => '(ARTS/DRAWING)',
-            'SKILL 2' => '(WORK EXPERIENCE)',
-            'SKILL 3' => '(PT & HEALTH)',
-            'SKILL 4' => '(LIBRARY & SANSKRIT BHARTI)',
-        ];
+        $skillSubMap = ['SKILL 1' => '(ARTS/DRAWING)', 'SKILL 2' => '(WORK EXPERIENCE)', 'SKILL 3' => '(PT & HEALTH)', 'SKILL 4' => '(LIBRARY & SANSKRIT BHARTI)'];
     }
 
     $isHighSchool = preg_match('/\b(9|10)\b/', $std) || str_contains($std, 'NINTH') || str_contains($std, 'TENTH');
@@ -272,15 +264,9 @@
             $socialScience->obtained_marks = ($history->obtained_marks ?? 0) + ($geography->obtained_marks ?? 0);
             $socialScience->max_marks = ($history->max_marks ?? 0) + ($geography->max_marks ?? 0);
             $pct = $socialScience->max_marks > 0 ? ($socialScience->obtained_marks / $socialScience->max_marks) * 100 : 0;
-            if ($pct >= 91) $socialScience->grade = 'A1';
-            elseif ($pct >= 81) $socialScience->grade = 'A2';
-            elseif ($pct >= 71) $socialScience->grade = 'B1';
-            elseif ($pct >= 61) $socialScience->grade = 'B2';
-            elseif ($pct >= 51) $socialScience->grade = 'C1';
-            elseif ($pct >= 41) $socialScience->grade = 'C2';
-            elseif ($pct >= 33) $socialScience->grade = 'D';
-            elseif ($pct >= 21) $socialScience->grade = 'E1';
-            else $socialScience->grade = 'E2';
+            if ($pct >= 91) $socialScience->grade = 'A1'; elseif ($pct >= 81) $socialScience->grade = 'A2'; elseif ($pct >= 71) $socialScience->grade = 'B1';
+            elseif ($pct >= 61) $socialScience->grade = 'B2'; elseif ($pct >= 51) $socialScience->grade = 'C1'; elseif ($pct >= 41) $socialScience->grade = 'C2';
+            elseif ($pct >= 33) $socialScience->grade = 'D'; elseif ($pct >= 21) $socialScience->grade = 'E1'; else $socialScience->grade = 'E2';
 
             $newSubjects = collect();
             foreach ($subjects as $subj) {
@@ -324,6 +310,8 @@
     $descriptiveSubjects = $subjects->take(3);
     $firstDescKey = (int) ($descriptiveSubjects->first()->subject_id ?? 0);
     $firstDesc    = $savedDescriptive[$firstDescKey] ?? $savedDescriptive[(string) $firstDescKey] ?? ['progress' => '', 'interest' => '', 'improvements' => ''];
+    
+    $teacherRemarkText = $progress->teacher_remark['text'] ?? ($firstDesc['progress'] ?? '');
 
     $gradeOptions = ['A1'=>'A1 (91% to 100%)','A2'=>'A2 (81% to 90%)','B1'=>'B1 (71% to 80%)','B2'=>'B2 (61% to 70%)','C1'=>'C1 (51% to 60%)','C2'=>'C2 (41% to 50%)','D'=>'D (33% to 40%)','E1'=>'E1 (21% to 32%)','E2'=>'E2 (Below 21%)'];
     $skillGradeOptions = ['A+', 'A', 'B+', 'B', 'C+', 'C'];
@@ -369,14 +357,10 @@
         foreach ($skillObservations as $obs) {
             $subName = strtoupper(trim($obs->subject_name ?? ''));
             if ($subName) $subjectGrades[$subName] = $obs->overall_grade;
-
             if (!empty($obs->observations)) {
                 $json = is_array($obs->observations) ? $obs->observations : json_decode($obs->observations, true);
-                if (is_array($json)) {
-                    foreach ($json as $k => $v) $criteriaGrades[strtoupper(trim($k))] = $v;
-                }
+                if (is_array($json)) { foreach ($json as $k => $v) $criteriaGrades[strtoupper(trim($k))] = $v; }
             }
-
             if ($subName === 'GROUND ACTIVITIES' && $obs->ground_activities_grade) $groupGrades['A) GROUND ACTIVITIES'] = $obs->ground_activities_grade;
             if ($subName === 'TRG. SENSES' && $obs->trg_senses_grade) $groupGrades['C) TRG. SENSES'] = $obs->trg_senses_grade;
             if ($subName === 'ASSEMBLY' && $obs->assembly_grade) $groupGrades['D) ASSEMBLY'] = $obs->assembly_grade;
@@ -407,15 +391,8 @@
             }
             if($count === 0) return '-';
             $avg = $total / $count;
-            if($avg >= 8.5) return 'A1';
-            if($avg >= 7.5) return 'A2';
-            if($avg >= 6.5) return 'B1';
-            if($avg >= 5.5) return 'B2';
-            if($avg >= 4.5) return 'C1';
-            if($avg >= 3.5) return 'C2';
-            if($avg >= 2.5) return 'D';
-            if($avg >= 1.5) return 'E1';
-            if($avg >= 0.5) return 'E2';
+            if($avg >= 8.5) return 'A1'; if($avg >= 7.5) return 'A2'; if($avg >= 6.5) return 'B1'; if($avg >= 5.5) return 'B2';
+            if($avg >= 4.5) return 'C1'; if($avg >= 3.5) return 'C2'; if($avg >= 2.5) return 'D'; if($avg >= 1.5) return 'E1'; if($avg >= 0.5) return 'E2';
             return 'F';
         };
 
@@ -444,6 +421,18 @@
 </div>
 <form id="progressForm" method="POST" action="{{ route('report-card.progress-card.save', [$report->student_id, $report->exam_master_id, $report->academic_year_id]) }}">
     @csrf
+    <!-- Hidden fields for snapshot totals -->
+    <input type="hidden" name="hidden_percentage" value="{{ $report->percentage }}">
+    <input type="hidden" name="hidden_grade" value="{{ $report->grade }}">
+    <input type="hidden" name="hidden_result" value="{{ $report->result }}">
+    <input type="hidden" name="hidden_total_max" value="{{ $report->total_max_marks }}">
+    <input type="hidden" name="hidden_total_obtained" value="{{ $report->total_obtained_marks }}">
+    
+    <input type="hidden" name="father_name" value="{{ $report->father_name }}">
+    <input type="hidden" name="mother_name" value="{{ $report->mother_name }}">
+    <input type="hidden" name="gender" value="{{ $report->gender }}">
+    <input type="hidden" name="standard_id" value="{{ $report->standard_id }}">
+    <input type="hidden" name="division_id" value="{{ $report->division_id }}">
 @else
 <div class="toolbar no-print">
     <a class="btn btn-edit" href="{{ route('report-card.progress-card.edit', [$report->student_id, $report->exam_master_id, $report->academic_year_id]) }}">Edit Details</a>
@@ -496,7 +485,6 @@
                     <td class="label-full">Student Name</td>
                     <td class="value-full name-row-value" colspan="3">
                         @if($isEdit)
-                            {{-- FIXED: Changed from $report->studname to $report->full_student_name --}}
                             <input type="text" name="student_name" class="edit-input" value="{{ $report->full_student_name ?? '' }}">
                         @else
                             {{ $report->full_student_name ?? '' }}
@@ -785,7 +773,6 @@
     @else
         @php
             $_nonSkills = $subjects->filter(fn($s) => empty($s->is_graded))->values();
-            // Filter out SKILL 1 and SKILL 4 for Tenth Standard
             $_skills = $subjects->filter(function($s) use ($std) {
                 if (empty($s->is_graded)) return false;
                 if (preg_match('/\b(10|X|TENTH)\b/i', $std)) {
@@ -829,11 +816,9 @@
                                 $gradeKey = $isManualOverride ? $subjectNameToKey($subject->subject_name) : (int) $subject->subject_id;
                                 $manualGrade = $savedGraded[$gradeKey] ?? '';
                                 
-                                // 👇 PRIORITIZE OBSERVATION GRADE ($subject->grade) OVER MANUAL OVERRIDE 👇
                                 $dbGrade = (!empty($subject->grade) && $subject->grade !== '-') ? $subject->grade : '';
                                 $displayGrade = $dbGrade !== '' ? $dbGrade : ($manualGrade !== '' ? $manualGrade : '-');
                                 $selectedGrade = $dbGrade !== '' ? $dbGrade : $manualGrade;
-                                // 👆 END LOGIC 👆
                             @endphp
                             <tr>
                                 <td class="center">{{ str_pad($academicCounter++, 2, '0', STR_PAD_LEFT) }}</td>
@@ -912,11 +897,9 @@
                                 $gradeKey = $isManualOverride ? $subjectNameToKey($subject->subject_name) : (int) $subject->subject_id;
                                 $manualGrade = $savedGraded[$gradeKey] ?? '';
                                 
-                                // 👇 PRIORITIZE OBSERVATION GRADE ($subject->grade) OVER MANUAL OVERRIDE 👇
                                 $dbGrade = (!empty($subject->grade) && $subject->grade !== '-') ? $subject->grade : '';
                                 $displayGrade = $dbGrade !== '' ? $dbGrade : ($manualGrade !== '' ? $manualGrade : '-');
                                 $selectedGrade = $dbGrade !== '' ? $dbGrade : $manualGrade;
-                                // 👆 END LOGIC 👆
                             @endphp
                             <tr>
                                 <td class="center">{{ str_pad($skillCounter++, 2, '0', STR_PAD_LEFT) }}</td>
@@ -1125,12 +1108,12 @@
                 <colgroup><col style="width: 25%;"><col style="width: 75%;"></colgroup>
                 <tbody>
                     <tr class="descriptive-comment-row">
-                        <td style="font-weight: 700; background: #f4f4f4; vertical-align: middle;">Teacher Remark</td>
-                        <td style="vertical-align: top;">
+                        <td style="font-weight: 700; background: #f4f4f4; vertical-align: top; padding-top: 8px;">Teacher Remark</td>
+                        <td style="vertical-align: top; padding-top: 8px;">
                             @if($isEdit)
-                                <textarea name="descriptive[{{ $firstDescKey }}][progress]" class="edit-input" rows="2" spellcheck="true" lang="en" autocorrect="on" autocapitalize="sentences">{{ old("descriptive.$firstDescKey.progress", $firstDesc['progress'] ?? '') }}</textarea>
+                                <textarea name="teacher_remark" class="edit-input" rows="3" spellcheck="true" lang="en" autocorrect="on" autocapitalize="sentences">{{ old("teacher_remark", $teacherRemarkText) }}</textarea>
                             @else
-                                {{ $firstDesc['progress'] ?? '' }}
+                                {{ $teacherRemarkText }}
                             @endif
                         </td>
                     </tr>
@@ -1195,7 +1178,7 @@
     <div class="important-note">
         <div class="title">Important</div>
         <div class="greeting">Dear Parents,</div>
-        <ul><li>Study the report card carefully.</li><li>Preserve it carefully.</li></ul>
+        <ul><li>Study the report card carefully.</li><li>Preserve it carefully.</li><li>This progress report stands as a testament to our collective hard work, celebrating how far your child has come while highlighting the vast potential still left to unlock.<br><br></li></ul>        
     </div>
 
     <div class="signatures">

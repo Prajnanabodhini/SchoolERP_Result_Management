@@ -89,34 +89,59 @@ class ReportCardController extends Controller
         $student = $this->getErpStudent($request->student_id);
         if (!$student) return view('report-card.index', $viewData)->with('error', 'Student not found in ERP.');
 
+        $pen = $student->saralid;
         $substudent = $selectedEnrollment;
         $exam = DB::table('exam_masters')->where('id', $request->exam_master_id)->first();
         $standard = DB::table('standards')->where('id', $request->standard_id)->first();
         $division = DB::table('divisions')->where('id', $request->division_id)->first();
         $year = DB::table('academic_years')->where('id', $request->academic_year_id)->first();
-        $progress = StudentProgressCard::where('student_id', $request->student_id)->where('exam_master_id', $request->exam_master_id)->where('academic_year_id', $request->academic_year_id)->first();
+        
+        $progress = StudentProgressCard::where('pen', $pen)->where('exam_master_id', $request->exam_master_id)->where('academic_year_id', $request->academic_year_id)->first();
         $manualGrades = $progress->second_term_grades ?? [];
         $studname = trim((string) ($student->studname ?? '')); $fathername = trim((string) ($student->fathername ?? ''));
         $fullName = $this->cleanStudentName($studname, $fathername);
 
         $report = (object) [
-            'student_id' => (int) $request->student_id, 'gov_student_id' => $student->saralid ?? '', 'studname' => $studname,
-            'father_name' => $fathername, 'full_student_name' => $fullName, 'mother_name' => $student->mothername ?? '',
-            'gender' => $student->gender ?? '', 'date_of_birth' => $student->birthdate ?? '',
+            'pen' => $pen,
+            'student_id' => (int) $request->student_id,
+            'gov_student_id' => $progress->pen ?? $student->saralid ?? '', 
+            'studname' => $progress->full_student_name ? explode(' ', $progress->full_student_name)[0] : $studname,
+            'father_name' => $progress->father_name ?? $fathername, 
+            'full_student_name' => $progress->full_student_name ?? $fullName, 
+            'mother_name' => $progress->mother_name ?? $student->mothername ?? '',
+            'gender' => $progress->gender ?? $student->gender ?? '', 
+            'date_of_birth' => $progress->date_of_birth ?? $student->birthdate ?? '',
             'mother_tongue' => $progress->mother_tongue ?? $student->mtounge ?? 'MARATHI',
-            'address' => $progress->address ?? $this->resolveStudentAddress($student), 'rollno' => $substudent->rollno ?? '',
-            'gr_no' => $substudent->regno ?? '', 'aadhar_no' => $student->adharno ?? '', 'blood_group' => $progress->blood_group ?? '',
-            'phone' => $progress->phone ?? $student->fathermobile ?? $student->resphone1 ?? '', 'email' => $progress->email ?? $student->email ?? '',
-            'school_timing' => $progress->school_timing ?? '8:15am to 3:00pm', 'exam_master_id' => (int) $request->exam_master_id,
-            'academic_year_id' => (int) $request->academic_year_id, 'standard_id' => (int) $request->standard_id,
-            'division_id' => (int) $request->division_id, 'exam_name' => $exam->exam_name ?? '', 'standard_name' => $standard->standard_name ?? '',
-            'division_name' => $division->division_name ?? '', 'year_name' => $year->year_name ?? '', 'rank' => null, 'percentage' => null,
-            'grade' => null, 'result' => null, 'total_max_marks' => 0, 'total_obtained_marks' => 0,
+            'address' => $progress->address ?? $this->resolveStudentAddress($student), 
+            'rollno' => $progress->roll_no ?? $substudent->rollno ?? '',
+            'gr_no' => $progress->gr_no ?? $substudent->regno ?? '', 
+            'aadhar_no' => $progress->aadhar_no ?? $student->adharno ?? '', 
+            'blood_group' => $progress->blood_group ?? '',
+            'phone' => $progress->phone ?? $student->fathermobile ?? $student->resphone1 ?? '', 
+            'email' => $progress->email ?? $student->email ?? '',
+            'school_timing' => $progress->school_timing ?? '8:15am to 3:00pm', 
+            'exam_master_id' => (int) $request->exam_master_id,
+            'academic_year_id' => (int) $request->academic_year_id, 
+            'standard_id' => (int) $request->standard_id,
+            'division_id' => (int) $request->division_id, 
+            'exam_name' => $exam->exam_name ?? '', 
+            'standard_name' => $standard->standard_name ?? '',
+            'division_name' => $division->division_name ?? '', 
+            'year_name' => $year->year_name ?? '', 
+            'rank' => null, 
+            'percentage' => $progress->percentage ?? null,
+            'grade' => $progress->grade ?? null, 
+            'result' => $progress->result ?? null, 
+            'total_max_marks' => $progress->total_max_marks ?? 0, 
+            'total_obtained_marks' => $progress->total_obtained_marks ?? 0,
         ];
 
         $subjects = $this->buildReportCardSubjects((int)$request->student_id, (int)$request->exam_master_id, (int)$request->standard_id, (int)$request->academic_year_id, $manualGrades);
-        [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
-        $report->percentage = $pct; $report->grade = $grade; $report->result = $result; $report->total_max_marks = $tMax; $report->total_obtained_marks = $tObt;
+        
+        if ($report->percentage === null) {
+            [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
+            $report->percentage = $pct; $report->grade = $grade; $report->result = $result; $report->total_max_marks = $tMax; $report->total_obtained_marks = $tObt;
+        }
 
         return view('report-card.index', array_merge($viewData, ['report' => $report, 'subjects' => $subjects, 'error' => null]));
     }
@@ -126,9 +151,12 @@ class ReportCardController extends Controller
         if (!$student = $this->getErpStudent($studentId)) abort(404, 'Student not found in ERP.');
         if (!$year = DB::table('academic_years')->where('id', $yearId)->first()) abort(404, 'Academic year not found.');
 
+        $pen = $student->saralid;
         $erpYearId = $year->old_year_id ?? substr((string) ($year->year_name ?? ''), 0, 4);
         $exam = DB::table('exam_masters')->where('id', $examId)->first();
-        $progress = StudentProgressCard::where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
+        
+        $progress = StudentProgressCard::where('pen', $pen)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
+        
         $sampleMark = DB::table('student_marks')->where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
         
         $standardId = $sampleMark->standard_id ?? $progress->standard_id ?? $exam->standard_id ?? null;
@@ -141,28 +169,55 @@ class ReportCardController extends Controller
         $fullName = $this->cleanStudentName($studname, $fathername);
 
         $report = (object) [
-            'student_id' => (int) $studentId, 'gov_student_id' => $student->saralid ?? '', 'studname' => $studname, 'father_name' => $fathername,
-            'full_student_name' => $fullName, 'mother_name' => $student->mothername ?? '', 'gender' => $student->gender ?? '',
-            'date_of_birth' => $student->birthdate ?? '', 'mother_tongue' => $progress->mother_tongue ?? $student->mtounge ?? 'MARATHI',
-            'address' => $progress->address ?? $this->resolveStudentAddress($student), 'rollno' => $substudent->rollno ?? '',
-            'gr_no' => $substudent->regno ?? '', 'aadhar_no' => $student->adharno ?? '', 'blood_group' => $progress->blood_group ?? '',
-            'phone' => $progress->phone ?? $student->fathermobile ?? $student->resphone1 ?? '', 'email' => $progress->email ?? $student->email ?? '',
-            'school_timing' => $progress->school_timing ?? '8:15am to 3:00pm', 'exam_master_id' => (int) $examId,
-            'academic_year_id' => (int) $yearId, 'standard_id' => (int) ($standardId ?? 0), 'division_id' => (int) ($divisionId ?? 0),
-            'exam_name' => $exam->exam_name ?? '', 'standard_name' => $standard->standard_name ?? '', 'division_name' => $division->division_name ?? '',
-            'year_name' => $year->year_name ?? '', 'percentage' => null, 'grade' => null, 'result' => null, 'total_max_marks' => 0, 'total_obtained_marks' => 0,
+            'pen' => $pen,
+            'student_id' => (int) $studentId,
+            'gov_student_id' => $progress->pen ?? $student->saralid ?? '', 
+            'studname' => $progress->full_student_name ? explode(' ', $progress->full_student_name)[0] : $studname,
+            'father_name' => $progress->father_name ?? $fathername,
+            'full_student_name' => $progress->full_student_name ?? $fullName, 
+            'mother_name' => $progress->mother_name ?? $student->mothername ?? '', 
+            'gender' => $progress->gender ?? $student->gender ?? '',
+            'date_of_birth' => $progress->date_of_birth ?? $student->birthdate ?? '', 
+            'mother_tongue' => $progress->mother_tongue ?? $student->mtounge ?? 'MARATHI',
+            'address' => $progress->address ?? $this->resolveStudentAddress($student), 
+            'rollno' => $progress->roll_no ?? $substudent->rollno ?? '',
+            'gr_no' => $progress->gr_no ?? $substudent->regno ?? '', 
+            'aadhar_no' => $progress->aadhar_no ?? $student->adharno ?? '', 
+            'blood_group' => $progress->blood_group ?? '',
+            'phone' => $progress->phone ?? $student->fathermobile ?? $student->resphone1 ?? '', 
+            'email' => $progress->email ?? $student->email ?? '',
+            'school_timing' => $progress->school_timing ?? '8:15am to 3:00pm', 
+            'exam_master_id' => (int) $examId,
+            'academic_year_id' => (int) $yearId, 
+            'standard_id' => (int) ($standardId ?? 0), 
+            'division_id' => (int) ($divisionId ?? 0),
+            'exam_name' => $exam->exam_name ?? '', 
+            'standard_name' => $standard->standard_name ?? '', 
+            'division_name' => $division->division_name ?? '',
+            'year_name' => $year->year_name ?? '', 
+            'percentage' => $progress->percentage ?? null, 
+            'grade' => $progress->grade ?? null, 
+            'result' => $progress->result ?? null, 
+            'total_max_marks' => $progress->total_max_marks ?? 0, 
+            'total_obtained_marks' => $progress->total_obtained_marks ?? 0,
         ];
 
         $subjects = $this->buildReportCardSubjects((int)$studentId, (int)$examId, (int)$standardId, (int)$yearId, $manualGrades);
-        [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
-        $report->percentage = $pct; $report->grade = $grade; $report->result = $result; $report->total_max_marks = $tMax; $report->total_obtained_marks = $tObt;
+        
+        if ($report->percentage === null) {
+            [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
+            $report->percentage = $pct; $report->grade = $grade; $report->result = $result; $report->total_max_marks = $tMax; $report->total_obtained_marks = $tObt;
+        }
 
         return view('report-card.print', compact('report', 'subjects'));
     }
 
     private function getProgressCardData($studentId, $examId, $yearId) {
-        $progress = StudentProgressCard::where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
         if (!$student = $this->getErpStudent($studentId)) abort(404, 'Student not found in ERP.');
+        $pen = $student->saralid;
+
+        $progress = StudentProgressCard::where('pen', $pen)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
+        
         $exam = DB::table('exam_masters')->where('id', $examId)->first(); $year = DB::table('academic_years')->where('id', $yearId)->first();
         if (!$exam) abort(404, 'Exam not found.'); if (!$year) abort(404, 'Academic year not found.');
 
@@ -219,21 +274,47 @@ class ReportCardController extends Controller
         }
 
         $report = (object) [
-            'student_id' => (int) $studentId, 'gov_student_id' => $student->saralid ?? '', 'studname' => $cleanStudName,
-            'father_name' => $fathername, 'full_student_name' => $cleanedFullName, 'mother_name' => $student->mothername ?? '',
-            'gender' => $student->gender ?? '', 'date_of_birth' => $student->birthdate ?? '', 'mother_tongue' => $progress->mother_tongue ?? $student->mtounge ?? 'MARATHI',
-            'address' => $progress->address ?? $this->resolveStudentAddress($student), 'rollno' => $substudent->rollno ?? '',
-            'gr_no' => $substudent->regno ?? '', 'aadhar_no' => $student->adharno ?? '', 'blood_group' => $progress->blood_group ?? '',
-            'phone' => $progress->phone ?? $student->fathermobile ?? $student->resphone1 ?? '', 'email' => $progress->email ?? $student->email ?? '',
-            'school_timing' => $progress->school_timing ?? '8:15am to 3:00pm', 'exam_master_id' => (int) $examId, 'academic_year_id' => (int) $yearId,
-            'standard_id' => (int) ($standardId ?? 0), 'division_id' => (int) ($divisionId ?? 0), 'exam_name' => $exam->exam_name ?? '',
-            'standard_name' => $standard->standard_name ?? '', 'division_name' => $division->division_name ?? '', 'year_name' => $year->year_name ?? '',
-            'shak_year' => $shakYear, 'rank' => null, 'percentage' => null, 'grade' => null, 'result' => null, 'total_max_marks' => 0, 'total_obtained_marks' => 0,
+            'pen' => $pen,
+            'student_id' => (int) $studentId,
+            'gov_student_id' => $progress->pen ?? $student->saralid ?? '', 
+            'studname' => $progress->full_student_name ? explode(' ', $progress->full_student_name)[0] : $cleanStudName,
+            'father_name' => $progress->father_name ?? $fathername, 
+            'full_student_name' => $progress->full_student_name ?? $cleanedFullName, 
+            'mother_name' => $progress->mother_name ?? $student->mothername ?? '',
+            'gender' => $progress->gender ?? $student->gender ?? '', 
+            'date_of_birth' => $progress->date_of_birth ?? $student->birthdate ?? '', 
+            'mother_tongue' => $progress->mother_tongue ?? $student->mtounge ?? 'MARATHI',
+            'address' => $progress->address ?? $this->resolveStudentAddress($student), 
+            'rollno' => $progress->roll_no ?? $substudent->rollno ?? '',
+            'gr_no' => $progress->gr_no ?? $substudent->regno ?? '', 
+            'aadhar_no' => $progress->aadhar_no ?? $student->adharno ?? '', 
+            'blood_group' => $progress->blood_group ?? '',
+            'phone' => $progress->phone ?? $student->fathermobile ?? $student->resphone1 ?? '', 
+            'email' => $progress->email ?? $student->email ?? '',
+            'school_timing' => $progress->school_timing ?? '8:15am to 3:00pm', 
+            'exam_master_id' => (int) $examId, 
+            'academic_year_id' => (int) $yearId,
+            'standard_id' => (int) ($standardId ?? 0), 
+            'division_id' => (int) ($divisionId ?? 0), 
+            'exam_name' => $exam->exam_name ?? '',
+            'standard_name' => $standard->standard_name ?? '', 
+            'division_name' => $division->division_name ?? '', 
+            'year_name' => $year->year_name ?? '',
+            'shak_year' => $shakYear, 
+            'rank' => null, 
+            'percentage' => $progress->percentage ?? null, 
+            'grade' => $progress->grade ?? null, 
+            'result' => $progress->result ?? null, 
+            'total_max_marks' => $progress->total_max_marks ?? 0, 
+            'total_obtained_marks' => $progress->total_obtained_marks ?? 0,
         ];
 
         $subjects = $this->buildProgressCardSubjects($studentId, $examId, $standardId, $yearId, $manualGrades, $report->standard_name, $report->exam_name);
-        [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
-        $report->percentage = $pct; $report->grade = $grade; $report->result = $result; $report->total_max_marks = $tMax; $report->total_obtained_marks = $tObt;
+        
+        if ($report->percentage === null) {
+            [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
+            $report->percentage = $pct; $report->grade = $grade; $report->result = $result; $report->total_max_marks = $tMax; $report->total_obtained_marks = $tObt;
+        }
 
         return compact('report', 'subjects', 'progress', 'termLabel') + [
             'academicAverageGrade' => $this->calculateAcademicAverageGrade($subjects),
@@ -252,49 +333,23 @@ class ReportCardController extends Controller
     }
 
     public function saveProgressDetails(Request $request, $studentId, $examId, $yearId) {
-        $standardId = null; $divisionId = null;
-        if ($sampleMark = DB::table('student_marks')->where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first()) {
-            $standardId = $sampleMark->standard_id; $divisionId = $sampleMark->division_id;
+        if (!$student = $this->getErpStudent($studentId)) {
+            return redirect()->back()->with('error', 'Student not found in ERP.');
         }
-        if (!$divisionId && ($skillMark = DB::table('student_skill_marks')->where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first())) {
-            $standardId = $standardId ?? $skillMark->standard_id ?? null; $divisionId = $skillMark->division_id ?? null;
-        }
-        if ((!$standardId || !$divisionId) && ($existingProgress = StudentProgressCard::where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first())) {
-            $standardId = $standardId ?? $existingProgress->standard_id; $divisionId = $divisionId ?? $existingProgress->division_id;
-        }
-        if (!$standardId && ($examMaster = DB::table('exam_masters')->where('id', $examId)->first())) $standardId = $examMaster->standard_id;
-        if (!$standardId && $request->filled('standard_name') && ($std = DB::table('standards')->where('standard_name', $request->input('standard_name'))->first())) $standardId = $std->id;
-        if (!$divisionId && $request->filled('division_name') && ($div = DB::table('divisions')->where('division_name', $request->input('division_name'))->first())) $divisionId = $div->id;
-        if (!$divisionId && ($firstDiv = DB::table('divisions')->first())) $divisionId = $firstDiv->id; if (!$divisionId) $divisionId = 1;
-        if (!$standardId && ($firstStd = DB::table('standards')->first())) $standardId = $firstStd->id; if (!$standardId) $standardId = 1;
+        $pen = $student->saralid;
 
-        $mssqlUpdatesFee = []; $mssqlUpdatesSub = [];
-        foreach (['student_name'=>'studname','father_name'=>'fathername','gov_student_id'=>'saralid','aadhar_no'=>'adharno','date_of_birth'=>'birthdate'] as $reqKey => $dbCol) {
-            if ($request->filled($reqKey)) $mssqlUpdatesFee[$dbCol] = $request->input($reqKey);
-        }
-        if ($request->filled('gr_no')) $mssqlUpdatesSub['regno'] = $request->input('gr_no');
-        if ($request->filled('rollno')) $mssqlUpdatesSub['rollno'] = $request->input('rollno');
+        $standardId = $request->input('standard_id'); 
+        $divisionId = $request->input('division_id');
 
-        if (!empty($mssqlUpdatesFee)) DB::connection('sqlsrv_olderp')->table('dbo.FeeMstStudent')->where('Studentid', $studentId)->update($mssqlUpdatesFee);
-
-        if (!empty($mssqlUpdatesSub)) {
-            $erpYearId = AcademicYear::find($yearId)?->old_year_id ?? AcademicYear::find($yearId)?->year_name;
-            $erpYearId = $erpYearId ? substr((string)$erpYearId, 0, 4) : null;
-            $enrollment = ($erpYearId && $standardId && $divisionId) ? $this->getErpSubstudent($studentId, $erpYearId, $standardId, $divisionId) : null;
-
-            if ($erpYearId === null || $erpYearId === '') {
-                Log::warning('Report card roll/GR update skipped: ERP academic year could not be resolved.', compact('studentId', 'yearId'));
-            } elseif ($enrollment) {
-                DB::connection('sqlsrv_olderp')->table('SubStudentMst')->where('Studentid', $studentId)->where('yearid', $erpYearId)->where('standardid', $enrollment->standardid)->where('divisionid', $enrollment->divisionid)->update($mssqlUpdatesSub);
-            } else {
-                $count = DB::connection('sqlsrv_olderp')->table('SubStudentMst')->where('Studentid', $studentId)->where('yearid', $erpYearId)->count();
-                if ($count === 1) DB::connection('sqlsrv_olderp')->table('SubStudentMst')->where('Studentid', $studentId)->where('yearid', $erpYearId)->update($mssqlUpdatesSub);
-            }
-        }
+        $pct = $request->input('hidden_percentage'); 
+        $grade = $request->input('hidden_grade');
+        $result = $request->input('hidden_result');
+        $tMax = $request->input('hidden_total_max');
+        $tObt = $request->input('hidden_total_obtained');
 
         $months = ['Jyeshtha','Ashadh','Shravan','Bhadrapad','Ashwin','Kartik','Margshirsh','Paush','Magh','Phalgun','Chaitra','Vaishakh'];
         $defaultTotalDays = ['Jyeshtha'=>31, 'Ashadh'=>31, 'Shravan'=>31, 'Bhadrapad'=>31, 'Ashwin'=>30, 'Kartik'=>30, 'Margshirsh'=>30, 'Paush'=>30, 'Magh'=>30, 'Phalgun'=>30, 'Chaitra'=>30, 'Vaishakh'=>31];
-        $attendance = []; $descriptive = []; $manualGrades = [];
+        $attendance = []; $descriptive = []; $academicGrades = []; $skillGrades = []; $manualGrades = [];
         
         foreach ($months as $month) {
             $attendance[$month] = [
@@ -307,9 +362,24 @@ class ReportCardController extends Controller
         foreach ((array) $request->input('descriptive', []) as $sid => $fields) {
             $descriptive[$sid] = ['progress' => trim((string) ($fields['progress'] ?? '')), 'interest' => trim((string) ($fields['interest'] ?? '')), 'improvements' => trim((string) ($fields['improvements'] ?? ''))];
         }
-        foreach ((array) $request->input('graded_subjects', []) as $key => $grade) {
-            if (trim((string)$grade) !== '') $manualGrades[$key] = trim((string)$grade);
+        
+        // Split Grades into Academic and Skill Arrays
+        foreach ((array) $request->input('graded_subjects', []) as $key => $grd) {
+            $grd = trim((string)$grd);
+            if ($grd !== '') {
+                $manualGrades[$key] = $grd; // Keep for backward compatibility with second_term_grades
+                
+                if (is_numeric($key) || str_contains(strtoupper($key), 'DEFENCE') || str_contains(strtoupper($key), 'WATER')) {
+                    $academicGrades[$key] = $grd;
+                } else {
+                    $skillGrades[$key] = $grd;
+                }
+            }
         }
+
+        // Save Teacher Remark as array
+        $teacherRemark = ['text' => $request->input('teacher_remark')];
+
         $classTestData = ['attendance' => $request->input('class_test.attendance'), 'result' => $request->input('class_test.result'), 'remark' => $request->input('class_test.remark')];
         $schoolDaysAttendance = [];
         foreach (['15_aug','ganesh_sthapana','ganesh_visarjan','date_15_aug','date_ganesh_sthapana','date_ganesh_visarjan'] as $k) {
@@ -317,15 +387,49 @@ class ReportCardController extends Controller
         }
 
         StudentProgressCard::updateOrCreate(
-            ['student_id' => $studentId, 'exam_master_id' => $examId, 'academic_year_id' => $yearId],
+            ['pen' => $pen, 'exam_master_id' => $examId, 'academic_year_id' => $yearId],
             [
-                'standard_id' => $standardId, 'division_id' => $divisionId, 'phone' => $request->input('phone'), 'email' => $request->input('email'),
-                'school_timing' => $request->input('school_timing'), 'blood_group' => $request->input('blood_group'), 'mother_tongue' => $request->input('mother_tongue'),
-                'address' => $request->input('address'), 'term1_weight' => $request->input('term1_weight'), 'term1_height' => $request->input('term1_height'),
-                'term2_weight' => $request->input('term2_weight'), 'term2_height' => $request->input('term2_height'), 'attendance_data' => $attendance,
-                'passed_promoted_to' => $request->input('passed_promoted_to'), 'school_reopens_on' => $request->input('school_reopens_on'),
-                'descriptive_records' => $descriptive, 'second_term_grades' => $manualGrades, 'class_test_data' => $classTestData,
-                'school_days_data' => $schoolDaysAttendance, 'updated_by' => Auth::id(), 'created_by' => Auth::id(),
+                'full_student_name' => $request->input('student_name'),
+                'father_name' => $request->input('father_name'),
+                'mother_name' => $request->input('mother_name'),
+                'gender' => $request->input('gender'),
+                'date_of_birth' => $request->input('date_of_birth'),
+                'gr_no' => $request->input('gr_no'),
+                'roll_no' => $request->input('rollno'),
+                'aadhar_no' => $request->input('aadhar_no'),
+
+                'standard_id' => $standardId, 
+                'division_id' => $divisionId, 
+                'phone' => $request->input('phone'), 
+                'email' => $request->input('email'),
+                'school_timing' => $request->input('school_timing'), 
+                'blood_group' => $request->input('blood_group'), 
+                'mother_tongue' => $request->input('mother_tongue'),
+                'address' => $request->input('address'), 
+                'term1_weight' => $request->input('term1_weight'), 
+                'term1_height' => $request->input('term1_height'),
+                'term2_weight' => $request->input('term2_weight'), 
+                'term2_height' => $request->input('term2_height'), 
+                'attendance_data' => $attendance,
+                'passed_promoted_to' => $request->input('passed_promoted_to'), 
+                'school_reopens_on' => $request->input('school_reopens_on'),
+                'descriptive_records' => $descriptive, 
+                'second_term_grades' => $manualGrades, 
+                'class_test_data' => $classTestData,
+                'school_days_data' => $schoolDaysAttendance, 
+                
+                'teacher_remark' => $teacherRemark,
+                'academic_grades' => $academicGrades,
+                'skill_grades' => $skillGrades,
+
+                'percentage' => $pct,
+                'grade' => $grade,
+                'result' => $result,
+                'total_max_marks' => $tMax,
+                'total_obtained_marks' => $tObt,
+
+                'updated_by' => Auth::id(), 
+                'created_by' => Auth::id(),
             ]
         );
         return redirect()->route('report-card.progress-card', [$studentId, $examId, $yearId])->with('success', 'Progress card details saved.');
@@ -539,22 +643,15 @@ class ReportCardController extends Controller
             }
         }
         
-        // 👇 MODIFIED: Allow fetching observation grades for High School standards too 👇
         if ($isPrePrimary || $this->isHighSchoolStandard($standardName)) {
             $newSkillSubjects = ['WATER SECURITY', 'DEFENCE STUDIES', 'DEFENSE SCIENCE'];
-            
             $query = DB::table('student_skill_observations as sso')
                 ->leftJoin('subjects as s', 's.id', '=', 'sso.subject_id')
-                ->where('sso.student_id', $studentId)
-                ->where('sso.exam_master_id', $examId)
-                ->where('sso.academic_year_id', $academicYearId);
+                ->where('sso.student_id', $studentId)->where('sso.exam_master_id', $examId)->where('sso.academic_year_id', $academicYearId);
 
-            // If it's a high school standard, only fetch the new specific subjects from observations
             if (!$isPrePrimary) {
                 $query->where(function($q) use ($newSkillSubjects) {
-                    foreach ($newSkillSubjects as $subName) {
-                        $q->orWhereRaw('UPPER(TRIM(s.subject_name)) = ?', [$subName]);
-                    }
+                    foreach ($newSkillSubjects as $subName) $q->orWhereRaw('UPPER(TRIM(s.subject_name)) = ?', [$subName]);
                 });
             }
 
@@ -563,14 +660,11 @@ class ReportCardController extends Controller
                     $grade = (isset($obs->is_absent) && $obs->is_absent == 1) ? 'AB' : (!empty($obs->overall_grade) ? strtoupper(trim($obs->overall_grade)) : null);
                     if ($grade) { 
                         $skillGrades[(int) $obs->subject_id] = $grade; 
-                        if (!empty($obs->subject_name)) {
-                            $skillGrades[strtoupper(trim($obs->subject_name))] = $grade; 
-                        }
+                        if (!empty($obs->subject_name)) $skillGrades[strtoupper(trim($obs->subject_name))] = $grade; 
                     }
                 }
             }
         }
-        // 👆 END OF MODIFIED BLOCK 👆
 
         $examSubjects = $examSubjects->map(function ($ex) use ($isPrePrimary, $prePrimarySkills) {
             $isSkill = false; $name = strtoupper(trim((string)$ex->subject_name));

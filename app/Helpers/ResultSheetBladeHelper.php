@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log; // <--- Add this line
 
 class ResultSheetBladeHelper
 {
@@ -394,7 +395,7 @@ class ResultSheetBladeHelper
                     ->get()
                     ->keyBy('Studentid');
             } catch (\Exception $e) {
-                \Log::error('CasteWiseAnalysis query failed: ' . $e->getMessage());
+                Log::error('CasteWiseAnalysis query failed: ' . $e->getMessage());
             }
         }
 

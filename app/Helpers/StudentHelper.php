@@ -14,6 +14,115 @@ use App\Models\ErpStudentMaster;
 
 class StudentHelper
 {
+    /**
+     * Maps a Laravel standard name to the ERP StandardMst.standard code.
+     * Returns null for standards that don't need a stream-specific code
+     * (standards 1-10, pre-primary) — those are uniquely resolvable by
+     * old_standard_id / standard_year_mappings.
+     */
+    private static function getErpStandardCode(?string $laravelStandardName): ?string
+    {
+        $name = strtoupper(trim((string) $laravelStandardName));
+
+        return match ($name) {
+            'ELEVENTH SCIENCE',
+            '11TH SCIENCE',
+            '11 SCIENCE',
+            'XI SCIENCE'    => 'XISCI',
+
+            'ELEVENTH COMMERCE',
+            '11TH COMMERCE',
+            '11 COMMERCE',
+            'XI COMMERCE'   => 'XICOM',
+
+            'ELEVENTH ARTS',
+            '11TH ARTS',
+            '11 ARTS',
+            'XI ARTS'       => 'XIART',
+
+            'TWELFTH SCIENCE',
+            '12TH SCIENCE',
+            '12 SCIENCE',
+            'XII SCIENCE'   => 'XIISCI',
+
+            'TWELFTH COMMERCE',
+            '12TH COMMERCE',
+            '12 COMMERCE',
+            'XII COMMERCE'  => 'XIICOM',
+
+            'TWELFTH ARTS',
+            '12TH ARTS',
+            '12 ARTS',
+            'XII ARTS'      => 'XIIART',
+
+            default         => null,
+        };
+    }
+
+    /**
+     * Resolve the ERP StandardMst.standardid for a given year + Laravel standard.
+     *
+     * Order of resolution:
+     *   1. Stream-specific lookup via StandardMst.standard (XIART / XIISCI / …).
+     *   2. standard_year_mappings (using $mappingAcademicYearId when supplied,
+     *      otherwise $erpYearId for backward compatibility).
+     *   3. standards.old_standard_id.
+     */
+    private static function resolveErpStandardIdForYear(
+        string $erpYearId,
+        int $laravelStandardId,
+        ?int $mappingAcademicYearId = null
+    ): ?int {
+        $standard = DB::table('standards')
+            ->where('id', $laravelStandardId)
+            ->where('is_active', 1)
+            ->first();
+
+        if (!$standard) {
+            return null;
+        }
+
+        $erpCode = self::getErpStandardCode($standard->standard_name);
+
+        if ($erpCode !== null) {
+            try {
+                $row = DB::connection('sqlsrv_olderp')
+                    ->table('StandardMst')
+                    ->where('yearid', $erpYearId)
+                    ->where('standard', $erpCode)
+                    ->first();
+
+                if ($row) {
+                    return (int) $row->standardid;
+                }
+            } catch (\Throwable $e) {
+                // fall through
+            }
+        }
+
+        $lookupYearId = $mappingAcademicYearId ?? $erpYearId;
+
+        $map = DB::table('standard_year_mappings')
+            ->where('academic_year_id', $lookupYearId)
+            ->where('standard_id', $laravelStandardId)
+            ->first();
+
+        if ($map && !empty($map->old_standard_id)) {
+            return (int) $map->old_standard_id;
+        }
+
+        if (!empty($standard->old_standard_id)) {
+            return (int) $standard->old_standard_id;
+        }
+
+        return null;
+    }
+
+    /**
+     * Used by pages that read from the NEW ERP table (erp_student_master).
+     * No change needed for 11th Arts — this table already stores stream names
+     * like 'ARTS', 'SCIENCE', 'COMMERCE'.
+     */
     public static function getERPStudents($academicYear, $standardId, $divisionId)
     {
         $standard = DB::table('standards')->where('id', $standardId)->first();
@@ -65,21 +174,16 @@ class StudentHelper
             return collect();
         }
 
-        $erpStandard = DB::connection('sqlsrv_olderp')
-            ->table('StandardMst')
-            ->where('yearid', $yearId)
-            ->where('standardid', $standard->old_standard_id)
-            ->first();
-
-        if (!$erpStandard) {
+        $erpStandardId = self::resolveErpStandardIdForYear((string) $yearId, (int) $standardId);
+        if (!$erpStandardId) {
             return collect();
         }
 
         $erpDivision = DB::connection('sqlsrv_olderp')
             ->table('DivisionMst')
             ->where('yearid', $yearId)
-            ->where('standardid', $standard->old_standard_id)
-            ->where('division', strtoupper(trim($division->division_name)))
+            ->where('standardid', $erpStandardId)
+            ->whereRaw('UPPER(LTRIM(RTRIM(division))) = ?', [strtoupper(trim($division->division_name))])
             ->first();
 
         if (!$erpDivision) {
@@ -104,7 +208,7 @@ class StudentHelper
                 DB::raw("RTRIM(f.studname) + ' ' + RTRIM(f.fathername) as full_name")
             )
             ->where('s.yearid', $yearId)
-            ->where('s.standardid', $standard->old_standard_id)
+            ->where('s.standardid', $erpStandardId)
             ->where('s.divisionid', $erpDivision->divisionid)
             ->orderBy('s.rollno')
             ->get();
@@ -119,18 +223,13 @@ class StudentHelper
             return collect();
         }
 
-        $oldStandardId = getOldStandardId($standard->standard_name);
-
-        $standardMap = StandardMst::where('yearid', $yearId)
-            ->where('standardid', $oldStandardId)
-            ->first();
-
-        if (!$standardMap) {
+        $erpStandardId = self::resolveErpStandardIdForYear((string) $yearId, (int) $standardId);
+        if (!$erpStandardId) {
             return collect();
         }
 
         $divisionMap = DivisionMst::where('yearid', $yearId)
-            ->where('standardid', $standardMap->standardid)
+            ->where('standardid', $erpStandardId)
             ->where('division', strtoupper($division->division_name))
             ->first();
 
@@ -143,12 +242,12 @@ class StudentHelper
             ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'f.casteid')
             ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
             ->where('s.yearid', $yearId)
-            ->where('s.standardid', $standardMap->standardid)
+            ->where('s.standardid', $erpStandardId)
             ->where('s.divisionid', $divisionMap->divisionid)
             ->select(
-                's.Studentid', 
-                's.rollno', 
-                's.regno', 
+                's.Studentid',
+                's.rollno',
+                's.regno',
                 'f.studname',
                 'f.gender',
                 'f.casteid',
@@ -225,11 +324,14 @@ class StudentHelper
             return collect();
         }
 
-        $oldStandardId = $standard->old_standard_id;
+        $oldStandardId = self::resolveErpStandardIdForYear((string) $yearId, (int) $laravelStandardId);
+        if (!$oldStandardId) {
+            return collect();
+        }
 
         $divisionMap = \App\Models\DivisionMst::where('yearid', $yearId)
             ->where('standardid', $oldStandardId)
-            ->where('division', strtoupper($division->division_name))
+            ->whereRaw('UPPER(LTRIM(RTRIM(division))) = ?', [strtoupper(trim($division->division_name))])
             ->first();
 
         if (!$divisionMap) {
@@ -253,9 +355,15 @@ class StudentHelper
             return collect();
         }
 
-        $divisionMap = \App\Models\DivisionMst::where('yearid', session('yearid'))
-            ->where('standardid', $standard->old_standard_id)
-            ->where('division', strtoupper($division->division_name))
+        $yearId = session('yearid');
+        $oldStandardId = self::resolveErpStandardIdForYear((string) $yearId, (int) $laravelStandardId);
+        if (!$oldStandardId) {
+            return collect();
+        }
+
+        $divisionMap = \App\Models\DivisionMst::where('yearid', $yearId)
+            ->where('standardid', $oldStandardId)
+            ->whereRaw('UPPER(LTRIM(RTRIM(division))) = ?', [strtoupper(trim($division->division_name))])
             ->first();
 
         if (!$divisionMap) {
@@ -263,9 +371,9 @@ class StudentHelper
         }
 
         return self::getStudents(
-            session('yearid'),
+            $yearId,
             session('sectionid'),
-            $standard->old_standard_id,
+            $oldStandardId,
             $divisionMap->divisionid
         );
     }
@@ -326,42 +434,12 @@ class StudentHelper
 
         $standardName = strtoupper(trim($standard->standard_name));
         $divisionName = strtoupper(trim($division->division_name));
-        $erpStandardId = null;
 
-        if (in_array($standardName, ['TWELFTH SCIENCE', '12TH SCIENCE', '12 SCIENCE', 'XII SCIENCE'], true)) {
-            $erpStandard = DB::connection('sqlsrv_olderp')
-                ->table('StandardMst')
-                ->where('yearid', $erpYearId)
-                ->where('standard', 'XIISCI')
-                ->first();
-
-            if ($erpStandard) {
-                $erpStandardId = $erpStandard->standardid;
-            }
-        } elseif (in_array($standardName, ['TWELFTH COMMERCE', '12TH COMMERCE', '12 COMMERCE', 'XII COMMERCE'], true)) {
-            $erpStandard = DB::connection('sqlsrv_olderp')
-                ->table('StandardMst')
-                ->where('yearid', $erpYearId)
-                ->where('standard', 'XIICOM')
-                ->first();
-
-            if ($erpStandard) {
-                $erpStandardId = $erpStandard->standardid;
-            }
-        } else {
-            $standardMap = DB::table('standard_year_mappings')
-                ->where('academic_year_id', $mappingAcademicYearId)
-                ->where('standard_id', $laravelStandardId)
-                ->first();
-
-            if ($standardMap && !empty($standardMap->old_standard_id)) {
-                $erpStandardId = $standardMap->old_standard_id;
-            }
-
-            if (!$erpStandardId && !empty($standard->old_standard_id)) {
-                $erpStandardId = $standard->old_standard_id;
-            }
-        }
+        $erpStandardId = self::resolveErpStandardIdForYear(
+            (string) $erpYearId,
+            (int) $laravelStandardId,
+            $mappingAcademicYearId ? (int) $mappingAcademicYearId : null
+        );
 
         if (!$erpStandardId) {
             Log::warning('StudentHelper::getStudentsDirectERP could not resolve the ERP standard.', [
@@ -404,7 +482,7 @@ class StudentHelper
                 'ss.rollno',
                 'ss.yearid',
                 'ss.sectionid',
-                DB::raw(" 
+                DB::raw("
                     RTRIM(fs.studname)
                     + CASE
                         WHEN fs.fathername IS NOT NULL
@@ -479,7 +557,10 @@ class StudentHelper
             return collect();
         }
 
-        $erpStandardId = $standard->old_standard_id;
+        $erpStandardId = self::resolveErpStandardIdForYear((string) $yearId, (int) $laravelStandardId);
+        if (!$erpStandardId) {
+            return collect();
+        }
 
         return DB::connection('sqlsrv_olderp')
             ->table('DivisionMst')
@@ -513,7 +594,11 @@ class StudentHelper
             return collect();
         }
 
-        $erpStandardId = self::resolveErpStandardIdForYear($yearId, $laravelStandardId);
+        $erpStandardId = self::resolveErpStandardIdForYear(
+            $yearId,
+            $laravelStandardId,
+            $academicYearId
+        );
 
         if (!$erpStandardId) {
             return collect();
@@ -637,7 +722,7 @@ class StudentHelper
             ->get(['id', 'standard_name', 'old_standard_id']);
 
         $mappings = DB::table('standard_year_mappings')
-            ->where('academic_year_id', $yearId)
+            ->where('academic_year_id', $academicYearId)   // fix: use Laravel ID, not 4-digit year
             ->pluck('old_standard_id', 'standard_id')
             ->toArray();
 
@@ -650,11 +735,13 @@ class StudentHelper
             $divNameToId[strtoupper(trim((string) $d->division_name))] = (int) $d->id;
         }
 
+        // Pre-fetch ALL stream codes in one query (11th + 12th streams).
+        $specialCodes = ['XISCI', 'XICOM', 'XIART', 'XIISCI', 'XIICOM', 'XIIART'];
         try {
             $specialStandards = DB::connection('sqlsrv_olderp')
                 ->table('StandardMst')
                 ->where('yearid', $yearId)
-                ->whereIn('standard', ['XIISCI', 'XIICOM'])
+                ->whereIn('standard', $specialCodes)
                 ->pluck('standardid', 'standard')
                 ->toArray();
         } catch (\Throwable $e) {
@@ -667,11 +754,12 @@ class StudentHelper
             $lsId    = (int) $ls->id;
             $erpId   = null;
 
-            if (in_array($stdName, ['TWELFTH SCIENCE', '12TH SCIENCE', '12 SCIENCE', 'XII SCIENCE'], true)) {
-                $erpId = $specialStandards['XIISCI'] ?? null;
-            } elseif (in_array($stdName, ['TWELFTH COMMERCE', '12TH COMMERCE', '12 COMMERCE', 'XII COMMERCE'], true)) {
-                $erpId = $specialStandards['XIICOM'] ?? null;
-            } else {
+            $erpCode = self::getErpStandardCode($stdName);
+            if ($erpCode !== null) {
+                $erpId = $specialStandards[$erpCode] ?? null;
+            }
+
+            if (!$erpId) {
                 $erpId = $mappings[$lsId] ?? $ls->old_standard_id ?? null;
             }
 
@@ -723,57 +811,6 @@ class StudentHelper
         }
 
         return $final;
-    }
-
-    private static function resolveErpStandardIdForYear(string $yearId, int $laravelStandardId): ?int
-    {
-        $standard = DB::table('standards')
-            ->where('id', $laravelStandardId)
-            ->where('is_active', 1)
-            ->first();
-
-        if (!$standard) {
-            return null;
-        }
-
-        $standardName = strtoupper(trim((string) $standard->standard_name));
-
-        if (in_array($standardName, ['TWELFTH SCIENCE', '12TH SCIENCE', '12 SCIENCE', 'XII SCIENCE'], true)) {
-            try {
-                $row = DB::connection('sqlsrv_olderp')
-                    ->table('StandardMst')
-                    ->where('yearid', $yearId)
-                    ->where('standard', 'XIISCI')
-                    ->first();
-                if ($row) return (int) $row->standardid;
-            } catch (\Throwable) {}
-        }
-
-        if (in_array($standardName, ['TWELFTH COMMERCE', '12TH COMMERCE', '12 COMMERCE', 'XII COMMERCE'], true)) {
-            try {
-                $row = DB::connection('sqlsrv_olderp')
-                    ->table('StandardMst')
-                    ->where('yearid', $yearId)
-                    ->where('standard', 'XIICOM')
-                    ->first();
-                if ($row) return (int) $row->standardid;
-            } catch (\Throwable) {}
-        }
-
-        $map = DB::table('standard_year_mappings')
-            ->where('academic_year_id', $yearId)
-            ->where('standard_id', $laravelStandardId)
-            ->first();
-
-        if ($map && !empty($map->old_standard_id)) {
-            return (int) $map->old_standard_id;
-        }
-
-        if (!empty($standard->old_standard_id)) {
-            return (int) $standard->old_standard_id;
-        }
-
-        return null;
     }
 
     public static function getStudentPersonalInfo($studentId, $yearId, $sectionId = null)
@@ -882,39 +919,9 @@ class StudentHelper
 
         if (!$division) return collect();
 
-        $standardName = strtoupper(trim($standard->standard_name));
         $divisionName = strtoupper(trim($division->division_name));
 
-        $erpStandardId = null;
-
-        if (in_array($standardName, ['TWELFTH SCIENCE', '12TH SCIENCE', '12 SCIENCE', 'XII SCIENCE'], true)) {
-            $row = DB::connection('sqlsrv_olderp')
-                ->table('StandardMst')
-                ->where('yearid', $yearId)
-                ->where('standard', 'XIISCI')
-                ->first();
-            if ($row) $erpStandardId = $row->standardid;
-        } elseif (in_array($standardName, ['TWELFTH COMMERCE', '12TH COMMERCE', '12 COMMERCE', 'XII COMMERCE'], true)) {
-            $row = DB::connection('sqlsrv_olderp')
-                ->table('StandardMst')
-                ->where('yearid', $yearId)
-                ->where('standard', 'XIICOM')
-                ->first();
-            if ($row) $erpStandardId = $row->standardid;
-        } else {
-            $map = DB::table('standard_year_mappings')
-                ->where('academic_year_id', $yearId)
-                ->where('standard_id', $laravelStandardId)
-                ->first();
-
-            if ($map && !empty($map->old_standard_id)) {
-                $erpStandardId = $map->old_standard_id;
-            }
-            if (!$erpStandardId && !empty($standard->old_standard_id)) {
-                $erpStandardId = $standard->old_standard_id;
-            }
-        }
-
+        $erpStandardId = self::resolveErpStandardIdForYear((string) $yearId, (int) $laravelStandardId);
         if (!$erpStandardId) return collect();
 
         $erpDivision = DB::connection('sqlsrv_olderp')
