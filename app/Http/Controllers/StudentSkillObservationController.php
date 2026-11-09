@@ -116,24 +116,28 @@ class StudentSkillObservationController extends Controller
         }
 
         $stdNameLower = strtolower(trim($stdName));
+        $stdNameCompact = preg_replace('/[^a-z0-9]/', '', $stdNameLower);
+
         $targetNames = [];
 
         // 1. Set base hardcoded subjects based on standard name
-        if (preg_match('/(nursery|jr kg|sr kg|jrkg|srkg|pre-primary)/', $stdNameLower)) {
+        if (in_array($stdNameCompact, ['nursery', 'jrkg', 'srkg', 'preprimary', 'kg', 'kindergarten']) || preg_match('/(nursery|jr kg|sr kg|jrkg|srkg|pre-primary)/', $stdNameLower)) {
             $targetNames = [
-                'GROUND ACTIVITIES', 'DRAWING', 'CRAFT', 'CLAY', 'LIFE SKILL', 'SONG', 'INDOOR GAME',
-                'TRG. SENSES', 'ASSEMBLY', 'ACTIVITY BOOK', 'GENERAL SKILLS'
+                'CRAFT', 'DRAMA', 'LIFE SKILL', 'CLAY', 'SONG', 'STORY', 'INDOOR GAME', 'OUTDOOR GAME', 'BOOKS', 'TOYS',
+                'ACTIVITY BOOK', 'GROUND ACTIVITIES', 'DRAWING', 'TRG. SENSES', 'ASSEMBLY', 'GENERAL SKILLS'
             ];
         } elseif (preg_match('/(first|second|\b1\b|\b2\b)/', $stdNameLower)) {
-            $targetNames = ['SONG', 'STORY', 'DANCE', 'SANSKRIT BOOK', 'LIBRARY', 'ABACUS', 'PHYSICAL EDUCATION'];
-        } elseif (preg_match('/(third|fourth|fifth|sixth|seventh|\b[3-7]\b)/', $stdNameLower)) {
-            $targetNames = ['TABLA', 'MUSIC', 'DANCE', 'ACTING', 'SANSKRIT BOOK', 'COMPUTER', 'ROBOTICS', 'ABACUS', 'PHYSICAL EDUCATION'];
-        } elseif (preg_match('/(eighth|\b8\b)/', $stdNameLower)) {
-            $targetNames = ['TABLA', 'MUSIC', 'DANCE', 'ACTING', 'SANSKRIT BOOK', 'COMPUTER', 'ROBOTICS', 'VEDIC MATHS', 'PHYSICAL EDUCATION'];
-        } elseif (preg_match('/(ninth|\b9\b)/', $stdNameLower)) {
-            $targetNames = ['TABLA', 'MUSIC', 'DANCE', 'ACTING', 'SANSKRIT BOOK', 'COMPUTER', 'ROBOTICS', 'VEDIC MATHS', 'PHYSICAL EDUCATION'];
-        } elseif (preg_match('/(tenth|\b10\b)/', $stdNameLower)) {
-            $targetNames = ['COMPUTER', 'ROBOTICS', 'VEDIC MATHS', 'PHYSICAL EDUCATION'];
+            $targetNames = [
+                'SONG', 'STORY', 'DANCE', 'SANSKRIT BHARTI', 'SANSKRIT', 'LIBRARY', 'ABACUS', 'VEDIC MATHS', 'PHYSICAL EDUCATION'
+            ];
+        } elseif (preg_match('/(tenth|eleventh|twelfth|\b10\b|\b11\b|\b12\b)/', $stdNameLower)) {
+            $targetNames = [
+                'COMPUTER', 'ROBOTICS', 'VEDIC MATHS', 'ABACUS', 'PHYSICAL EDUCATION', 'DEFENCE STUDIES', 'WATER SECURITY'
+            ];
+        } elseif (preg_match('/(third|fourth|fifth|sixth|seventh|eighth|ninth|\b[3-9]\b)/', $stdNameLower)) {
+            $targetNames = [
+                'TABLA', 'MUSIC', 'DANCE', 'ACTING', 'SANSKRIT BOOK', 'SANSKRIT', 'COMPUTER', 'ROBOTICS', 'ABACUS', 'VEDIC MATHS', 'PHYSICAL EDUCATION'
+            ];
         }
 
         // 2. Fetch from DB and MERGE with the hardcoded list
@@ -169,18 +173,18 @@ class StudentSkillObservationController extends Controller
                     $match = true;
                 } else {
                     // Hardcoded fallback matching logic (for backwards compatibility)
-                    if ($target === 'SANSKRIT BOOK') {
-                        $match = str_contains($sName, 'SANSKRIT') && str_contains($sName, 'BOOK');
-                        if (!$match && str_contains($sName, 'PATHANTER')) $match = true;
-                        if (!$match && str_contains($sName, 'BHARTI'))    $match = true;
-                        if (!$match && $sName === 'SANSKRIT')             $match = true;
+                    if ($target === 'SANSKRIT BHARTI') {
+                        $match = str_contains($sName, 'SANSKRIT BHARTI') || str_contains($sName, 'SANSKRIT');
+                    } elseif ($target === 'SANSKRIT BOOK') {
+                        $match = str_contains($sName, 'SANSKRIT');
+                        if ($match && str_contains($sName, 'BHARTI')) $match = false; // Avoid grabbing Bharti for Book
                     } elseif ($target === 'TABLA') {
                         $match = str_contains($sName, 'TABLA') || str_contains($sName, 'TABALA');
                     } elseif ($target === 'MUSIC') {
                         $match = str_contains($sName, 'MUSIC');
                     } elseif ($target === 'SONG') {
                         $match = str_contains($sName, 'SONG');
-                    } elseif ($target === 'ACTING') {
+                    } elseif ($target === 'ACTING' || $target === 'DRAMA') {
                         $match = str_contains($sName, 'ACTING') || str_contains($sName, 'DRAMA');
                     } elseif ($target === 'BOOKS') {
                         $match = $sName === 'BOOKS' || $sName === 'BOOK';
@@ -188,8 +192,8 @@ class StudentSkillObservationController extends Controller
                         $match = str_contains($sName, 'INDOOR GAME');
                     } elseif ($target === 'OUTDOOR GAME') {
                         $match = str_contains($sName, 'OUTDOOR GAME');
-                    } elseif ($target === 'VEDIC MATHS') {
-                        $match = str_contains($sName, 'VEDIC MATHS') || str_contains($sName, 'VEDIC MATH') || $sName === 'VEDIC MATHS' || $sName === 'VEDIC MATH';
+                    } elseif ($target === 'VEDIC MATHS' || $target === 'ABACUS') {
+                        $match = str_contains($sName, 'VEDIC MATHS') || str_contains($sName, 'VEDIC MATH') || str_contains($sName, 'ABACUS');
                     } elseif ($target === 'PHYSICAL EDUCATION') {
                         $match = str_contains($sName, 'PHYSICAL EDUCATION') || str_contains($sName, 'PHYSICAL ED') || str_contains($sName, 'PHY ED') || str_contains($sName, 'PHY. ED') || $sName === 'PT' || $sName === 'P.E.' || $sName === 'P.E' || $sName === 'PE';
                     } elseif (str_contains($target, 'DEFENCE') || str_contains($target, 'DEFENSE')) {
@@ -720,8 +724,8 @@ class StudentSkillObservationController extends Controller
         ];
 
         if ($request->boolean('export')) return $payload;
-        if ($request->boolean('print')) return view('student-skill-observations.print', $payload);
 
+        // The blade file will handle rendering the print layout if request has ?print=1
         return view('student-skill-observations.summary', $payload);
     }
 
@@ -732,7 +736,7 @@ class StudentSkillObservationController extends Controller
         $payload['isExport']    = true;
         $payload['logoDataUri'] = $this->schoolLogoDataUri();
 
-        $html = view('student-skill-observations.print', $payload)->render();
+        $html = view('student-skill-observations.summary', $payload)->render();
         $html = "\xEF\xBB\xBF" . $html;
 
         $filename = 'skill_observation_summary_' . date('Ymd_His') . '.xls';

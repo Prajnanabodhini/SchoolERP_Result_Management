@@ -391,13 +391,25 @@ class SkillTeacherAllocationController extends Controller
 
         $academicYearId = $request->academic_year_id;
         $examMasterId   = $request->exam_master_id;
-        $standardId     = $request->filled('standard_id') ? (int)$request->standard_id : null;
-
+        
         $examMaster = ExamMaster::find($examMasterId);
         if (!$examMaster) {
             return redirect()->back()->with('error', 'Exam not found.');
         }
 
+        // 🚨 STRICT VALIDATION 1: Exam must belong to the selected Academic Year
+        if ((int)$examMaster->academic_year_id !== (int)$academicYearId) {
+            return redirect()->back()->with('error', 'The selected Exam does not belong to the selected Academic Year.');
+        }
+
+        // 🚨 STRICT VALIDATION 2: Exam must belong to the selected Standard
+        $standardId = $request->filled('standard_id') ? (int)$request->standard_id : null;
+        
+        if ($standardId && (int)$examMaster->standard_id !== $standardId) {
+            return redirect()->back()->with('error', 'Mismatch: The selected Exam ('.$examMaster->exam_name.') is actually for a different Standard. Please correct your filters.');
+        }
+        
+        // If standardId wasn't provided, fallback to exam's standard
         if (!$standardId) {
             $standardId = $examMaster->standard_id;
         }
@@ -419,45 +431,56 @@ class SkillTeacherAllocationController extends Controller
             return redirect()->back()->with('error', 'Allocations have already been generated for this criteria.');
         }
 
+        $academicYear = AcademicYear::find($academicYearId);
+        if (!$academicYear) {
+            return redirect()->back()->with('error', 'Academic Year not found.');
+        }
+        
+        $yearId = $academicYear->old_year_id ?? substr($academicYear->year_name, 0, 4);
+
+        // Strict validation: Only generate for divisions that actually have students
+        $validDivisionIds = [];
         $divisions = Division::where('is_active', 1)
             ->whereIn('division_name', ['A', 'B'])
             ->get();
-
-        $academicYear = AcademicYear::find($academicYearId);
-        $yearId = $academicYear->old_year_id ?? substr($academicYear->year_name, 0, 4);
-
-        $slots = ['S1', 'S2', 'S3', 'S4'];
-        $insertData = [];
 
         foreach ($divisions as $div) {
             try {
                 $students = StudentHelper::getStudentsDirectERP($yearId, $standardId, $div->id);
                 $studentCount = is_countable($students) ? count($students) : 0;
-                
+
                 if ($studentCount > 0) {
-                    foreach ($slots as $slot) {
-                        $insertData[] = [
-                            'academic_year_id' => $academicYearId,
-                            'standard_id'      => $standardId,
-                            'division_id'      => $div->id,
-                            'exam_master_id'   => $examMasterId,
-                            'skill_slot'       => $slot,
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ];
-                    }
+                    $validDivisionIds[] = $div->id;
                 }
             } catch (\Throwable $e) {
                 Log::error("Failed to check students for allocation generation", ['div' => $div->id, 'error' => $e->getMessage()]);
             }
         }
 
-        if (!empty($insertData)) {
-            DB::table('skill_slot_allocations')->insert($insertData);
-            return redirect()->back()->with('success', 'Allocations generated successfully for ' . $examMaster->exam_name);
+        if (empty($validDivisionIds)) {
+            return redirect()->back()->with('error', 'Cannot generate allocations. No students found in Division A or B for this standard.');
         }
 
-        return redirect()->back()->with('error', 'No students found in any division for this exam.');
+        $slots = ['S1', 'S2', 'S3', 'S4'];
+        $insertData = [];
+
+        foreach ($validDivisionIds as $divId) {
+            foreach ($slots as $slot) {
+                $insertData[] = [
+                    'academic_year_id' => $academicYearId,
+                    'standard_id'      => $standardId,
+                    'division_id'      => $divId,
+                    'exam_master_id'   => $examMasterId,
+                    'skill_slot'       => $slot,
+                    'created_at'       => now(),
+                    'updated_at'       => now(),
+                ];
+            }
+        }
+
+        DB::table('skill_slot_allocations')->insert($insertData);
+        
+        return redirect()->back()->with('success', 'Allocations generated successfully for ' . $examMaster->exam_name);
     }
 
     public function create(Request $request)

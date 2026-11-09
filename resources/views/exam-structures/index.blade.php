@@ -76,6 +76,7 @@
 .es-block td { padding: 6px 8px; border: 1px solid #e5e7eb; text-align: center; color: #111827; font-size: 12px; }
 .es-block td.subject-cell { text-align: left; font-weight: 700; }
 .es-block td.total-cell { font-weight: 800; color: #92400E; background: #FEF3C7; white-space: nowrap; }
+.es-block td.percent-cell { font-weight: 700; color: #4B5563; background: #F3F4F6; }
 
 .es-empty {
     padding: 40px 20px; text-align: center; color: #6b7280;
@@ -196,6 +197,7 @@
                                         @endif
                                         
                                         <th rowspan="2" style="background: #fef08a; color: #854d0e; font-weight: 800;">Total Max / Pass</th>
+                                        <th rowspan="2" style="background: #f3f4f6; color: #374151; font-weight: 800;">Pass %</th>
                                     </tr>
                                     <!-- Sub Header Row -->
                                     <tr>
@@ -214,6 +216,7 @@
                                         <th>Prac Max</th>
                                         <th>Prac Pass</th>
                                         <th>Total Max / Pass</th>
+                                        <th>Pass %</th>
                                     </tr>
                                 @endif
                             </thead>
@@ -230,6 +233,7 @@
                                         <td class="total-cell">
                                             {{ $row->total_max_marks }} / {{ $row->total_passing_marks }}
                                         </td>
+                                        <td class="percent-cell">{{ $row->passing_percentage }}%</td>
                                     </tr>
                                 @endforeach
                             </tbody>

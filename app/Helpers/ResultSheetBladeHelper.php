@@ -4,7 +4,7 @@ namespace App\Helpers;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log; // <--- Add this line
+use Illuminate\Support\Facades\Log;
 
 class ResultSheetBladeHelper
 {
@@ -333,7 +333,6 @@ class ResultSheetBladeHelper
             $gender = self::isFemale($student) ? 'girls' : 'boys';
             $grade  = strtoupper(trim((string) ($calc['grade'] ?? '')));
             
-            // Check if the student is fully absent (0 marks and has absent flag)
             if (($calc['absent_subjects'] ?? 0) > 0 && ($calc['total_marks'] ?? 0) == 0) {
                 $grade = 'ABSENT';
             }
@@ -349,14 +348,11 @@ class ResultSheetBladeHelper
 
     private static function getCasteCategory($student): string
     {
-        $catId = (int) data_get($student, 'category_id', data_get($student, 'MstCaste_CategoryID', data_get($student, 'categoryid', data_get($student, 'FeeMst_CategoryID', 0))));
-        if ($catId > 0) {
-            $idMap = [1 => 'OPEN', 2 => 'OBC', 3 => 'SC', 4 => 'NT', 5 => 'SBC', 6 => 'VJNT', 7 => 'ST', 8 => 'OPEN', 9 => 'OBC', 10 => 'NT', 11 => 'VJNT', 12 => 'NT', 13 => 'NT', 14 => 'VJNT', 15 => 'SBC', 16 => 'OPEN'];
-            if (isset($idMap[$catId])) return $idMap[$catId];
-        }
-        $rawCat = trim((string) data_get($student, 'category_name', data_get($student, 'Category_12old_Name', data_get($student, 'Category', data_get($student, 'category', '')))));
-        if ($rawCat !== '') {
-            $cleanCat = preg_replace('/[^A-Z]/', '', strtoupper(trim($rawCat)));
+        // 1. Check if we have a clean category name
+        $rawCat = trim((string) data_get($student, 'category_name', ''));
+        $cleanCat = strtoupper(preg_replace('/[^A-Z]/', '', $rawCat));
+        
+        if ($cleanCat !== '' && $cleanCat !== '-') {
             if (in_array($cleanCat, ['SC', 'SCHEDULEDCASTE'])) return 'SC';
             if (in_array($cleanCat, ['ST', 'SCHEDULEDTRIBE'])) return 'ST';
             if (in_array($cleanCat, ['VJNT', 'VJ', 'VJA', 'VIMUKTAJATI'])) return 'VJNT';
@@ -365,15 +361,26 @@ class ResultSheetBladeHelper
             if (in_array($cleanCat, ['OBC', 'BC', 'OTHERBACKWARDCLASS'])) return 'OBC';
             if (in_array($cleanCat, ['OPEN', 'GENERAL', 'HINDU'])) return 'OPEN';
         }
-        $casteStr = trim((string) data_get($student, 'caste', data_get($student, 'MstCaste_Name', data_get($student, 'Caste', ''))));
+
+        // 2. Fallback to Category ID
+        $catId = (int) data_get($student, 'category_id', 0);
+        if ($catId > 0) {
+            $idMap = [1 => 'OPEN', 2 => 'OBC', 3 => 'SC', 4 => 'NT', 5 => 'ST', 6 => 'VJNT', 7 => 'ST', 8 => 'VJNT'];
+            if (isset($idMap[$catId])) return $idMap[$catId];
+        }
+
+        // 3. Fallback to Caste Name
+        $casteStr = trim((string) data_get($student, 'caste', ''));
         $c = preg_replace('/[^A-Z]/', '', strtoupper(trim($casteStr)));
         if ($c === '') return 'OPEN';
-        if (preg_match('/(MAHAR|MANG|CHAMBAR|CHAMBHAR|BOUDHA|NAVABAUDHA|DHOR)/', $c)) return 'SC';
-        if (preg_match('/(LAMANI|GOND|KOLAM|BAIGA|ANDH)/', $c)) return 'ST';
-        if (preg_match('/(VJNT|VADAR)/', $c)) return 'VJNT';
-        if (preg_match('/(NT|NTB|NTC|NTD|VANJARI)/', $c)) return 'NT';
-        if (preg_match('/(SBC|KOLI|DHANGAR|PARIT|SUTAR|MOCHI)/', $c)) return 'SBC';
-        if (preg_match('/(OBC|KUNBI|MALI|LOHAR|KUMBHAR|GUJAR|KIRAD|TELLI|BANJARA)/', $c)) return 'OBC';
+        
+        if (preg_match('/(MAHAR|MANG|CHAMBAR|CHAMBHAR|BOUDHA|NAVABAUDHA|DHOR|HOLAR|KHATIK)/', $c)) return 'SC';
+        if (preg_match('/(LAMANI|GOND|KOLAM|BAIGA|ANDH|MAHADEV|KOLI|KATKARI)/', $c)) return 'ST';
+        if (preg_match('/(VJNT|VADAR|DHANGAR|GAVLI|HATKAR)/', $c)) return 'VJNT';
+        if (preg_match('/(NT|NTB|NTC|NTD|VANJARI|BANJARA|RAVAL)/', $c)) return 'NT';
+        if (preg_match('/(SBC|PARIT|MOCHI)/', $c)) return 'SBC';
+        if (preg_match('/(OBC|KUNBI|MALI|LOHAR|KUMBHAR|GUJAR|KIRAD|TELLI|SUTAR|TELI|WANI|KASAR|YALAM|KURMI)/', $c)) return 'OBC';
+        
         return 'OPEN';
     }
 
@@ -386,12 +393,13 @@ class ResultSheetBladeHelper
         $casteMap = collect();
         if (!empty($studentIds)) {
             try {
+                // FIXED: Using correct table dbo.CommCategoryMst and column names
                 $casteMap = DB::connection('sqlsrv_olderp')
                     ->table('FeeMstStudent as fs')
                     ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'fs.casteid')
-                    ->leftJoin('catagory_12old as cat', 'cat.categoryid', '=', 'mc.categoryid')
+                    ->leftJoin('dbo.CommCategoryMst as cat', 'cat.Categoryid', '=', 'mc.Categoryid')
                     ->whereIn('fs.Studentid', $studentIds)
-                    ->select('fs.Studentid', 'mc.Caste as caste', 'mc.categoryid as category_id', 'cat.Categoryname as category_name')
+                    ->select('fs.Studentid', 'mc.Caste as caste', 'mc.Categoryid as category_id', 'cat.Categoryname as category_name')
                     ->get()
                     ->keyBy('Studentid');
             } catch (\Exception $e) {

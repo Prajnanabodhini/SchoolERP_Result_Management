@@ -9,6 +9,7 @@ use App\Models\StandardWiseSubject;
 use App\Models\AcademicYear;
 use App\Helpers\ExamStructureHelper;
 use App\Services\ExamStructureSyncService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -36,9 +37,6 @@ class ExamStructureController extends Controller
             ->get();
     }
 
-    /**
-     * Column groupings based on standard and exam type to match Excel exactly.
-     */
     private function getTableLayouts(string $standardKey): array
     {
         $std = strtoupper($standardKey);
@@ -99,15 +97,28 @@ class ExamStructureController extends Controller
 
         $existingIndex = [];
         foreach ($existing as $row) {
-            $k = $row->exam_type . '|' . ExamStructureHelper::canonicalSubjectKey($row->subject_name);
-            $existingIndex[$k] = $row;
+            if (!empty($row->subject_id)) {
+                $k = $row->exam_type . '|' . $row->subject_id;
+                $existingIndex[$k] = $row;
+            }
+            $kName = $row->exam_type . '|' . ExamStructureHelper::canonicalSubjectKey($row->subject_name);
+            
+            // FIX: Prioritize rows with a valid subject_id over legacy duplicate rows with null subject_id
+            if (!isset($existingIndex[$kName]) || !empty($row->subject_id)) {
+                $existingIndex[$kName] = $row;
+            }
         }
 
         $grouped = [];
         foreach ($showExamTypes as $et) {
             foreach ($subjects as $sub) {
-                $k = $et . '|' . ExamStructureHelper::canonicalSubjectKey($sub->subject_name);
+                $k = $et . '|' . $sub->subject_id;
                 $row = $existingIndex[$k] ?? null;
+
+                if (!$row) {
+                    $kName = $et . '|' . ExamStructureHelper::canonicalSubjectKey($sub->subject_name);
+                    $row = $existingIndex[$kName] ?? null;
+                }
 
                 $grouped[$et][] = (object) [
                     'subject_id'              => $sub->subject_id,
@@ -215,7 +226,7 @@ class ExamStructureController extends Controller
     public function update(Request $request, string $standardKey)
     {
         $standardKey = strtoupper($standardKey);
-        $payload = $request->input('rows', []);
+        $payload     = $request->input('rows', []);
 
         $touchedExamTypes = [];
         foreach (array_keys($payload) as $et) {
@@ -229,27 +240,39 @@ class ExamStructureController extends Controller
                 if ($examType === '') continue;
 
                 foreach ($subjectRows as $subjectId => $fields) {
-                    $subject = Subject::find((int) $subjectId);
+                    $subjectId = (int) $subjectId;
+                    $subject   = Subject::find($subjectId);
                     if (!$subject) continue;
 
                     $subName = $subject->subject_name;
                     $canon   = ExamStructureHelper::canonicalSubjectKey($subName);
 
-                    $existingRow = null;
-                    foreach (ExamStructure::where('standard_key', $standardKey)
-                                ->where('exam_type', $examType)->get() as $c) {
-                        if (ExamStructureHelper::canonicalSubjectKey($c->subject_name) === $canon) {
-                            $existingRow = $c;
-                            break;
-                        }
-                    }
+                    // FIX: Fetch all matching rows to clean up duplicates
+                    $existingRows = ExamStructure::where('standard_key', $standardKey)
+                        ->where('exam_type', $examType)
+                        ->where(function ($q) use ($subjectId, $canon, $subName) {
+                            $q->where('subject_id', $subjectId)
+                              ->orWhere(function ($q2) use ($canon, $subName) {
+                                  $q2->whereNull('subject_id')
+                                     ->where(function($q3) use ($canon, $subName) {
+                                         $q3->whereRaw('UPPER(TRIM(subject_name)) = ?', [$canon])
+                                            ->orWhere('subject_name', $subName);
+                                     });
+                              });
+                        })
+                        ->orderByRaw('subject_id IS NULL ASC') // Prefer non-null subject_id
+                        ->orderBy('id')
+                        ->lockForUpdate()
+                        ->get();
 
                     $componentFields = [
-                        'theory_max_marks','theory_passing_marks',
-                        'oral_max_marks','oral_passing_marks',
-                        'practical_max_marks','practical_passing_marks',
+                        'theory_max_marks', 'theory_passing_marks',
+                        'oral_max_marks', 'oral_passing_marks',
+                        'practical_max_marks', 'practical_passing_marks',
                     ];
 
+                    $existingRow = $existingRows->first();
+                    
                     $data = [];
                     foreach ($componentFields as $f) {
                         if (array_key_exists($f, $fields)) {
@@ -261,8 +284,8 @@ class ExamStructureController extends Controller
                         }
                     }
 
-                    // ⭐ FORCE AUTO-CALCULATION FOR TOTAL MARKS
-                    $data['total_max_marks'] = $data['theory_max_marks'] + $data['oral_max_marks'] + $data['practical_max_marks'];
+                    // Force totals from components
+                    $data['total_max_marks']     = $data['theory_max_marks']     + $data['oral_max_marks']     + $data['practical_max_marks'];
                     $data['total_passing_marks'] = $data['theory_passing_marks'] + $data['oral_passing_marks'] + $data['practical_passing_marks'];
 
                     if (array_key_exists('passing_percentage', $fields)) {
@@ -273,20 +296,44 @@ class ExamStructureController extends Controller
                         $data['passing_percentage'] = 40.0;
                     }
 
-                    $data['is_active'] = !empty($fields['is_active']);
+                    $data['is_active']  = !empty($fields['is_active']);
+                    $data['subject_id'] = $subjectId;
 
                     if ($existingRow) {
+                        // Delete any other duplicate rows for this subject
+                        $existingRows->slice(1)->each(function($row) {
+                            $row->delete();
+                        });
+                        
                         $existingRow->update($data);
                     } else {
-                        ExamStructure::create(array_merge($data, [
-                            'standard_key'    => $standardKey,
-                            'standard_name'   => $standardKey,
-                            'exam_type'       => $examType,
-                            'exam_type_order' => ExamStructure::EXAM_TYPE_ORDER[$examType] ?? 0,
-                            'subject_name'    => $subName,
-                            'subject_code'    => $subject->subject_code,
-                            'subject_type'    => 'Academics',
-                        ]));
+                        try {
+                            ExamStructure::create(array_merge($data, [
+                                'standard_key'    => $standardKey,
+                                'standard_name'   => $standardKey,
+                                'exam_type'       => $examType,
+                                'exam_type_order' => ExamStructure::EXAM_TYPE_ORDER[$examType] ?? 0,
+                                'subject_name'    => $subName,
+                                'subject_code'    => $subject->subject_code,
+                                'subject_type'    => 'Academics',
+                            ]));
+                        } catch (UniqueConstraintViolationException $e) {
+                            // Safety net for race conditions
+                            $row = ExamStructure::where('standard_key', $standardKey)
+                                ->where('exam_type', $examType)
+                                ->where(function ($q) use ($canon, $subName) {
+                                    $q->whereRaw('UPPER(TRIM(subject_name)) = ?', [$canon])
+                                      ->orWhere('subject_name', $subName);
+                                })
+                                ->lockForUpdate()
+                                ->first();
+
+                            if ($row) {
+                                $row->update($data);
+                            } else {
+                                throw $e;
+                            }
+                        }
                     }
                 }
             }

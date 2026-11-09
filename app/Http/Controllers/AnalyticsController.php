@@ -9,6 +9,7 @@ use App\Models\Standard;
 use App\Models\Division;
 use App\Models\AcademicYear;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Helpers\StudentHelper;
 use App\Helpers\ExamStructureHelper;
 
@@ -45,18 +46,58 @@ class AnalyticsController extends Controller
     }
 
     /**
+     * Cache wrapper for ERP student fetching to prevent page timeouts.
+     * ✅ FIX: Cache as JSON string and use a new key (v2) to bypass old corrupted cache.
+     */
+    private function getCachedErpStudents($yearId, $standardId, $divisionId)
+    {
+        if (!$yearId || !$standardId || !$divisionId) {
+            return collect();
+        }
+
+        // Added _v2 to bypass the previously corrupted cache entry
+        $cacheKey = "erp_students_v2_{$yearId}_{$standardId}_{$divisionId}";
+        
+        $cachedJson = Cache::remember($cacheKey, 600, function () use ($yearId, $standardId, $divisionId) {
+            $students = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
+            // Convert to JSON to prevent serialization issues with Laravel Collections
+            return json_encode($students);
+        });
+
+        // Safeguard: if cache somehow contains a corrupted object, clear it and fetch fresh
+        if (!is_string($cachedJson)) {
+            Cache::forget($cacheKey);
+            $students = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
+            $cachedJson = json_encode($students);
+            Cache::put($cacheKey, $cachedJson, 600);
+        }
+        
+        // Decode as objects (false) so $s->Studentid still works in the controller
+        return collect(json_decode($cachedJson, false));
+    }
+
+    /**
      * Overwrite theory/oral/practical max + passing marks using
      * ExamStructureHelper — the same source the Exam Master edit page uses.
      */
     private function attachStructureMaxes($rows, int $standardId, string $examName)
     {
-        return $rows->map(function ($r) use ($standardId, $examName) {
+        // Local in-memory cache to prevent DB queries per row
+        $structureCache = [];
 
-            $components = ExamStructureHelper::getComponentValues(
-                $standardId,
-                $examName,
-                $r->subject_name ?? ''
-            );
+        return $rows->map(function ($r) use ($standardId, $examName, &$structureCache) {
+
+            $subjectName = strtoupper(trim($r->subject_name ?? ''));
+
+            if (!isset($structureCache[$subjectName])) {
+                $structureCache[$subjectName] = ExamStructureHelper::getComponentValues(
+                    $standardId,
+                    $examName,
+                    $r->subject_name ?? ''
+                );
+            }
+
+            $components = $structureCache[$subjectName];
 
             /* ---------- THEORY ---------- */
             $r->theory_max = (float) ($components['theory_max_marks'] ?? 0);
@@ -307,7 +348,7 @@ class AnalyticsController extends Controller
             ->get();
 
         /* ---------- ERP names ---------- */
-        $studentMap = StudentHelper::getStudentsDirectERP(
+        $studentMap = $this->getCachedErpStudents(
             $request->academic_year_id,
             $request->standard_id,
             $request->division_id
@@ -442,7 +483,7 @@ class AnalyticsController extends Controller
 
         /* ---------- Student name ---------- */
         $studentName = 'Unknown Student';
-        $erpStudents = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
+        $erpStudents = $this->getCachedErpStudents($yearId, $standardId, $divisionId);
         $match = collect($erpStudents)->firstWhere('Studentid', $studentId)
               ?? collect($erpStudents)->firstWhere('Studentid', (string) $studentId);
         if ($match) $studentName = $match->full_name ?? $match->studname ?? $studentName;
@@ -493,8 +534,8 @@ class AnalyticsController extends Controller
         elseif ($percentage >= 41) $grade = 'C2';
         elseif ($percentage >= 35) $grade = 'D';
 
-        /* ---------- Class totals ---------- */
-        $classDataQuery = StudentMark::where('student_marks.is_optional', 0)
+        /* ---------- Class totals (MERGED QUERY) ---------- */
+        $allClassDataQuery = StudentMark::where('student_marks.is_optional', 0)
             ->when($yearId, fn($q) => $q->where('student_marks.academic_year_id', $yearId))
             ->when($examId, fn($q) => $q->where('student_marks.exam_master_id', $examId))
             ->where('student_marks.standard_id', $standardId)
@@ -513,17 +554,18 @@ class AnalyticsController extends Controller
             );
 
         if (!empty($allowedSubjectIds)) {
-            $classDataQuery->whereIn('subjects.id', $allowedSubjectIds);
+            $allClassDataQuery->whereIn('subjects.id', $allowedSubjectIds);
         }
 
-        $classDataRaw = $classDataQuery->get();
-        $classDataRaw = $this->attachStructureMaxes($classDataRaw, $standardId, $examName ?? '');
+        $allClassDataRaw = $allClassDataQuery->get();
+        $allClassDataRaw = $this->attachStructureMaxes($allClassDataRaw, $standardId, $examName ?? '');
 
-        $classDataRaw = $classDataRaw->unique(function ($r) {
+        $allClassDataRaw = $allClassDataRaw->unique(function ($r) {
             return $r->student_id . '|' . $r->subject_id;
         })->values();
 
-        $classData = $classDataRaw
+        // Calculate Class overall totals/rank
+        $classData = $allClassDataRaw
             ->groupBy('student_id')
             ->map(function ($rows) {
                 return (object) [
@@ -547,6 +589,18 @@ class AnalyticsController extends Controller
             if ($row->student_id == $studentId) { $rank = $i + 1; break; }
         }
 
+        // Calculate Subject-wise class average (uses raw columns, exact same logic as before)
+        $classSubjectAvg = $allClassDataRaw
+            ->groupBy('subject_name')
+            ->map(function ($rows) {
+                $total = $rows->sum(function ($r) {
+                    return (float) ($r->theory_obtained_marks ?? 0)
+                         + (float) ($r->oral_obtained_marks ?? 0)
+                         + (float) ($r->practical_obtained_marks ?? 0);
+                });
+                return round($total / max($rows->count(), 1), 2);
+            });
+
         /* ---------- Exam-wise trend ---------- */
         $examTrendRaw = StudentMark::where('student_marks.student_id', $studentId)
             ->where('student_marks.is_optional', 0)
@@ -568,12 +622,18 @@ class AnalyticsController extends Controller
             )
             ->get();
 
-        $examTrendRaw = $examTrendRaw->filter(function ($r) {
+        // OPTIMIZATION: Bulk fetch valid mappings instead of N+1 query inside filter
+        $examIds = $examTrendRaw->pluck('exam_id')->filter()->unique()->toArray();
+        $validMappings = DB::table('exam_master_subjects')
+            ->whereIn('exam_master_id', $examIds)
+            ->get()
+            ->groupBy('exam_master_id')
+            ->map(fn($items) => $items->pluck('subject_id')->map(fn($id) => (int)$id)->toArray());
+
+        $examTrendRaw = $examTrendRaw->filter(function ($r) use ($validMappings) {
             if (!$r->exam_id) return true;
-            return DB::table('exam_master_subjects')
-                ->where('exam_master_id', $r->exam_id)
-                ->where('subject_id', $r->subject_id)
-                ->exists();
+            $allowed = $validMappings[$r->exam_id] ?? [];
+            return in_array((int)$r->subject_id, $allowed);
         })->values();
 
         $examTrend = $examTrendRaw
@@ -599,38 +659,6 @@ class AnalyticsController extends Controller
             })
             ->sortBy('display_order')
             ->values();
-
-        /* ---------- Subject-wise class average ---------- */
-        $classSubjectAvgQuery = StudentMark::where('student_marks.is_optional', 0)
-            ->when($yearId, fn($q) => $q->where('student_marks.academic_year_id', $yearId))
-            ->when($examId, fn($q) => $q->where('student_marks.exam_master_id', $examId))
-            ->where('student_marks.standard_id', $standardId)
-            ->where('student_marks.division_id', $divisionId)
-            ->join('subjects', 'subjects.id', '=', DB::raw('(' . $this->resolvedSubjectIdSql() . ')'))
-            ->select(
-                'subjects.id as subject_id',
-                'subjects.subject_name',
-                'student_marks.theory_obtained_marks',
-                'student_marks.oral_obtained_marks',
-                'student_marks.practical_obtained_marks'
-            );
-
-        if (!empty($allowedSubjectIds)) {
-            $classSubjectAvgQuery->whereIn('subjects.id', $allowedSubjectIds);
-        }
-
-        $classSubjectAvgRaw = $classSubjectAvgQuery->get();
-
-        $classSubjectAvg = $classSubjectAvgRaw
-            ->groupBy('subject_name')
-            ->map(function ($rows) {
-                $total = $rows->sum(function ($r) {
-                    return (float) ($r->theory_obtained_marks ?? 0)
-                         + (float) ($r->oral_obtained_marks ?? 0)
-                         + (float) ($r->practical_obtained_marks ?? 0);
-                });
-                return round($total / max($rows->count(), 1), 2);
-            });
 
         /* ---------- Comparison data ---------- */
         $seen = [];
@@ -799,7 +827,7 @@ class AnalyticsController extends Controller
             })
             ->values();
 
-        $studentMap = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId)
+        $studentMap = $this->getCachedErpStudents($yearId, $standardId, $divisionId)
             ->keyBy('Studentid');
 
         $rows = $rows->map(function ($r) use ($studentMap) {
@@ -904,7 +932,7 @@ class AnalyticsController extends Controller
 
         $studentMap = collect();
         try {
-            $erpStudents = StudentHelper::getStudentsDirectERP($year1Id, $standardId, $divisionId);
+            $erpStudents = $this->getCachedErpStudents($year1Id, $standardId, $divisionId);
             foreach ($erpStudents as $s) {
                 $studentMap->put((string) $s->Studentid, [
                     'id'   => (string) $s->Studentid,
@@ -1236,7 +1264,7 @@ class AnalyticsController extends Controller
 
         $studentMap = collect();
         try {
-            $erpStudents = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
+            $erpStudents = $this->getCachedErpStudents($yearId, $standardId, $divisionId);
             foreach ($erpStudents as $s) {
                 $studentMap->put((string) $s->Studentid, [
                     'id'   => (string) $s->Studentid,

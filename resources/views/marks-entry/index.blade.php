@@ -378,8 +378,6 @@
         color: #111827;
         outline: none;
     }
-    .mark-input::-webkit-outer-spin-button,
-    .mark-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .mark-input:focus { border-color: #2563EB; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); }
     .mark-input:read-only { background: #F3F4F6; color: #6B7280; cursor: not-allowed; }
 
@@ -725,10 +723,12 @@
                                     <td class="center">{{ (int) $theoryMaxMarks }}</td>
                                     <td class="center">{{ (int) $theoryPassingMarks }}</td>
                                     <td class="center">
-                                        <input type="number"
+                                        <input type="text"
+                                               inputmode="numeric"
+                                               pattern="[0-9]*"
                                                name="theory_marks[{{ $sid }}]"
                                                value="{{ $row['theory_value'] }}"
-                                               min="0" max="{{ (int) $theoryMaxMarks }}" step="1"
+                                               max="{{ (int) $theoryMaxMarks }}"
                                                class="mark-input student-{{ $sid }}"
                                                data-student="{{ $sid }}"
                                                {{ $row['marks_readonly'] ? 'readonly' : '' }}>
@@ -739,10 +739,12 @@
                                     <td class="center">{{ (int) $oralMaxMarks }}</td>
                                     <td class="center">{{ (int) $oralPassingMarks }}</td>
                                     <td class="center">
-                                        <input type="number"
+                                        <input type="text"
+                                               inputmode="numeric"
+                                               pattern="[0-9]*"
                                                name="oral_marks[{{ $sid }}]"
                                                value="{{ $row['oral_value'] }}"
-                                               min="0" max="{{ (int) $oralMaxMarks }}" step="1"
+                                               max="{{ (int) $oralMaxMarks }}"
                                                class="mark-input student-{{ $sid }}"
                                                data-student="{{ $sid }}"
                                                {{ $row['marks_readonly'] ? 'readonly' : '' }}>
@@ -753,10 +755,12 @@
                                     <td class="center">{{ (int) $practicalMaxMarks }}</td>
                                     <td class="center">{{ (int) $practicalPassingMarks }}</td>
                                     <td class="center">
-                                        <input type="number"
+                                        <input type="text"
+                                               inputmode="numeric"
+                                               pattern="[0-9]*"
                                                name="practical_marks[{{ $sid }}]"
                                                value="{{ $row['practical_value'] }}"
-                                               min="0" max="{{ (int) $practicalMaxMarks }}" step="1"
+                                               max="{{ (int) $practicalMaxMarks }}"
                                                class="mark-input student-{{ $sid }}"
                                                data-student="{{ $sid }}"
                                                {{ $row['marks_readonly'] ? 'readonly' : '' }}>
@@ -855,7 +859,7 @@
         getStudentInputs(studentId).forEach(function (input) {
             const raw = (input.value ?? '').toString().trim();
             if (raw === '' || raw === 'AB' || raw === 'OPT') return;
-            const v = parseFloat(raw);
+            const v = parseInt(raw, 10); // Changed to parseInt for integer-only sums
             if (!isNaN(v)) total += v;
         });
 
@@ -1209,15 +1213,15 @@
 
                 if (value === '') { input.style.border = '1px solid #d1d5db'; return; }
 
-                if (!/^\d+(\.\d+)?$/.test(value)) {
+                if (!/^\d+$/.test(value)) {
                     hasError = true;
-                    errorMessage = 'Only numeric values are allowed.';
+                    errorMessage = 'Only whole numbers are allowed (no decimals).';
                     input.style.border = '2px solid #dc2626';
                     return;
                 }
 
-                const number = parseFloat(value);
-                const max = parseFloat(input.max);
+                const number = parseInt(value, 10);
+                const max = parseInt(input.max, 10);
 
                 if (isNaN(number)) { hasError = true; errorMessage = 'Please enter a valid mark.'; input.style.border = '2px solid #dc2626'; return; }
                 if (number < 0)    { hasError = true; errorMessage = 'Marks cannot be negative.'; input.style.border = '2px solid #dc2626'; return; }
@@ -1251,10 +1255,10 @@
                 const value = input.value.trim();
 
                 if (value === '') { hasError = true; errorMessage = 'All marks must be filled before final submission.'; input.style.border = '2px solid #dc2626'; return; }
-                if (!/^\d+(\.\d+)?$/.test(value)) { hasError = true; errorMessage = 'Only numeric values are allowed.'; input.style.border = '2px solid #dc2626'; return; }
+                if (!/^\d+$/.test(value)) { hasError = true; errorMessage = 'Only whole numbers are allowed (no decimals).'; input.style.border = '2px solid #dc2626'; return; }
 
-                const number = parseFloat(value);
-                const max = parseFloat(input.max);
+                const number = parseInt(value, 10);
+                const max = parseInt(input.max, 10);
 
                 if (number < 0 || number > max) { hasError = true; errorMessage = 'Marks must be between 0 and ' + max + '.'; input.style.border = '2px solid #dc2626'; return; }
 
@@ -1273,21 +1277,78 @@
         document.querySelectorAll('.mark-input').forEach(function (input) {
             input.addEventListener('input', function () {
                 if (this.readOnly || this.style.display === 'none') return;
-                const max = parseFloat(this.max);
+                const max = parseInt(this.max, 10);
                 const value = this.value.trim();
 
                 if (value === '') { this.style.border = '1px solid #d1d5db'; return; }
-                if (!/^\d*\.?\d*$/.test(value)) { this.value = value.replace(/[^\d.]/g, ''); return; }
+                
+                // Remove any non-digit character (prevents decimals entirely)
+                if (!/^\d*$/.test(value)) { 
+                    this.value = value.replace(/[^\d]/g, ''); 
+                    return; 
+                }
 
-                const number = parseFloat(this.value);
+                const number = parseInt(this.value, 10);
                 if (!isNaN(number)) {
                     if (number > max) this.value = max;
                     if (number < 0)   this.value = 0;
                 }
-                const finalVal = parseFloat(this.value);
+                const finalVal = parseInt(this.value, 10);
                 this.style.border = (isNaN(finalVal) || finalVal < 0 || finalVal > max)
                     ? '2px solid #dc2626'
                     : '1px solid #16a34a';
+            });
+        });
+    }
+
+    /* ============================================================
+       ⭐ ENTER KEY NAVIGATION: Jump to next blank textbox
+       ============================================================ */
+    function setupEnterKeyNavigation() {
+        document.querySelectorAll('.mark-input').forEach(function (input) {
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // Stop form submission
+
+                    // Get all currently visible and editable mark inputs
+                    const allInputs = Array.from(document.querySelectorAll('.mark-input')).filter(i => 
+                        !i.readOnly && i.style.display !== 'none'
+                    );
+                    
+                    if (allInputs.length === 0) return;
+
+                    const currentIndex = allInputs.indexOf(this);
+                    let nextInput = null;
+
+                    // 1. Look for the next blank input ahead
+                    for (let i = currentIndex + 1; i < allInputs.length; i++) {
+                        if (allInputs[i].value.trim() === '') {
+                            nextInput = allInputs[i];
+                            break;
+                        }
+                    }
+
+                    // 2. If no blank input ahead, wrap around and find the first blank input
+                    if (!nextInput) {
+                        for (let i = 0; i < allInputs.length; i++) {
+                            if (allInputs[i].value.trim() === '') {
+                                nextInput = allInputs[i];
+                                break;
+                            }
+                        }
+                    }
+
+                    // 3. If the entire form is filled, just go to the next input sequentially
+                    if (!nextInput && currentIndex < allInputs.length - 1) {
+                        nextInput = allInputs[currentIndex + 1];
+                    }
+
+                    // 4. Focus the found input
+                    if (nextInput) {
+                        nextInput.focus();
+                        nextInput.select(); // Select text for quick overwrite
+                    }
+                }
             });
         });
     }
@@ -1411,6 +1472,7 @@
     function initialize() {
         protectRowButtons();
         setupMarkValidation();
+        setupEnterKeyNavigation(); // ⭐ Initialize Enter Key Navigation
         setupFormSubmit();
         setupFilters();
         attachTotalListeners();

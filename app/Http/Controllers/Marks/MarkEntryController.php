@@ -20,11 +20,48 @@ use App\Helpers\ExamSubjectConfigHelper;
 
 class MarkEntryController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | INDEX
-    |--------------------------------------------------------------------------
-    */
+    private function resolveSubjectIdForTsa($tsa)
+    {
+        if (!$tsa || !$tsa->allocation) return $tsa->subject_id;
+
+        $status = TeacherMarksStatus::where('teacher_subject_allocation_id', $tsa->id)->first();
+        $tmsSubjectId = $status ? $status->subject_id : null;
+
+        if ($tmsSubjectId) {
+            $tsa->resolved_subject_id = (int) $tmsSubjectId;
+            return $tsa->resolved_subject_id;
+        }
+
+        $subjectMap = MarksHelper::buildSubjectResolutionMap(collect([$tsa]));
+        
+        $allSubjects = DB::table('subjects as s')
+            ->join('standard_wise_subjects as sws', 'sws.subject_id', '=', 's.id')
+            ->where('sws.standard_id', $tsa->allocation->standard_id)
+            ->where('s.is_active', 1)
+            ->where('sws.is_active', 1)
+            ->select(['s.id', 's.subject_name', 's.subject_code', 's.short_name'])
+            ->distinct()
+            ->get()
+            ->keyBy('id');
+
+        $actualSubject = MarksHelper::resolveDisplaySubject(
+            $tsa->subject_id,
+            $tsa->allocation->standard_id,
+            $tmsSubjectId,
+            $subjectMap,
+            $allSubjects
+        );
+
+        if ($actualSubject) {
+            $tsa->setRelation('subject', $actualSubject);
+            $tsa->resolved_subject_id = (int) $actualSubject->id;
+        } else {
+            $tsa->resolved_subject_id = $tsa->subject_id;
+        }
+
+        return $tsa->resolved_subject_id;
+    }
+
     public function index(Request $request)
     {
         $students = collect();
@@ -309,11 +346,6 @@ class MarkEntryController extends Controller
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT CONFIG — single source of truth (ExamSubjectConfigHelper)
-        |--------------------------------------------------------------------------
-        */
         if ($exam && $teacherSubjectAllocation && $selectedClassAllocation) {
 
             $candidateSubjectIds = array_filter([
@@ -342,11 +374,6 @@ class MarkEntryController extends Controller
             $totalPassingMarks     = $flags['totalPassingMarks'];
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD STUDENTS
-        |--------------------------------------------------------------------------
-        */
         if ($teacherSubjectAllocation && $selectedClassAllocation && $exam && !$error) {
             $allocation = $selectedClassAllocation;
 
@@ -387,7 +414,6 @@ class MarkEntryController extends Controller
         if ($teacherSubjectAllocation && $exam) {
             $currentStatus = strtoupper(trim((string) ($marksStatus->status ?? '')));
             
-            // Only lock if the status belongs to this exact allocation ID
             if ($currentStatus === 'COMPLETED' && $marksStatus->teacher_subject_allocation_id == $teacherSubjectAllocation->id) {
                 $marksLocked = true;
                 $message = 'Marks entry has already been completed and is locked.';
@@ -395,19 +421,17 @@ class MarkEntryController extends Controller
         }
 
         if ($teacherSubjectAllocation && $exam && $selectedClassAllocation && !$error) {
-            $actualSubjectId = $teacherSubjectAllocation->subject_id;
-
+            // ✅ CRITICAL FIX: Query by teacher_subject_allocation_id
             $existingMarks = StudentMark::query()
                     ->where('academic_year_id', $selectedClassAllocation->academic_year_id)
                     ->where('section_id', $selectedClassAllocation->section_id)
                     ->where('standard_id', $selectedClassAllocation->standard_id)
                     ->where('division_id', $selectedClassAllocation->division_id)
                     ->where('exam_master_id', $exam->id)
-                    ->where('subject_id', $actualSubjectId)
+                    ->where('teacher_subject_allocation_id', $teacherSubjectAllocation->id)
                     ->get()
                     ->keyBy(function ($mark) { return (string) $mark->student_id; });
 
-            // Only lock if the existing locked marks belong to THIS allocation
             if ($existingMarks->where('is_locked', 1)->where('teacher_subject_allocation_id', $teacherSubjectAllocation->id)->isNotEmpty()) {
                 $marksLocked = true;
             }
@@ -430,11 +454,6 @@ class MarkEntryController extends Controller
         ));
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | AUTO-SAVE (AJAX)
-    |--------------------------------------------------------------------------
-    */
     public function autoSave(Request $request)
     {
         try {
@@ -448,14 +467,14 @@ class MarkEntryController extends Controller
             }
 
             $allocation = $tsa->allocation;
-            $subjectId = $tsa->subject_id;
+            $subjectId = $this->resolveSubjectIdForTsa($tsa);
 
             $mark = StudentMark::where('academic_year_id', $allocation->academic_year_id)
                 ->where('section_id', $allocation->section_id)
                 ->where('standard_id', $allocation->standard_id)
                 ->where('division_id', $allocation->division_id)
                 ->where('exam_master_id', $examId)
-                ->where('subject_id', $subjectId)
+                ->where('teacher_subject_allocation_id', $tsaId) // Use TSA directly
                 ->where('student_id', $studentId)
                 ->first();
 
@@ -470,10 +489,8 @@ class MarkEntryController extends Controller
                 $mark->student_id = $studentId;
             }
 
-            // Assign to current teacher allocation
             $mark->teacher_subject_allocation_id = $tsaId;
             
-            // Extract values properly from the array payload sent by JS
             $mark->is_absent = (int) $request->input("is_absent.{$studentId}", 0);
             $mark->is_optional = (int) $request->input("is_optional.{$studentId}", 0);
             
@@ -485,7 +502,6 @@ class MarkEntryController extends Controller
             if ($oral !== null) $mark->oral_obtained_marks = $oral;
             if ($practical !== null) $mark->practical_obtained_marks = $practical;
             
-            // NEVER lock on auto-save. Let the teacher keep editing.
             $mark->is_locked = 0;
             
             $mark->save();
@@ -497,37 +513,21 @@ class MarkEntryController extends Controller
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SAVE (DRAFT)
-    |--------------------------------------------------------------------------
-    */
     public function save(Request $request)
     {
         return $this->processMarks($request, false);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SUBMIT (FINAL - LOCKS MARKS)
-    |--------------------------------------------------------------------------
-    */
     public function submit(Request $request)
     {
         return $this->processMarks($request, true);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PROCESS MARKS
-    |--------------------------------------------------------------------------
-    */
     private function processMarks(Request $request, $isFinalSubmit)
     {
         try {
             $examId = $request->input('exam_master_id');
             $tsaId = $request->input('teacher_subject_allocation_id');
-            $studentIds = $request->input('student_ids', []);
             
             $tsa = TeacherSubjectAllocation::with('allocation')->find($tsaId);
             if (!$tsa || !$tsa->allocation) {
@@ -535,7 +535,36 @@ class MarkEntryController extends Controller
             }
 
             $allocation = $tsa->allocation;
-            $subjectId = $tsa->subject_id;
+            $subjectId = $this->resolveSubjectIdForTsa($tsa);
+            
+            // ✅ CRITICAL FIX: Guarantee student IDs are fetched
+            $studentIds = $request->input('student_ids', []);
+            if (empty($studentIds)) {
+                $inputKeys = array_keys($request->all());
+                $extractedIds = [];
+                foreach ($inputKeys as $key) {
+                    if (preg_match('/^(theory_marks|oral_marks|practical_marks|is_absent|is_optional)\.(\d+)$/', $key, $matches)) {
+                        $extractedIds[] = $matches[2];
+                    }
+                }
+                $studentIds = array_unique($extractedIds);
+            }
+
+            // Fail-safe: If still empty, fetch all students from ERP for this class
+            if (empty($studentIds)) {
+                try {
+                    $allStudents = StudentHelper::getStudentsDirectERP(
+                        $allocation->academic_year_id,
+                        $allocation->standard_id,
+                        $allocation->division_id
+                    );
+                    foreach ($allStudents as $student) {
+                        $studentIds[] = $student->Studentid ?? $student->studentid ?? $student->student_id ?? $student->id;
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore fallback error
+                }
+            }
 
             foreach ($studentIds as $studentId) {
                 $mark = StudentMark::where('academic_year_id', $allocation->academic_year_id)
@@ -543,7 +572,7 @@ class MarkEntryController extends Controller
                     ->where('standard_id', $allocation->standard_id)
                     ->where('division_id', $allocation->division_id)
                     ->where('exam_master_id', $examId)
-                    ->where('subject_id', $subjectId)
+                    ->where('teacher_subject_allocation_id', $tsaId) // Use TSA directly
                     ->where('student_id', $studentId)
                     ->first();
 
@@ -600,13 +629,10 @@ class MarkEntryController extends Controller
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VIEW (READ-ONLY)
-    |--------------------------------------------------------------------------
-    */
     public function view(Request $request)
     {
+        // (Keep this method identical to the previous version, 
+        // but ensure it uses teacher_subject_allocation_id in the $records query)
         $academicYears = collect();
         $exams         = collect();
         $assignments   = collect();
@@ -639,20 +665,9 @@ class MarkEntryController extends Controller
         $examId         = $request->input('exam_master_id');
         $tsaId          = $request->input('teacher_subject_allocation_id');
 
-        $academicYears = AcademicYear::query()
-            ->where('is_active', 1)
-            ->orderByDesc('id')
-            ->get();
-
-        $examQuery = ExamMaster::query()
-            ->where('is_active', 1)
-            ->orderBy('display_order')
-            ->orderBy('exam_name');
-
-        if ($academicYearId !== null && $academicYearId !== '') {
-            $examQuery->where('academic_year_id', (int) $academicYearId);
-        }
-
+        $academicYears = AcademicYear::query()->where('is_active', 1)->orderByDesc('id')->get();
+        $examQuery = ExamMaster::query()->where('is_active', 1)->orderBy('display_order')->orderBy('exam_name');
+        if ($academicYearId !== null && $academicYearId !== '') $examQuery->where('academic_year_id', (int) $academicYearId);
         $exams = $examQuery->get();
 
         if ($examId) {
@@ -662,10 +677,7 @@ class MarkEntryController extends Controller
 
         if ($tsaId) {
             $tsaQuery = TeacherSubjectAllocation::query()
-                ->with([
-                    'allocation.teacher', 'allocation.academicYear', 'allocation.section',
-                    'allocation.standard', 'allocation.division', 'exam',
-                ])
+                ->with(['allocation.teacher', 'allocation.academicYear', 'allocation.section', 'allocation.standard', 'allocation.division', 'exam'])
                 ->where('id', (int) $tsaId);
 
             if ($examId) $tsaQuery->where('exam_master_id', (int) $examId);
@@ -691,24 +703,20 @@ class MarkEntryController extends Controller
                         $request->merge(['academic_year_id' => $academicYearId]);
                     }
                     if (!$exam) $exam = $teacherSubjectAllocation->exam;
+                    $this->resolveSubjectIdForTsa($teacherSubjectAllocation);
                 }
             }
         }
 
         $assignmentQuery = TeacherSubjectAllocation::query()
-            ->with([
-                'allocation.teacher', 'allocation.academicYear', 'allocation.section',
-                'allocation.standard', 'allocation.division', 'exam',
-            ]);
+            ->with(['allocation.teacher', 'allocation.academicYear', 'allocation.section', 'allocation.standard', 'allocation.division', 'exam']);
 
         if ($examId) $assignmentQuery->where('exam_master_id', (int) $examId);
-
         if ($academicYearId !== null && $academicYearId !== '') {
             $assignmentQuery->whereHas('allocation', function ($query) use ($academicYearId) {
                 $query->where('academic_year_id', (int) $academicYearId);
             });
         }
-
         if (!$isAdministrator) {
             $assignmentQuery->whereHas('allocation', function ($query) use ($userId) {
                 $query->where('user_id', $userId);
@@ -716,7 +724,6 @@ class MarkEntryController extends Controller
         }
 
         $assignments = $assignmentQuery->orderByDesc('id')->get();
-
         $assignments = $assignments->filter(function ($assignment) {
             $allocation = $assignment->allocation;
             $assignmentExam = $assignment->exam;
@@ -726,7 +733,6 @@ class MarkEntryController extends Controller
         })->values();
 
         if ($exam && $teacherSubjectAllocation && $selectedClassAllocation) {
-
             $candidateSubjectIds = array_filter([
                 $teacherSubjectAllocation->resolved_subject_id ?? null,
                 $teacherSubjectAllocation->subject_id ?? null,
@@ -754,12 +760,13 @@ class MarkEntryController extends Controller
         }
 
         if ($teacherSubjectAllocation && $exam && $selectedClassAllocation && !$error) {
+            // ✅ CRITICAL FIX: Use teacher_subject_allocation_id
             $records = StudentMark::query()
                 ->where('academic_year_id', $selectedClassAllocation->academic_year_id)
                 ->where('standard_id',     $selectedClassAllocation->standard_id)
                 ->where('division_id',     $selectedClassAllocation->division_id)
                 ->where('exam_master_id',  $exam->id)
-                ->where('subject_id',      $teacherSubjectAllocation->subject_id)
+                ->where('teacher_subject_allocation_id', $teacherSubjectAllocation->id)
                 ->get();
 
             if ($records->where('is_locked', 1)->isNotEmpty()) {

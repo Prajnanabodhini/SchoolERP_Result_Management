@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 use App\Models\ExamMaster;
@@ -57,21 +58,48 @@ class ExamProgressController extends Controller
         $divisionId     = trim((string) $request->input('division_id', ''));
         $academicYearId = trim((string) $request->input('academic_year_id', ''));
 
+        // Status filter
+        $statusFilter = strtoupper(trim((string) $request->input('status', '')));
+        if (!in_array($statusFilter, ['', 'COMPLETED', 'PENDING'], true)) {
+            $statusFilter = '';
+        }
+
+        // Exam type filter
+        $examType = trim((string) $request->input('exam_type', ''));
+
         $subjectType = strtolower(trim((string) $request->input('subject_type', 'academic')));
         if (!in_array($subjectType, ['academic', 'skill', 'marks'], true)) {
             $subjectType = 'academic';
         }
 
-        $standards = Standard::query()->where('is_active', 1)->orderBy('display_order')->get();
-        $divisions = Division::query()->where('is_active', 1)->orderBy('division_name')->get();
+        $standards     = Standard::query()->where('is_active', 1)->orderBy('display_order')->get();
+        $divisions     = Division::query()->where('is_active', 1)->orderBy('division_name')->get();
         $academicYears = AcademicYear::query()->where('is_active', 1)->orderByDesc('year_name')->get(['id', 'year_name']);
 
+        // --- FIXED LIST OF EXAM TYPES (Matches your Create Form) ---
+        $examTypes = collect([
+            'Unit Test 1',
+            'Unit Test 2',
+            'Unit Test 3',
+            'Unit Test 4',
+            'Term 1',
+            'Term 2',
+            'Annual'
+        ]);
+
+        // Exam dropdown (Narrowed by filters, including Exam Type with Fallback to Exam Name)
         $examQuery = ExamMaster::query()->where('is_active', 1);
         if ($academicYearId !== '') {
             $examQuery->where('academic_year_id', (int) $academicYearId);
         }
         if ($standardId !== '') {
             $examQuery->where('standard_id', (int) $standardId);
+        }
+        if ($examType !== '') {
+            $examQuery->where(function($q) use ($examType) {
+                $q->whereRaw('UPPER(TRIM(exam_type)) = ?', [strtoupper(trim($examType))])
+                  ->orWhereRaw('UPPER(exam_name) LIKE ?', [strtoupper(trim($examType)) . '%']);
+            });
         }
         $exams = $examQuery->orderBy('display_order')->orderBy('exam_name')->get();
 
@@ -119,6 +147,13 @@ class ExamProgressController extends Controller
             if ($standardId !== '')     { $sql .= " AND stca.standard_id = ? ";     $bindings[] = (int) $standardId; }
             if ($divisionId !== '')     { $sql .= " AND stca.division_id = ? ";     $bindings[] = (int) $divisionId; }
             if ($academicYearId !== '') { $sql .= " AND stca.academic_year_id = ? ";$bindings[] = (int) $academicYearId; }
+            
+            // Fallback for Exam Type
+            if ($examType !== '')       { 
+                $sql .= " AND (UPPER(TRIM(em.exam_type)) = ? OR UPPER(em.exam_name) LIKE ?) "; 
+                $bindings[] = strtoupper(trim($examType)); 
+                $bindings[] = strtoupper(trim($examType)) . '%'; 
+            }
 
             $sql .= " ORDER BY stsa.id DESC, em.display_order ASC, st.display_order ASC, d.display_order ASC ";
 
@@ -208,7 +243,7 @@ class ExamProgressController extends Controller
                             break;
                         }
                     }
-                    
+
                     if (!$hasAnyGrade) {
                          $isComplete = false;
                     }
@@ -248,6 +283,14 @@ class ExamProgressController extends Controller
             if ($examId !== '')         $allocationsQuery->where('ssa.exam_master_id', $examId);
             if ($standardId !== '')     $allocationsQuery->where('ssa.standard_id', $standardId);
             if ($divisionId !== '')     $allocationsQuery->where('ssa.division_id', $divisionId);
+            
+            // Fallback for Exam Type
+            if ($examType !== '')       {
+                $allocationsQuery->where(function($q) use ($examType) {
+                    $q->whereRaw('UPPER(TRIM(em.exam_type)) = ?', [strtoupper(trim($examType))])
+                      ->orWhereRaw('UPPER(em.exam_name) LIKE ?', [strtoupper(trim($examType)) . '%']);
+                });
+            }
 
             $allocations = $allocationsQuery->orderBy('ssa.id', 'desc')->get();
 
@@ -342,16 +385,16 @@ class ExamProgressController extends Controller
                     tms.exam_master_id    AS exam_master_id,
                     em.exam_name          AS exam_name,
                     em.display_order      AS exam_display_order,
-                    st.standard_name      AS standard_name,
-                    st.display_order      AS standard_display_order,
-                    d.division_name       AS division_name,
-                    d.display_order       AS division_display_order,
-                    u.name                AS teacher_name,
-                    subj.subject_name     AS subject_name,
-                    subj.subject_code     AS subject_code,
-                    subj.id               AS resolved_subject_id,
+                    st.standard_name       AS standard_name,
+                    st.display_order       AS standard_display_order,
+                    d.division_name        AS division_name,
+                    d.display_order        AS division_display_order,
+                    u.name                 AS teacher_name,
+                    subj.subject_name      AS subject_name,
+                    subj.subject_code      AS subject_code,
+                    subj.id                AS resolved_subject_id,
                     CASE
-                        WHEN UPPER(TRIM(COALESCE(tms.status, ''))) = 'COMPLETED' 
+                        WHEN UPPER(TRIM(COALESCE(tms.status, ''))) = 'COMPLETED'
                              AND NOT EXISTS (
                                  SELECT 1 FROM student_marks sm_old
                                  WHERE sm_old.academic_year_id = tms.academic_year_id
@@ -410,10 +453,23 @@ class ExamProgressController extends Controller
             if ($standardId !== '')     { $sql .= " AND tms.standard_id = ? ";     $bindings[] = (int) $standardId; }
             if ($divisionId !== '')     { $sql .= " AND tms.division_id = ? ";     $bindings[] = (int) $divisionId; }
             if ($academicYearId !== '') { $sql .= " AND tms.academic_year_id = ? ";$bindings[] = (int) $academicYearId; }
+            
+            // Fallback for Exam Type
+            if ($examType !== '')       { 
+                $sql .= " AND (UPPER(TRIM(em.exam_type)) = ? OR UPPER(em.exam_name) LIKE ?) "; 
+                $bindings[] = strtoupper(trim($examType)); 
+                $bindings[] = strtoupper(trim($examType)) . '%'; 
+            }
 
             $sql .= " ORDER BY tms.teacher_subject_allocation_id DESC, em.display_order ASC, st.display_order ASC, d.display_order ASC, tms.id DESC ";
 
             $allRows = collect(DB::select($sql, $bindings));
+        }
+
+        if ($statusFilter !== '') {
+            $allRows = $allRows
+                ->filter(fn ($row) => strtoupper(trim((string) ($row->effective_status ?? ''))) === $statusFilter)
+                ->values();
         }
 
         foreach ($allRows as $row) {
@@ -436,7 +492,8 @@ class ExamProgressController extends Controller
         return view('administrator.exam-progress.index', compact(
             'statuses', 'exams', 'standards', 'divisions', 'academicYears',
             'examId', 'standardId', 'divisionId', 'academicYearId',
-            'completed', 'pending', 'total', 'subjectType'
+            'completed', 'pending', 'total', 'subjectType',
+            'statusFilter', 'examType', 'examTypes'
         ));
     }
 }

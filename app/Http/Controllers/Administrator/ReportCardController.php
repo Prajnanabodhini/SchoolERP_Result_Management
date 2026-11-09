@@ -25,19 +25,54 @@ class ReportCardController extends Controller
         return preg_match('/\b(NURSERY|JR|SR|KINDERGARTEN|KG|LKG|UKG)\b/i', strtoupper(trim((string) $standardName))) === 1;
     }
 
-    private function isPrimaryStandard($standardName): bool {
-        return preg_match('/\b(1ST|2ND|FIRST|SECOND)\b/i', strtoupper(trim((string) $standardName))) === 1;
-    }
-
     private function cleanStudentName(string $studname, string $fathername): string {
         $studname = trim($studname); $fathername = trim($fathername);
         if ($fathername === '') return $studname;
         $fatherUpper = strtoupper($fathername); $studUpper = strtoupper($studname);
+        
         while (str_ends_with($studUpper, ' ' . $fatherUpper) || $studUpper === $fatherUpper) {
             if ($studUpper === $fatherUpper) { $studname = ''; $studUpper = ''; break; }
             $studname = trim(substr($studname, 0, -strlen($fatherUpper) - 1)); $studUpper = strtoupper($studname);
         }
         return $studname . ' ' . $fathername;
+    }
+
+    private function ensureArray($data): array {
+        if (is_array($data)) return $data;
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (is_array($decoded)) return $decoded;
+            $unserialized = @unserialize($data);
+            if (is_array($unserialized)) return $unserialized;
+            return [];
+        }
+        return [];
+    }
+
+    private function getProgressCardRecord($studentId, $saralid, $examId, $yearId, $fallbackName = '') {
+        $progress = StudentProgressCard::where('pen', (string)$studentId)
+            ->where('exam_master_id', $examId)
+            ->where('academic_year_id', $yearId)
+            ->first();
+        if ($progress) return $progress;
+
+        if (!empty($saralid) && (string)$saralid !== (string)$studentId) {
+            $progress = StudentProgressCard::where('pen', (string)$saralid)
+                ->where('exam_master_id', $examId)
+                ->where('academic_year_id', $yearId)
+                ->first();
+            if ($progress) return $progress;
+        }
+
+        if (!empty($fallbackName)) {
+            $progress = StudentProgressCard::where(DB::raw('TRIM(full_student_name)'), trim($fallbackName))
+                ->where('exam_master_id', $examId)
+                ->where('academic_year_id', $yearId)
+                ->first();
+            if ($progress) return $progress;
+        }
+
+        return null;
     }
 
     public function index() {
@@ -53,6 +88,11 @@ class ReportCardController extends Controller
             if ($year = AcademicYear::find($request->academic_year_id)) {
                 $yearId = $year->old_year_id ?? substr($year->year_name, 0, 4);
                 $students = StudentHelper::getStudentsDirectERP($yearId, $request->standard_id, $request->division_id);
+                
+                $students = $students->map(function($student) {
+                    $student->clean_full_name = $this->cleanStudentName($student->studname ?? '', $student->fathername ?? '');
+                    return $student;
+                });
             }
         }
         return view('report-card.index', [
@@ -71,6 +111,11 @@ class ReportCardController extends Controller
             if ($academicYear = AcademicYear::find($request->academic_year_id)) {
                 $erpYearId = $academicYear->old_year_id ?? substr((string) $academicYear->year_name, 0, 4);
                 $students = StudentHelper::getStudentsDirectERP($erpYearId, $request->standard_id, $request->division_id);
+                
+                $students = $students->map(function($student) {
+                    $student->clean_full_name = $this->cleanStudentName($student->studname ?? '', $student->fathername ?? '');
+                    return $student;
+                });
             }
         }
 
@@ -89,22 +134,28 @@ class ReportCardController extends Controller
         $student = $this->getErpStudent($request->student_id);
         if (!$student) return view('report-card.index', $viewData)->with('error', 'Student not found in ERP.');
 
-        $pen = $student->saralid;
+        $pen = !empty($student->saralid) ? $student->saralid : $request->student_id;
         $substudent = $selectedEnrollment;
+        
         $exam = DB::table('exam_masters')->where('id', $request->exam_master_id)->first();
         $standard = DB::table('standards')->where('id', $request->standard_id)->first();
         $division = DB::table('divisions')->where('id', $request->division_id)->first();
         $year = DB::table('academic_years')->where('id', $request->academic_year_id)->first();
         
-        $progress = StudentProgressCard::where('pen', $pen)->where('exam_master_id', $request->exam_master_id)->where('academic_year_id', $request->academic_year_id)->first();
-        $manualGrades = $progress->second_term_grades ?? [];
         $studname = trim((string) ($student->studname ?? '')); $fathername = trim((string) ($student->fathername ?? ''));
         $fullName = $this->cleanStudentName($studname, $fathername);
 
+        $progress = $this->getProgressCardRecord($request->student_id, $pen, $request->exam_master_id, $request->academic_year_id, $fullName);
+        
+        $manualGrades = $this->ensureArray($progress->second_term_grades ?? []);
+
+        $dbPen = $progress ? $progress->pen : null;
+        $displayPen = (!empty($dbPen) && (string)$dbPen !== (string)$request->student_id) ? $dbPen : $pen;
+
         $report = (object) [
-            'pen' => $pen,
+            'pen' => $displayPen, 
             'student_id' => (int) $request->student_id,
-            'gov_student_id' => $progress->pen ?? $student->saralid ?? '', 
+            'gov_student_id' => $displayPen, 
             'studname' => $progress->full_student_name ? explode(' ', $progress->full_student_name)[0] : $studname,
             'father_name' => $progress->father_name ?? $fathername, 
             'full_student_name' => $progress->full_student_name ?? $fullName, 
@@ -136,7 +187,7 @@ class ReportCardController extends Controller
             'total_obtained_marks' => $progress->total_obtained_marks ?? 0,
         ];
 
-        $subjects = $this->buildReportCardSubjects((int)$request->student_id, (int)$request->exam_master_id, (int)$request->standard_id, (int)$request->academic_year_id, $manualGrades);
+        $subjects = $this->buildReportCardSubjects((int)$request->student_id, (int)$request->exam_master_id, (int)$request->standard_id, (int)$request->academic_year_id, $manualGrades, $pen);
         
         if ($report->percentage === null) {
             [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
@@ -151,27 +202,64 @@ class ReportCardController extends Controller
         if (!$student = $this->getErpStudent($studentId)) abort(404, 'Student not found in ERP.');
         if (!$year = DB::table('academic_years')->where('id', $yearId)->first()) abort(404, 'Academic year not found.');
 
-        $pen = $student->saralid;
+        $pen = !empty($student->saralid) ? $student->saralid : $studentId;
         $erpYearId = $year->old_year_id ?? substr((string) ($year->year_name ?? ''), 0, 4);
         $exam = DB::table('exam_masters')->where('id', $examId)->first();
         
-        $progress = StudentProgressCard::where('pen', $pen)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
-        
-        $sampleMark = DB::table('student_marks')->where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
-        
-        $standardId = $sampleMark->standard_id ?? $progress->standard_id ?? $exam->standard_id ?? null;
-        $divisionId = $sampleMark->division_id ?? $progress->division_id ?? null;
-        $substudent = $this->getErpSubstudent($studentId, $erpYearId, $standardId, $divisionId);
-        $standard = $standardId ? DB::table('standards')->where('id', $standardId)->first() : null;
-        $division = $divisionId ? DB::table('divisions')->where('id', $divisionId)->first() : null;
-        $manualGrades = $progress->second_term_grades ?? [];
         $studname = trim((string) ($student->studname ?? '')); $fathername = trim((string) ($student->fathername ?? ''));
         $fullName = $this->cleanStudentName($studname, $fathername);
 
+        $progress = $this->getProgressCardRecord($studentId, $pen, $examId, $yearId, $fullName);
+        $substudent = $this->getErpSubstudent($studentId, $erpYearId);
+
+        $standardId = $exam->standard_id ?? $progress->standard_id ?? null;
+
+        $sampleMark = DB::table('student_marks')
+            ->where(function ($q) use ($studentId, $pen) {
+                $q->where('student_id', $studentId);
+                if (!empty($pen) && (string) $pen !== (string) $studentId) {
+                    $q->orWhere('student_id', $pen);
+                }
+            })
+            ->where('exam_master_id', $examId)
+            ->where('academic_year_id', $yearId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$sampleMark) {
+            $sampleMark = DB::table('student_marks')
+                ->where(function ($q) use ($studentId, $pen) {
+                    $q->where('student_id', $studentId);
+                    if (!empty($pen) && (string) $pen !== (string) $studentId) {
+                        $q->orWhere('student_id', $pen);
+                    }
+                })
+                ->where('academic_year_id', $yearId)
+                ->orderByDesc('id')
+                ->first();
+        }
+
+        $standardId = $standardId ?? ($sampleMark->standard_id ?? null);
+        $divisionId = $this->resolveLaravelDivisionId($studentId, $pen, $yearId, $examId, $standardId, $progress, $substudent, $erpYearId);
+
+        if ($standardId && $divisionId && !$substudent) {
+            $substudent = $this->getErpSubstudent($studentId, $erpYearId, $standardId, $divisionId);
+            $progress = $progress ?? $this->getProgressCardRecord($studentId, $pen, $examId, $yearId, $fullName);
+            $divisionId = $this->resolveLaravelDivisionId($studentId, $pen, $yearId, $examId, $standardId, $progress, $substudent, $erpYearId);
+        }
+
+        $standard = $standardId ? DB::table('standards')->where('id', $standardId)->first() : null;
+        $division = $divisionId ? DB::table('divisions')->where('id', $divisionId)->first() : null;
+        
+        $manualGrades = $this->ensureArray($progress->second_term_grades ?? []);
+
+        $dbPen = $progress ? $progress->pen : null;
+        $displayPen = (!empty($dbPen) && (string)$dbPen !== (string)$studentId) ? $dbPen : $pen;
+
         $report = (object) [
-            'pen' => $pen,
+            'pen' => $displayPen, 
             'student_id' => (int) $studentId,
-            'gov_student_id' => $progress->pen ?? $student->saralid ?? '', 
+            'gov_student_id' => $displayPen, 
             'studname' => $progress->full_student_name ? explode(' ', $progress->full_student_name)[0] : $studname,
             'father_name' => $progress->father_name ?? $fathername,
             'full_student_name' => $progress->full_student_name ?? $fullName, 
@@ -202,7 +290,7 @@ class ReportCardController extends Controller
             'total_obtained_marks' => $progress->total_obtained_marks ?? 0,
         ];
 
-        $subjects = $this->buildReportCardSubjects((int)$studentId, (int)$examId, (int)$standardId, (int)$yearId, $manualGrades);
+        $subjects = $this->buildReportCardSubjects((int)$studentId, (int)$examId, (int)$standardId, (int)$yearId, $manualGrades, $pen);
         
         if ($report->percentage === null) {
             [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
@@ -214,54 +302,99 @@ class ReportCardController extends Controller
 
     private function getProgressCardData($studentId, $examId, $yearId) {
         if (!$student = $this->getErpStudent($studentId)) abort(404, 'Student not found in ERP.');
-        $pen = $student->saralid;
-
-        $progress = StudentProgressCard::where('pen', $pen)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first();
         
-        $exam = DB::table('exam_masters')->where('id', $examId)->first(); $year = DB::table('academic_years')->where('id', $yearId)->first();
+        $pen = !empty($student->saralid) ? $student->saralid : $studentId;
+
+        $exam = DB::table('exam_masters')->where('id', $examId)->first(); 
+        $year = DB::table('academic_years')->where('id', $yearId)->first();
         if (!$exam) abort(404, 'Exam not found.'); if (!$year) abort(404, 'Academic year not found.');
 
         $erpYearId = $year->old_year_id ?? substr((string) ($year->year_name ?? ''), 0, 4);
         $substudent = $this->getErpSubstudent($studentId, $erpYearId);
-        $standardId = $progress->standard_id ?? null; $divisionId = $progress->division_id ?? null;
+        
+        $studname = trim((string) ($student->studname ?? '')); $fathername = trim((string) ($student->fathername ?? ''));
+        $cleanedFullName = $this->cleanStudentName($studname, $fathername);
 
-        if (!$standardId || !$divisionId) {
-            $sampleMark = DB::table('student_marks')->where('student_id', $studentId)->where('exam_master_id', $examId)->where('academic_year_id', $yearId)->first() 
-                ?? DB::table('student_marks')->where('student_id', $studentId)->where('academic_year_id', $yearId)->first();
-            $standardId = $standardId ?? $sampleMark->standard_id ?? $exam->standard_id ?? null;
-            $divisionId = $divisionId ?? $sampleMark->division_id ?? null;
+        $progress = $this->getProgressCardRecord($studentId, $pen, $examId, $yearId, $cleanedFullName);
+
+        $standardId = $exam->standard_id ?? $progress->standard_id ?? null;
+
+        $sampleMark = DB::table('student_marks')
+            ->where(function ($q) use ($studentId, $pen) {
+                $q->where('student_id', $studentId);
+                if (!empty($pen) && (string) $pen !== (string) $studentId) {
+                    $q->orWhere('student_id', $pen);
+                }
+            })
+            ->where('exam_master_id', $examId)
+            ->where('academic_year_id', $yearId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$sampleMark) {
+            $sampleMark = DB::table('student_marks')
+                ->where(function ($q) use ($studentId, $pen) {
+                    $q->where('student_id', $studentId);
+                    if (!empty($pen) && (string) $pen !== (string) $studentId) {
+                        $q->orWhere('student_id', $pen);
+                    }
+                })
+                ->where('academic_year_id', $yearId)
+                ->orderByDesc('id')
+                ->first();
         }
 
-        if (!$divisionId && ($skillMark = DB::table('student_skill_marks')->where('student_id', $studentId)->where('academic_year_id', $yearId)->first())) {
-            $divisionId = $skillMark->division_id ?? null; $standardId = $standardId ?? $skillMark->standard_id ?? null;
+        $standardId = $standardId ?? ($sampleMark->standard_id ?? null);
+
+        if (!$standardId) {
+            $skillStandardId = DB::table('student_result_details')
+                ->where('student_id', $studentId)
+                ->where('academic_year_id', $yearId)
+                ->orderByDesc('id')
+                ->value('standard_id');
+            $standardId = $skillStandardId ?: null;
         }
 
-        if (!$divisionId && $substudent && ($divField = $substudent->div ?? $substudent->division ?? null)) {
-            if ($divRec = DB::table('divisions')->where('division_name', $divField)->first()) $divisionId = $divRec->id;
-        }
+        $divisionId = $this->resolveLaravelDivisionId($studentId, $pen, $yearId, $examId, $standardId, $progress, $substudent, $erpYearId);
 
-        if (!$standardId && $substudent && ($stdField = $substudent->class ?? $substudent->standard ?? null)) {
-            if ($stdRec = DB::table('standards')->where('standard_name', 'LIKE', '%'.$stdField.'%')->first()) $standardId = $stdRec->id;
+        if ($standardId && $divisionId && !$substudent) {
+            $substudent = $this->getErpSubstudent($studentId, $erpYearId, $standardId, $divisionId);
+            $divisionId = $this->resolveLaravelDivisionId($studentId, $pen, $yearId, $examId, $standardId, $progress, $substudent, $erpYearId);
+            if (!$progress && $substudent) {
+                $progress = $this->getProgressCardRecord($studentId, $pen, $examId, $yearId, $cleanedFullName);
+                $divisionId = $this->resolveLaravelDivisionId($studentId, $pen, $yearId, $examId, $standardId, $progress, $substudent, $erpYearId);
+            }
         }
-
-        if ($standardId && $divisionId) $substudent = $this->getErpSubstudent($studentId, $erpYearId, $standardId, $divisionId);
 
         $standard = $standardId ? DB::table('standards')->where('id', $standardId)->first() : null;
         $division = $divisionId ? DB::table('divisions')->where('id', $divisionId)->first() : null;
+        
         $examName = strtoupper(trim((string) ($exam->exam_name ?? ''))); $termLabel = 'Exam';
         if (str_contains($examName, 'TERM 1')) $termLabel = 'Term 1'; elseif (str_contains($examName, 'TERM 2')) $termLabel = 'Term 2';
         elseif (str_contains($examName, 'UNIT TEST 1')) $termLabel = 'Unit Test 1'; elseif (str_contains($examName, 'UNIT TEST 2')) $termLabel = 'Unit Test 2';
         elseif (str_contains($examName, 'UNIT TEST 3')) $termLabel = 'Unit Test 3'; elseif (str_contains($examName, 'UNIT TEST 4')) $termLabel = 'Unit Test 4';
         elseif (str_contains($examName, 'ANNUAL')) $termLabel = 'Annual';
 
-        if (!$progress) {
-            $progress = new StudentProgressCard(); $progress->attendance_data = $this->defaultAttendanceData();
-            $progress->descriptive_records = []; $progress->second_term_grades = [];
+        $defaultAttendance = $this->defaultAttendanceData();
+        $savedAttendance = $progress ? $this->ensureArray($progress->attendance_data ?? []) : [];
+        foreach ($defaultAttendance as $month => $defaults) {
+            if (isset($savedAttendance[$month])) {
+                $defaultAttendance[$month] = array_merge($defaults, $savedAttendance[$month]);
+            }
         }
 
-        $manualGrades = $progress->second_term_grades ?? [];
-        $studname = trim((string) ($student->studname ?? '')); $fathername = trim((string) ($student->fathername ?? ''));
-        $cleanedFullName = $this->cleanStudentName($studname, $fathername);
+        if (!$progress) {
+            $progress = new StudentProgressCard(); 
+            $progress->descriptive_records = []; 
+            $progress->second_term_grades = [];
+        } else {
+            $progress->descriptive_records = $this->ensureArray($progress->descriptive_records ?? []);
+            $progress->second_term_grades = $this->ensureArray($progress->second_term_grades ?? []);
+        }
+        $progress->attendance_data = $defaultAttendance;
+
+        $manualGrades = $progress->second_term_grades;
+        
         $cleanStudName = $cleanedFullName;
         if ($fathername !== '' && str_ends_with(strtoupper($cleanedFullName), strtoupper($fathername))) {
             $cleanStudName = trim(substr($cleanedFullName, 0, -strlen($fathername)));
@@ -273,10 +406,13 @@ class ReportCardController extends Controller
             $shakYear = count($parts) == 2 ? 'Shak: ' . (intval($parts[0]) - 78) . '-' . (intval($parts[1]) - 78) : 'Shak: ' . (intval(substr($yearLabel, 0, 4)) - 78);
         }
 
+        $dbPen = $progress ? $progress->pen : null;
+        $displayPen = (!empty($dbPen) && (string)$dbPen !== (string)$studentId) ? $dbPen : $pen;
+
         $report = (object) [
-            'pen' => $pen,
+            'pen' => $displayPen, 
             'student_id' => (int) $studentId,
-            'gov_student_id' => $progress->pen ?? $student->saralid ?? '', 
+            'gov_student_id' => $displayPen, 
             'studname' => $progress->full_student_name ? explode(' ', $progress->full_student_name)[0] : $cleanStudName,
             'father_name' => $progress->father_name ?? $fathername, 
             'full_student_name' => $progress->full_student_name ?? $cleanedFullName, 
@@ -309,16 +445,36 @@ class ReportCardController extends Controller
             'total_obtained_marks' => $progress->total_obtained_marks ?? 0,
         ];
 
-        $subjects = $this->buildProgressCardSubjects($studentId, $examId, $standardId, $yearId, $manualGrades, $report->standard_name, $report->exam_name);
+        $standardName = $standard->standard_name ?? '';
+        $isPrePrimary = $this->isPrePrimaryStandard($standardName);
+        $isHighSchool = $this->isHighSchoolStandard($standardName);
+
+        $skillObservations = collect();
+        if ($isPrePrimary || $isHighSchool) {
+            $skillObservations = DB::table('student_skill_observations as sso')
+                ->leftJoin('subjects as s', 's.id', '=', 'sso.subject_id')
+                ->where(function($q) use ($studentId, $pen) {
+                    $q->where('sso.student_id', $studentId);
+                    if (!empty($pen) && (string)$pen !== (string)$studentId) {
+                        $q->orWhere('sso.student_id', $pen);
+                    }
+                })
+                ->where('sso.exam_master_id', $examId)
+                ->where('sso.academic_year_id', $yearId)
+                ->select('sso.*', 's.subject_name')
+                ->get();
+        }
+
+        $subjects = $this->buildProgressCardSubjects($studentId, $examId, $standardId, $yearId, $manualGrades, $report->standard_name, $report->exam_name, $skillObservations, $pen);
         
         if ($report->percentage === null) {
             [$pct, $grade, $result, $tMax, $tObt] = $this->computeOverall($subjects);
             $report->percentage = $pct; $report->grade = $grade; $report->result = $result; $report->total_max_marks = $tMax; $report->total_obtained_marks = $tObt;
         }
 
-        return compact('report', 'subjects', 'progress', 'termLabel') + [
+        return compact('report', 'subjects', 'progress', 'termLabel', 'skillObservations') + [
             'academicAverageGrade' => $this->calculateAcademicAverageGrade($subjects),
-            'specialSkillAverageGrade' => $this->calculateSpecialSkillAverageGrade($subjects)
+            'specialSkillAverageGrade' => $this->calculateSpecialSkillAverageGrade($subjects, $report->standard_name)
         ];
     }
 
@@ -336,7 +492,11 @@ class ReportCardController extends Controller
         if (!$student = $this->getErpStudent($studentId)) {
             return redirect()->back()->with('error', 'Student not found in ERP.');
         }
-        $pen = $student->saralid;
+        
+        $pen = !empty($student->saralid) ? $student->saralid : $studentId;
+        
+        $inputPen = $request->input('gov_student_id') ?? $request->input('pen');
+        $finalPen = !empty($inputPen) ? $inputPen : $pen;
 
         $standardId = $request->input('standard_id'); 
         $divisionId = $request->input('division_id');
@@ -363,12 +523,10 @@ class ReportCardController extends Controller
             $descriptive[$sid] = ['progress' => trim((string) ($fields['progress'] ?? '')), 'interest' => trim((string) ($fields['interest'] ?? '')), 'improvements' => trim((string) ($fields['improvements'] ?? ''))];
         }
         
-        // Split Grades into Academic and Skill Arrays
         foreach ((array) $request->input('graded_subjects', []) as $key => $grd) {
             $grd = trim((string)$grd);
             if ($grd !== '') {
-                $manualGrades[$key] = $grd; // Keep for backward compatibility with second_term_grades
-                
+                $manualGrades[$key] = $grd; 
                 if (is_numeric($key) || str_contains(strtoupper($key), 'DEFENCE') || str_contains(strtoupper($key), 'WATER')) {
                     $academicGrades[$key] = $grd;
                 } else {
@@ -377,61 +535,80 @@ class ReportCardController extends Controller
             }
         }
 
-        // Save Teacher Remark as array
         $teacherRemark = ['text' => $request->input('teacher_remark')];
-
         $classTestData = ['attendance' => $request->input('class_test.attendance'), 'result' => $request->input('class_test.result'), 'remark' => $request->input('class_test.remark')];
         $schoolDaysAttendance = [];
         foreach (['15_aug','ganesh_sthapana','ganesh_visarjan','date_15_aug','date_ganesh_sthapana','date_ganesh_visarjan'] as $k) {
             $schoolDaysAttendance[$k] = $request->input("school_days.$k");
         }
 
-        StudentProgressCard::updateOrCreate(
-            ['pen' => $pen, 'exam_master_id' => $examId, 'academic_year_id' => $yearId],
-            [
-                'full_student_name' => $request->input('student_name'),
-                'father_name' => $request->input('father_name'),
-                'mother_name' => $request->input('mother_name'),
-                'gender' => $request->input('gender'),
-                'date_of_birth' => $request->input('date_of_birth'),
-                'gr_no' => $request->input('gr_no'),
-                'roll_no' => $request->input('rollno'),
-                'aadhar_no' => $request->input('aadhar_no'),
+        $updateData = [
+            'pen' => $finalPen, 
+            'full_student_name' => $request->input('student_name'),
+            'father_name' => $request->input('father_name'),
+            'mother_name' => $request->input('mother_name'),
+            'gender' => $request->input('gender'),
+            'date_of_birth' => $request->input('date_of_birth'),
+            'gr_no' => $request->input('gr_no'),
+            'roll_no' => $request->input('rollno'),
+            'aadhar_no' => $request->input('aadhar_no'),
+            'standard_id' => $standardId, 
+            'division_id' => $divisionId, 
+            'phone' => $request->input('phone'), 
+            'email' => $request->input('email'),
+            'school_timing' => $request->input('school_timing'), 
+            'blood_group' => $request->input('blood_group'), 
+            'mother_tongue' => $request->input('mother_tongue'),
+            'address' => $request->input('address'), 
+            'term1_weight' => $request->input('term1_weight'), 
+            'term1_height' => $request->input('term1_height'),
+            'term2_weight' => $request->input('term2_weight'), 
+            'term2_height' => $request->input('term2_height'), 
+            'attendance_data' => $attendance,
+            'passed_promoted_to' => $request->input('passed_promoted_to'), 
+            'school_reopens_on' => $request->input('school_reopens_on'),
+            'descriptive_records' => $descriptive, 
+            'second_term_grades' => $manualGrades, 
+            'class_test_data' => $classTestData,
+            'school_days_data' => $schoolDaysAttendance, 
+            'teacher_remark' => $teacherRemark,
+            'academic_grades' => $academicGrades,
+            'skill_grades' => $skillGrades,
+            'percentage' => $pct,
+            'grade' => $grade,
+            'result' => $result,
+            'total_max_marks' => $tMax,
+            'total_obtained_marks' => $tObt,
+            'updated_by' => Auth::id(), 
+            'created_by' => Auth::id(),
+        ];
 
-                'standard_id' => $standardId, 
-                'division_id' => $divisionId, 
-                'phone' => $request->input('phone'), 
-                'email' => $request->input('email'),
-                'school_timing' => $request->input('school_timing'), 
-                'blood_group' => $request->input('blood_group'), 
-                'mother_tongue' => $request->input('mother_tongue'),
-                'address' => $request->input('address'), 
-                'term1_weight' => $request->input('term1_weight'), 
-                'term1_height' => $request->input('term1_height'),
-                'term2_weight' => $request->input('term2_weight'), 
-                'term2_height' => $request->input('term2_height'), 
-                'attendance_data' => $attendance,
-                'passed_promoted_to' => $request->input('passed_promoted_to'), 
-                'school_reopens_on' => $request->input('school_reopens_on'),
-                'descriptive_records' => $descriptive, 
-                'second_term_grades' => $manualGrades, 
-                'class_test_data' => $classTestData,
-                'school_days_data' => $schoolDaysAttendance, 
-                
-                'teacher_remark' => $teacherRemark,
-                'academic_grades' => $academicGrades,
-                'skill_grades' => $skillGrades,
+        $existing = StudentProgressCard::where('exam_master_id', $examId)
+            ->where('academic_year_id', $yearId)
+            ->where(function($q) use ($studentId, $pen) {
+                $q->where('pen', (string)$studentId);
+                if (!empty($pen) && (string)$pen !== (string)$studentId) {
+                    $q->orWhere('pen', (string)$pen);
+                }
+            })->first();
 
-                'percentage' => $pct,
-                'grade' => $grade,
-                'result' => $result,
-                'total_max_marks' => $tMax,
-                'total_obtained_marks' => $tObt,
+        if (!$existing) {
+            $cleanedFullName = $this->cleanStudentName(trim((string)($student->studname ?? '')), trim((string)($student->fathername ?? '')));
+            $existing = StudentProgressCard::where('exam_master_id', $examId)
+                ->where('academic_year_id', $yearId)
+                ->where(DB::raw('TRIM(full_student_name)'), trim($cleanedFullName))
+                ->first();
+        }
 
-                'updated_by' => Auth::id(), 
-                'created_by' => Auth::id(),
-            ]
-        );
+        if ($existing) {
+            $existing->update($updateData);
+        } else {
+            StudentProgressCard::create(array_merge([
+                'exam_master_id' => $examId, 
+                'academic_year_id' => $yearId
+            ], $updateData));
+        }
+
         return redirect()->route('report-card.progress-card', [$studentId, $examId, $yearId])->with('success', 'Progress card details saved.');
     }
 
@@ -454,7 +631,6 @@ class ReportCardController extends Controller
         try {
             $rows = DB::connection('sqlsrv_olderp')->table('SubStudentMst')->where('Studentid', $studentId)->where('yearid', $erpYearId)->orderBy('standardid')->orderBy('divisionid')->orderBy('rollno')->get();
             if ($rows->isEmpty()) return null;
-            if ($rows->count() > 1) { Log::warning('Multiple ERP enrollments exist.', compact('studentId', 'erpYearId')); return null; }
             return $rows->first();
         } catch (\Throwable $e) { return null; }
     }
@@ -469,46 +645,271 @@ class ReportCardController extends Controller
         return implode(', ', array_unique($parts));
     }
 
-    private function getSubjectMarksMap($studentId, $examId, $standardId): \Illuminate\Support\Collection {
-        $marks = DB::table('student_marks as sm')
-            ->leftJoin('subjects as sub', 'sub.id', '=', 'sm.subject_id')
-            ->leftJoin('standard_wise_subjects as sws', function($join) use ($standardId) {
-                $join->on('sws.subject_id', '=', 'sub.id')
-                     ->where('sws.standard_id', '=', $standardId);
-            })
-            ->where('sm.student_id', $studentId)->where('sm.exam_master_id', $examId)
-            ->select('sm.*', 'sub.subject_name as master_name', 'sws.subject_name as sws_name')->get();
-            
-        if ($marks->isEmpty()) return collect();
+    private function getStudentMarksDivisionId($studentId, $pen, $academicYearId, $examId = null, $standardId = null): ?int
+    {
+        $baseQuery = function () use ($studentId, $pen, $academicYearId, $standardId) {
+            $query = DB::table('student_marks')
+                ->where(function ($q) use ($studentId, $pen) {
+                    $q->where('student_id', $studentId);
+                    if (!empty($pen) && (string) $pen !== (string) $studentId) {
+                        $q->orWhere('student_id', $pen);
+                    }
+                })
+                ->where('academic_year_id', $academicYearId)
+                ->whereNotNull('division_id')
+                ->where('division_id', '>', 0);
 
-        $marks = $marks->map(function($m) {
-            $m->master_subject_name = !empty($m->sws_name) ? $m->sws_name : $m->master_name;
-            unset($m->master_name, $m->sws_name);
-            return $m;
-        });
+            if (!empty($standardId)) {
+                $query->where('standard_id', $standardId);
+            }
 
-        $swsMap = $standardId ? DB::table('standard_wise_subjects')->where('standard_id', $standardId)->get()->keyBy('id') : collect();
-        $result = collect();
-        foreach ($marks as $mark) {
-            $storedId = (int) $mark->subject_id; if ($storedId <= 0) continue;
-            if (!$result->has($storedId)) $result->put($storedId, $mark);
-            if (!empty($mark->master_subject_name)) $result->put('NAME_' . strtoupper(trim($mark->master_subject_name)), $mark);
-            if ($swsMap->has($storedId)) {
-                $subjectName = $swsMap[$storedId]->subject_name;
-                $result->put('NAME_' . strtoupper(trim($subjectName)), $mark);
-                if (!$result->has((int) $swsMap[$storedId]->subject_id)) $result->put((int) $swsMap[$storedId]->subject_id, $mark);
+            return $query;
+        };
+
+        $candidates = [];
+
+        if (!empty($examId)) {
+            $candidates[] = $baseQuery()
+                ->where('exam_master_id', $examId)
+                ->orderByDesc('id')
+                ->value('division_id');
+        }
+
+        $candidates[] = $baseQuery()
+            ->orderByDesc('id')
+            ->value('division_id');
+
+        foreach ($candidates as $candidate) {
+            $candidate = (int) $candidate;
+            if ($candidate > 0 && DB::table('divisions')->where('id', $candidate)->exists()) {
+                return $candidate;
             }
         }
+
+        return null;
+    }
+
+    private function getErpDivisionName($substudent, $erpYearId): ?string
+    {
+        if (!$substudent) {
+            return null;
+        }
+
+        $erpDivisionId = $substudent->divisionid ?? null;
+
+        if ($erpDivisionId !== null && $erpDivisionId !== '') {
+            try {
+                $query = DB::connection('sqlsrv_olderp')
+                    ->table('DivisionMst')
+                    ->where('divisionid', $erpDivisionId);
+
+                $lookupYearId = $substudent->yearid ?? $erpYearId;
+                if ($lookupYearId !== null && trim((string) $lookupYearId) !== '') {
+                    $query->where('yearid', $lookupYearId);
+                }
+
+                if (!empty($substudent->standardid)) {
+                    $query->where('standardid', $substudent->standardid);
+                }
+
+                $erpDivision = $query->first();
+                $divisionName = trim((string) ($erpDivision->division ?? ''));
+
+                if ($divisionName !== '') {
+                    return $divisionName;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Unable to resolve ERP division name.', [
+                    'erp_division_id' => $erpDivisionId,
+                    'erp_year_id' => $erpYearId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        foreach (['div', 'division'] as $field) {
+            $name = trim((string) ($substudent->{$field} ?? ''));
+            if ($name !== '') {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    private function getLaravelDivisionIdByName($divisionName): ?int
+    {
+        $normalizedName = mb_strtoupper(trim(preg_replace('/\\s+/', ' ', (string) $divisionName)));
+
+        if ($normalizedName === '') {
+            return null;
+        }
+
+        $id = DB::table('divisions')
+            ->whereRaw('UPPER(TRIM(division_name)) = ?', [$normalizedName])
+            ->value('id');
+
+        return $id ? (int) $id : null;
+    }
+
+    private function resolveLaravelDivisionId(
+        $studentId,
+        $pen,
+        $academicYearId,
+        $examId,
+        $standardId,
+        $progress,
+        $substudent,
+        $erpYearId
+    ): ?int {
+        $marksDivisionId = $this->getStudentMarksDivisionId(
+            $studentId,
+            $pen,
+            $academicYearId,
+            $examId,
+            $standardId
+        );
+
+        if ($marksDivisionId) {
+            return $marksDivisionId;
+        }
+
+        $erpDivisionName = $this->getErpDivisionName($substudent, $erpYearId);
+        $normalizedErpName = mb_strtoupper(trim(preg_replace('/\\s+/', ' ', (string) $erpDivisionName)));
+
+        $progressDivisionId = (int) ($progress->division_id ?? 0);
+        if ($progressDivisionId > 0) {
+            $progressDivision = DB::table('divisions')
+                ->where('id', $progressDivisionId)
+                ->first();
+
+            if ($progressDivision) {
+                $savedName = mb_strtoupper(trim(preg_replace('/\\s+/', ' ', (string) $progressDivision->division_name)));
+                if ($normalizedErpName === '' || $savedName === $normalizedErpName) {
+                    return $progressDivisionId;
+                }
+            }
+        }
+
+        try {
+            $skillDivisionQuery = DB::table('student_result_details')
+                ->where('student_id', $studentId)
+                ->where('academic_year_id', $academicYearId)
+                ->when($standardId, fn ($q) => $q->where('standard_id', $standardId))
+                ->whereNotNull('division_id');
+
+            $skillDivisionId = $skillDivisionQuery
+                ->where('division_id', '>', 0)
+                ->orderByDesc('id')
+                ->value('division_id');
+
+            $skillDivisionId = (int) $skillDivisionId;
+            if (
+                $skillDivisionId > 0 &&
+                DB::table('divisions')->where('id', $skillDivisionId)->exists()
+            ) {
+                return $skillDivisionId;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Could not query division_id from student_result_details', [
+                'student_id' => $studentId,
+                'standard_id' => $standardId,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return $this->getLaravelDivisionIdByName($erpDivisionName);
+    }
+
+    private function getSubjectMarksMap($studentId, $examId, $standardId, $swsMap = null, $pen = null): \Illuminate\Support\Collection {
+        $examInfo = DB::table('exam_masters')->where('id', $examId)->first();
+        $examIds = [$examId];
+        if ($examInfo && $examInfo->exam_name) {
+            $relatedIds = DB::table('exam_masters')
+                ->where('exam_name', $examInfo->exam_name)
+                ->where('standard_id', $standardId)
+                ->when($examInfo->academic_year_id, fn($q) => $q->where('academic_year_id', $examInfo->academic_year_id))
+                ->pluck('id')->toArray();
+            $examIds = array_unique(array_merge($examIds, $relatedIds));
+        }
+
+        $rawMarks = DB::table('student_marks')
+            ->where(function($q) use ($studentId, $pen) {
+                $q->where('student_id', $studentId);
+                if (!empty($pen) && (string)$pen !== (string)$studentId) {
+                    $q->orWhere('student_id', $pen);
+                }
+            })
+            ->whereIn('exam_master_id', $examIds)
+            ->get();
+
+        if ($rawMarks->isEmpty()) return collect();
+
+        // Fetch TSAs to get true Master Subject IDs
+        $tsaIds = $rawMarks->pluck('teacher_subject_allocation_id')->filter()->unique()->toArray();
+        $tsaMap = collect();
+        if (!empty($tsaIds)) {
+            $tsaMap = DB::table('teacher_subject_allocations')->whereIn('id', $tsaIds)->pluck('subject_id', 'id');
+        }
+
+        if (!$swsMap) {
+            $swsMap = DB::table('standard_wise_subjects')
+                ->where('standard_id', $standardId)
+                ->get();
+        }
+        
+        $swsIdColumn = $swsMap->first() && isset($swsMap->first()->standard_wise_subject_id) ? 'standard_wise_subject_id' : 'id';
+        $swsIdToSubjectId = $swsMap->pluck('subject_id', $swsIdColumn)->toArray();
+        $subjectIdToSwsName = $swsMap->pluck('subject_name', 'subject_id')->toArray();
+
+        $allRequiredSubjectIds = array_unique(array_merge(
+            $rawMarks->pluck('subject_id')->toArray(),
+            array_values($swsIdToSubjectId),
+            array_values($tsaMap->toArray())
+        ));
+        $dbSubjects = DB::table('subjects')->whereIn('id', $allRequiredSubjectIds)->pluck('subject_name', 'id')->toArray();
+
+        $result = collect();
+        
+        foreach ($rawMarks as $mark) {
+            $storedId = (int) $mark->subject_id;
+            $tsaId = $mark->teacher_subject_allocation_id;
+            $actualId = $storedId;
+            
+            // 1. Resolve using TSA. TSA subject_id is ALWAYS the master subject_id.
+            if (!empty($tsaId) && $tsaMap->has($tsaId)) {
+                $actualId = (int) $tsaMap->get($tsaId);
+            }
+            // 2. If no TSA, check if storedId is an SWS ID (legacy)
+            elseif (isset($swsIdToSubjectId[$storedId])) {
+                $actualId = (int) $swsIdToSubjectId[$storedId];
+            }
+
+            $finalName = $dbSubjects[$actualId] ?? $dbSubjects[$storedId] ?? null;
+
+            if (isset($subjectIdToSwsName[$actualId])) {
+                $finalName = $subjectIdToSwsName[$actualId] ?? $finalName;
+            } elseif (isset($subjectIdToSwsName[$storedId])) {
+                $finalName = $subjectIdToSwsName[$storedId] ?? $finalName;
+            }
+
+            $result->put($actualId, $mark);
+
+            if ($finalName) {
+                $result->put('NAME_' . strtoupper(trim($finalName)), $mark);
+            }
+        }
+        
         return $result;
     }
 
     private function mapSubjectToSkill($subjectName): array {
         $name = strtoupper(trim((string) $subjectName));
-        if (str_contains($name, 'OTHERS') || str_contains($name, 'LIBRARY')) return ['id' => 4, 'slot' => 'S4'];
-        if (str_contains($name, 'WORK EXPERIENCE') || str_contains($name, 'WORK EXP')) return ['id' => 2, 'slot' => 'S2'];
-        if (str_contains($name, 'PT & HEALTH') || str_contains($name, 'PHYSICAL EDUCATION')) return ['id' => 3, 'slot' => 'S3'];
-        if (str_contains($name, 'ART') || str_contains($name, 'DRAWING')) return ['id' => 1, 'slot' => 'S1'];
-        return ['id' => null, 'slot' => null];
+        if (str_contains($name, 'OTHERS') || str_contains($name, 'LIBRARY')) return ['slot' => 'S4'];
+        if (str_contains($name, 'WORK EXPERIENCE') || str_contains($name, 'WORK EXP')) return ['slot' => 'S2'];
+        if (str_contains($name, 'PT & HEALTH') || str_contains($name, 'PHYSICAL EDUCATION')) return ['slot' => 'S3'];
+        if (str_contains($name, 'ART') || str_contains($name, 'DRAWING')) return ['slot' => 'S1'];
+        return ['slot' => null];
     }
 
     private function subjectNameToKey($subjectName): string {
@@ -523,7 +924,14 @@ class ReportCardController extends Controller
         return false;
     }
 
-    private function buildReportCardSubjects($studentId, $examId, $standardId, $academicYearId, array $manualGrades = []): \Illuminate\Support\Collection {
+    private function buildReportCardSubjects($studentId, $examId, $standardId, $academicYearId, array $manualGrades = [], $pen = null): \Illuminate\Support\Collection {
+        $standardName = DB::table('standards')->where('id', $standardId)->value('standard_name') ?? '';
+        $stdNameUpper = strtoupper(trim($standardName));
+        $is11or12 = preg_match('/\b(11|12)\b/', $stdNameUpper) || str_contains($stdNameUpper, 'ELEVENTH') || str_contains($stdNameUpper, 'TWELFTH') || str_contains($stdNameUpper, 'XI') || str_contains($stdNameUpper, 'XII');
+        $is10orHigher = preg_match('/\b(10|11|12)\b/', $stdNameUpper) || str_contains($stdNameUpper, 'TENTH') || str_contains($stdNameUpper, 'ELEVENTH') || str_contains($stdNameUpper, 'TWELFTH') || in_array($stdNameUpper, ['X', 'XI', 'XII']);
+
+        $swsMap = $standardId ? DB::table('standard_wise_subjects')->where('standard_id', $standardId)->get()->keyBy('subject_id') : collect();
+        
         $examSubjects = DB::table('exam_master_subjects as ems')
             ->join('subjects as s', 's.id', '=', 'ems.subject_id')
             ->leftJoin('standard_wise_subjects as sws', function($join) use ($standardId) {
@@ -542,7 +950,7 @@ class ReportCardController extends Controller
             $ex->subject_name = !empty($ex->sws_name) ? $ex->sws_name : $ex->master_name;
             unset($ex->master_name, $ex->sws_name);
             return $ex;
-        });
+        })->unique('subject_id')->values();
 
         if ($examSubjects->isEmpty() && $standardId) {
             $examSubjects = DB::table('standard_wise_subjects as sws')
@@ -559,36 +967,129 @@ class ReportCardController extends Controller
                 $ex->subject_name = !empty($ex->sws_name) ? $ex->sws_name : $ex->master_name;
                 unset($ex->master_name, $ex->sws_name);
                 return $ex;
-            });
+            })->unique('subject_id')->values();
+        }
+
+        if ($is11or12) {
+            $examSubjects = $examSubjects->reject(fn($s) => strtoupper(trim($s->subject_name)) === 'COMPUTER SCIENCE')->values();
+        }
+
+        $skillNamesToRemove = [
+            'MUSIC', 'DRAWING', 'SANSKRIT BHARTI', 'DANCE', 'ACTING', 'TABLA', 
+            'ABACUS', 'COMPUTER', 'ROBOTICS', 'CRAFT', 'PHYSICAL EDUCATION', 
+            'DEFENCE STUDIES', 'WATER SECURITY', 'T/S/A/D', 'PT', 'ART', 'WE'
+        ];
+        if ($this->isHighSchoolStandard($standardName) || $is10orHigher) {
+            $examSubjects = $examSubjects->reject(function($s) use ($skillNamesToRemove) {
+                $name = strtoupper(trim($s->subject_name));
+                foreach ($skillNamesToRemove as $skill) {
+                    if ($name === $skill || str_contains($name, $skill)) return true;
+                }
+                return false;
+            })->values();
         }
         
-        $examSubjects = $this->ensureAdditionalSubjects($examSubjects, $standardId);
-        $marksBySubject = $this->getSubjectMarksMap($studentId, $examId, $standardId);
+        $examSubjects = $this->ensureAdditionalSubjects($examSubjects, $standardId, $standardName);
+        
+        $marksBySubject = $this->getSubjectMarksMap($studentId, $examId, $standardId, $swsMap, $pen);
+        
         $skillGrades = [];
-        foreach (DB::table('student_skill_marks as ssm')->leftJoin('subjects as s', 's.id', '=', 'ssm.skill_id')->where('ssm.academic_year_id', $academicYearId)->where('ssm.student_id', $studentId)->select('ssm.*', 's.subject_name as skill_subject_name')->get() as $mark) {
+        $skillMarks = collect();
+        
+        try {
+            $skillMarks = DB::table('student_skill_marks as ssm')
+                ->leftJoin('subjects as s', 's.id', '=', 'ssm.subject_id')
+                ->where('ssm.exam_master_id', $examId)
+                ->where(function($q) use ($studentId, $pen) {
+                    $q->where('ssm.student_id', $studentId);
+                    if (!empty($pen) && (string)$pen !== (string)$studentId) {
+                        $q->orWhere('ssm.student_id', $pen);
+                    }
+                })
+                ->select('ssm.*', 's.subject_name as skill_subject_name')
+                ->get();
+        } catch (\Exception $e) {}
+
+        if ($skillMarks->isEmpty()) {
+            try {
+                $skillMarks = DB::table('student_result_details as srd')
+                    ->join('student_results as sr', 'sr.id', '=', 'srd.student_result_id')
+                    ->leftJoin('subjects as s', 's.id', '=', 'srd.subject_id')
+                    ->where('sr.exam_master_id', $examId)
+                    ->where(function($q) use ($studentId, $pen) {
+                        $q->where('sr.student_id', $studentId);
+                        if (!empty($pen) && (string)$pen !== (string)$studentId) {
+                            $q->orWhere('sr.student_id', $pen);
+                        }
+                    })
+                    ->select('srd.*', 's.subject_name as skill_subject_name', 'sr.student_id')
+                    ->get();
+            } catch (\Exception $e) {}
+        }
+        
+        foreach ($skillMarks as $mark) {
             $grade = null;
             if (isset($mark->is_absent) && $mark->is_absent == 1) $grade = (!empty($mark->grade) && in_array(strtoupper(trim($mark->grade)), ['F', 'AB'])) ? strtoupper(trim($mark->grade)) : 'AB';
             elseif (!empty($mark->grade)) $grade = strtoupper(trim($mark->grade));
             if ($grade) {
-                $isCurrentExam = ($mark->exam_master_id == $examId);
-                if (isset($mark->skill_id) && $mark->skill_id > 0) { $sid = (int) $mark->skill_id; if ($isCurrentExam || !isset($skillGrades[$sid])) $skillGrades[$sid] = $grade; }
-                if (isset($mark->skill_slot) && !empty($mark->skill_slot)) { $slot = trim($mark->skill_slot); if ($isCurrentExam || !isset($skillGrades[$slot])) $skillGrades[$slot] = $grade; }
+                $isCurrentExam = (isset($mark->exam_master_id) && $mark->exam_master_id == $examId);
+                if (isset($mark->skill_slot) && !empty($mark->skill_slot)) { 
+                    $rawSlot = strtoupper(trim($mark->skill_slot));
+                    $slot = is_numeric($rawSlot) ? 'S' . $rawSlot : $rawSlot; 
+                    if ($isCurrentExam || !isset($skillGrades[$slot])) $skillGrades[$slot] = $grade; 
+                }
                 if (!empty($mark->skill_subject_name)) { $name = strtoupper(trim($mark->skill_subject_name)); if ($isCurrentExam || !isset($skillGrades[$name])) $skillGrades[$name] = $grade; }
             }
         }
 
-        return $examSubjects->map(function ($ex) use ($marksBySubject, $manualGrades, $skillGrades) {
+        return $examSubjects->map(function ($ex) use ($marksBySubject, $manualGrades, $skillGrades, $is10orHigher) {
             $subjectId = (int) $ex->subject_id;
             if (!empty($ex->is_graded)) {
-                $grade = null; $skillMap = $this->mapSubjectToSkill($ex->subject_name); $skillId = $skillMap['id']; $skillSlot = $skillMap['slot'];
-                if ($skillId && isset($skillGrades[$skillId])) $grade = $skillGrades[$skillId];
-                elseif ($skillSlot && isset($skillGrades[$skillSlot])) $grade = $skillGrades[$skillSlot];
-                elseif ($subjectId && isset($skillGrades[$subjectId])) $grade = $skillGrades[$subjectId];
-                if (!$grade) { $nameKey = $this->subjectNameToKey($ex->subject_name); $grade = $manualGrades[$subjectId] ?? $manualGrades[(string) $subjectId] ?? $manualGrades[$nameKey] ?? '-'; }
+                $grade = null; 
+                $skillMap = $this->mapSubjectToSkill($ex->subject_name); 
+                $skillSlot = $skillMap['slot'];
+                
+                if ($skillSlot && isset($skillGrades[$skillSlot])) $grade = $skillGrades[$skillSlot];
+                
+                if (!$grade) {
+                    $nameKey = strtoupper(trim($ex->subject_name));
+                    $grade = $skillGrades[$nameKey] ?? null;
+                    if (!$grade) { 
+                        $searchTerms = [
+                            'SKILL 1' => ['ART', 'DRAWING', 'A/D/M/T', 'CRAFT', 'COLOURING'],
+                            'SKILL 2' => ['WORK EXP', 'ABACUS', 'COMPUTER', 'ROBOTICS', 'WORK EXPERIENCE'],
+                            'SKILL 3' => ['PT', 'HEALTH', 'PHYSICAL', 'UPASNA', 'CHINTANIKA', 'P ED'],
+                            'SKILL 4' => ['LIBRARY', 'SANSKRIT', 'OTHERS', 'SANSKRIT BHARTI']
+                        ];
+                        
+                        $matchedSkillKey = null;
+                        foreach ($searchTerms as $sKey => $terms) {
+                            if (str_contains($nameKey, $sKey)) { $matchedSkillKey = $sKey; break; }
+                        }
+                        
+                        if ($matchedSkillKey) {
+                            foreach ($searchTerms[$matchedSkillKey] as $term) {
+                                foreach ($skillGrades as $k => $v) {
+                                    if (is_string($k) && str_contains($k, $term)) {
+                                        $grade = $v;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (!$grade) {
+                            foreach ($skillGrades as $k => $v) { 
+                                if (is_string($k) && (str_contains($k, $nameKey) || str_contains($nameKey, $k))) { $grade = $v; break; } 
+                            } 
+                        }
+                    }
+                    $grade = $grade ?? $manualGrades[$subjectId] ?? $manualGrades[(string) $subjectId] ?? $manualGrades[$this->subjectNameToKey($ex->subject_name)] ?? '-';
+                }
                 return (object) ['subject_id' => $subjectId, 'subject_name' => $ex->subject_name, 'subject_code' => $ex->subject_code, 'max_marks' => 0, 'passing_marks' => 0, 'obtained_marks' => 0, 'subject_result' => $grade, 'is_graded' => 1, 'has_marks' => $grade !== '-' && $grade !== ''];
             }
             
-            $mark = $marksBySubject->get($subjectId) ?? $marksBySubject->get('NAME_' . strtoupper(trim($ex->subject_name)));
+            $mark = $marksBySubject->get('NAME_' . strtoupper(trim($ex->subject_name))) ?? $marksBySubject->get($subjectId);
             $obtained = $maxSum = $passSum = 0.0;
             if ($mark) {
                 $obtained += (float) ($mark->theory_obtained_marks ?? 0) + (float) ($mark->oral_obtained_marks ?? 0) + (float) ($mark->practical_obtained_marks ?? 0);
@@ -597,8 +1098,14 @@ class ReportCardController extends Controller
             }
             $maxMarks = (float) ($ex->max_marks ?? 0);
             if ($maxMarks <= 0 && $maxSum > 0) $maxMarks = $maxSum; if ($maxMarks <= 0 && $mark) $maxMarks = 40;
+            
             $passMarks = (float) ($ex->passing_marks ?? 0);
-            if ($passMarks <= 0 && $passSum > 0) $passMarks = $passSum; if ($passMarks <= 0 && $maxMarks > 0) $passMarks = (int) ceil(($maxMarks * 35) / 100);
+            if ($is10orHigher) {
+                $passMarks = (int) ceil(($maxMarks * 35) / 100);
+            } else {
+                if ($passMarks <= 0 && $passSum > 0) $passMarks = $passSum; if ($passMarks <= 0 && $maxMarks > 0) $passMarks = (int) ceil(($maxMarks * 35) / 100);
+            }
+            
             $hasMarks = $this->markHasAnyObtained($mark); $subjectResult = '-';
             if ($hasMarks) {
                 $isOptional = (int) ($mark->is_optional ?? 0) === 1; $isAbsent = (int) ($mark->is_absent ?? 0) === 1;
@@ -608,54 +1115,134 @@ class ReportCardController extends Controller
         })->values();
     }
 
-    private function buildProgressCardSubjects($studentId, $examId, $standardId, $academicYearId, array $manualGrades = [], $standardName = '', $examName = ''): \Illuminate\Support\Collection {
+    private function buildProgressCardSubjects($studentId, $examId, $standardId, $academicYearId, array $manualGrades = [], $standardName = '', $examName = '', $skillObservations = null, $pen = null): \Illuminate\Support\Collection {
         $isPrePrimary = $this->isPrePrimaryStandard($standardName);
+        $stdNameUpper = strtoupper(trim((string)$standardName));
+        $is11or12 = preg_match('/\b(11|12)\b/', $stdNameUpper) || str_contains($stdNameUpper, 'ELEVENTH') || str_contains($stdNameUpper, 'TWELFTH') || str_contains($stdNameUpper, 'XI') || str_contains($stdNameUpper, 'XII');
+        $is10orHigher = preg_match('/\b(10|11|12)\b/', $stdNameUpper) || str_contains($stdNameUpper, 'TENTH') || str_contains($stdNameUpper, 'ELEVENTH') || str_contains($stdNameUpper, 'TWELFTH') || in_array($stdNameUpper, ['X', 'XI', 'XII']);
+
+        $swsMap = $standardId ? DB::table('standard_wise_subjects')->where('standard_id', $standardId)->get()->keyBy('subject_id') : collect();
         
-        $examSubjects = DB::table('exam_master_subjects as ems')
-            ->join('subjects as s', 's.id', '=', 'ems.subject_id')
-            ->leftJoin('standard_wise_subjects as sws', function($join) use ($standardId) {
-                $join->on('sws.subject_id', '=', 's.id')
-                     ->where('sws.standard_id', '=', $standardId);
-            })
-            ->where('ems.exam_master_id', $examId)->when($standardId, fn ($q) => $q->where('ems.standard_id', $standardId))
-            ->orderBy('ems.display_order')->orderBy('s.id')
+        $examSubjects = DB::table('standard_wise_subjects as sws')
+            ->join('subjects as s', 's.id', '=', 'sws.subject_id')
+            ->where('sws.standard_id', $standardId)
+            ->where('sws.is_active', 1)
+            ->where('s.is_active', 1)
+            ->whereNotIn('s.subject_type_id', [2, 3])
+            ->orderBy('sws.sort_order')
+            ->orderBy('sws.id')
             ->select([
-                's.id as subject_id', 
-                's.subject_code', 'ems.max_marks', 'ems.passing_marks', 'ems.display_order', DB::raw('0 as is_graded'),
-                's.subject_name as master_name', 'sws.subject_name as sws_name'
+                's.id as subject_id',
+                's.subject_name as master_name',
+                'sws.subject_name as sws_name',
+                's.subject_code',
+                'sws.sort_order as default_display_order',
             ])->get();
 
-        $examSubjects = $examSubjects->map(function ($ex) {
-            $ex->subject_name = !empty($ex->sws_name) ? $ex->sws_name : $ex->master_name;
-            unset($ex->master_name, $ex->sws_name);
-            return $ex;
-        });
+        $examDetails = DB::table('exam_master_subjects')
+            ->where('exam_master_id', $examId)
+            ->when($standardId, fn($q) => $q->where('standard_id', $standardId))
+            ->get()
+            ->keyBy('subject_id');
 
-        $prePrimarySkills = ['CRAFT', 'DRAMA', 'LIFE SKILL', 'CLAY', 'SONG', 'INDOOR GAME', 'OUTDOOR GAME', 'BOOKS', 'TOY'];
+        $examSubjects = $examSubjects->map(function ($sub) use ($examDetails) {
+            $ex = $examDetails->get($sub->subject_id);
+            return (object) [
+                'subject_id' => $sub->subject_id,
+                'subject_name' => !empty($sub->sws_name) ? $sub->sws_name : $sub->master_name,
+                'subject_code' => $sub->subject_code,
+                'max_marks' => $ex ? $ex->max_marks : 0,
+                'passing_marks' => $ex ? $ex->passing_marks : 0,
+                'display_order' => $ex ? $ex->display_order : $sub->default_display_order,
+                'is_graded' => 0
+            ];
+        })->unique('subject_id')->values();
+
+        if ($is11or12) {
+            $examSubjects = $examSubjects->reject(fn($s) => strtoupper(trim($s->subject_name)) === 'COMPUTER SCIENCE')->values();
+        }
+
+        $skillNamesToRemove = [
+            'MUSIC', 'DRAWING', 'SANSKRIT BHARTI', 'DANCE', 'ACTING', 'TABLA', 
+            'ABACUS', 'COMPUTER', 'ROBOTICS', 'CRAFT', 'PHYSICAL EDUCATION', 
+            'DEFENCE STUDIES', 'WATER SECURITY', 'T/S/A/D', 'PT', 'ART', 'WE'
+        ];
+        if ($this->isHighSchoolStandard($standardName) || $is10orHigher) {
+            $examSubjects = $examSubjects->reject(function($s) use ($skillNamesToRemove) {
+                $name = strtoupper(trim($s->subject_name));
+                foreach ($skillNamesToRemove as $skill) {
+                    if ($name === $skill || str_contains($name, $skill)) return true;
+                }
+                return false;
+            })->values();
+        }
+
+        $prePrimarySkills = [
+            'CRAFT', 'DRAMA', 'LIFE SKILL', 'CLAY', 'SONG', 'INDOOR GAME', 'OUTDOOR GAME', 'BOOKS', 'TOY'
+        ];
         $skillGrades = [];
-        foreach (DB::table('student_skill_marks as ssm')->leftJoin('subjects as s', 's.id', '=', 'ssm.skill_id')->where('ssm.academic_year_id', $academicYearId)->where('ssm.student_id', $studentId)->select('ssm.*', 's.subject_name as skill_subject_name')->get() as $mark) {
+        
+        $skillMarks = collect();
+        try {
+            $skillMarks = DB::table('student_skill_marks as ssm')
+                ->leftJoin('subjects as s', 's.id', '=', 'ssm.subject_id')
+                ->where('ssm.exam_master_id', $examId)
+                ->where(function($q) use ($studentId, $pen) {
+                    $q->where('ssm.student_id', $studentId);
+                    if (!empty($pen) && (string)$pen !== (string)$studentId) {
+                        $q->orWhere('ssm.student_id', $pen);
+                    }
+                })
+                ->select('ssm.*', 's.subject_name as skill_subject_name')
+                ->get();
+        } catch (\Exception $e) {}
+
+        if ($skillMarks->isEmpty()) {
+            try {
+                $skillMarks = DB::table('student_result_details as srd')
+                    ->join('student_results as sr', 'sr.id', '=', 'srd.student_result_id')
+                    ->leftJoin('subjects as s', 's.id', '=', 'srd.subject_id')
+                    ->where('sr.exam_master_id', $examId)
+                    ->where(function($q) use ($studentId, $pen) {
+                        $q->where('sr.student_id', $studentId);
+                        if (!empty($pen) && (string)$pen !== (string)$studentId) {
+                            $q->orWhere('sr.student_id', $pen);
+                        }
+                    })
+                    ->select('srd.*', 's.subject_name as skill_subject_name', 'sr.student_id')
+                    ->get();
+            } catch (\Exception $e) {}
+        }
+
+        foreach ($skillMarks as $mark) {
             $grade = !empty($mark->grade) ? strtoupper(trim($mark->grade)) : null;
             if ($grade) {
-                $isCurrentExam = ($mark->exam_master_id == $examId);
-                if (isset($mark->skill_id) && $mark->skill_id > 0) { $sid = (int) $mark->skill_id; if ($isCurrentExam || !isset($skillGrades[$sid])) $skillGrades[$sid] = $grade; }
-                if (isset($mark->skill_slot) && !empty($mark->skill_slot)) { $slot = trim($mark->skill_slot); if ($isCurrentExam || !isset($skillGrades[$slot])) $skillGrades[$slot] = $grade; }
-                if (!empty($mark->skill_subject_name)) { $name = strtoupper(trim($mark->skill_subject_name)); if ($isCurrentExam || !isset($skillGrades[$name])) $skillGrades[$name] = $grade; }
+                $isCurrentExam = (isset($mark->exam_master_id) && $mark->exam_master_id == $examId);
+                if (isset($mark->skill_slot) && !empty($mark->skill_slot)) { 
+                    $rawSlot = strtoupper(trim($mark->skill_slot));
+                    $slot = is_numeric($rawSlot) ? 'S' . $rawSlot : $rawSlot;
+                    if ($isCurrentExam || !isset($skillGrades[$slot])) $skillGrades[$slot] = $grade; 
+                }
+                if (!empty($mark->skill_subject_name)) { 
+                    $name = strtoupper(trim($mark->skill_subject_name)); 
+                    if ($isCurrentExam || !isset($skillGrades[$name])) $skillGrades[$name] = $grade; 
+                }
             }
         }
         
         if ($isPrePrimary || $this->isHighSchoolStandard($standardName)) {
             $newSkillSubjects = ['WATER SECURITY', 'DEFENCE STUDIES', 'DEFENSE SCIENCE'];
-            $query = DB::table('student_skill_observations as sso')
-                ->leftJoin('subjects as s', 's.id', '=', 'sso.subject_id')
-                ->where('sso.student_id', $studentId)->where('sso.exam_master_id', $examId)->where('sso.academic_year_id', $academicYearId);
-
+            
+            $obsCollection = $skillObservations ?? collect();
+            
             if (!$isPrePrimary) {
-                $query->where(function($q) use ($newSkillSubjects) {
-                    foreach ($newSkillSubjects as $subName) $q->orWhereRaw('UPPER(TRIM(s.subject_name)) = ?', [$subName]);
+                $obsCollection = $obsCollection->filter(function($obs) use ($newSkillSubjects) {
+                    $name = strtoupper(trim($obs->subject_name ?? ''));
+                    return in_array($name, $newSkillSubjects);
                 });
             }
 
-            foreach ($query->select('sso.*', 's.subject_name')->get() as $obs) {
+            foreach ($obsCollection as $obs) {
                 if (isset($obs->subject_id) && $obs->subject_id > 0) {
                     $grade = (isset($obs->is_absent) && $obs->is_absent == 1) ? 'AB' : (!empty($obs->overall_grade) ? strtoupper(trim($obs->overall_grade)) : null);
                     if ($grade) { 
@@ -668,8 +1255,12 @@ class ReportCardController extends Controller
 
         $examSubjects = $examSubjects->map(function ($ex) use ($isPrePrimary, $prePrimarySkills) {
             $isSkill = false; $name = strtoupper(trim((string)$ex->subject_name));
-            if ($name === 'STORY' || $name === 'MARATHI STORY') { $ex->is_graded = 0; return $ex; }
-            if ($isPrePrimary) { foreach ($prePrimarySkills as $skill) { if (str_contains($name, $skill)) { $isSkill = true; break; } } }
+            
+            if ($isPrePrimary) { 
+                foreach ($prePrimarySkills as $skill) { 
+                    if (str_contains($name, $skill)) { $isSkill = true; break; } 
+                } 
+            }
             if ($isSkill) { $ex->is_graded = 1; $ex->display_order = 900; }
             return $ex;
         });
@@ -716,25 +1307,62 @@ class ReportCardController extends Controller
 
         if (!$isPrePrimary) $examSubjects = $this->ensureAdditionalSubjects($examSubjects, $standardId, $standardName);
         $examSubjects = $examSubjects->map(function ($ex) { if (preg_match('/^SKILL\s*([1-9])(?![0-9])/i', strtoupper(trim((string) ($ex->subject_name ?? ''))), $m)) $ex->display_order = 920 + (int) $m[1]; return $ex; })->sortBy('display_order')->values();
-        $marksBySubject = $this->getSubjectMarksMap($studentId, $examId, $standardId);
+        
+        $marksBySubject = $this->getSubjectMarksMap($studentId, $examId, $standardId, $swsMap, $pen);
+        
         $examNameStr = strtoupper(trim((string) $examName)); $isTerm = str_contains($examNameStr, 'TERM'); $isUnitTest = str_contains($examNameStr, 'UNIT TEST');
 
-        return $examSubjects->map(function ($ex) use ($marksBySubject, $manualGrades, $skillGrades, $isTerm, $isUnitTest) {
+        return $examSubjects->map(function ($ex) use ($marksBySubject, $manualGrades, $skillGrades, $isTerm, $isUnitTest, $is10orHigher, $isPrePrimary) {
             $subjectId = (int) $ex->subject_id;
             if (!empty($ex->is_graded)) {
-                $grade = null; $skillMap = $this->mapSubjectToSkill($ex->subject_name); $skillId = $skillMap['id']; $skillSlot = $skillMap['slot'];
-                if ($skillId && isset($skillGrades[$skillId])) $grade = $skillGrades[$skillId]; elseif ($skillSlot && isset($skillGrades[$skillSlot])) $grade = $skillGrades[$skillSlot]; elseif ($subjectId && isset($skillGrades[$subjectId])) $grade = $skillGrades[$subjectId];
+                $grade = null; 
+                $skillMap = $this->mapSubjectToSkill($ex->subject_name); 
+                $skillSlot = $skillMap['slot'];
+                
+                if ($skillSlot && isset($skillGrades[$skillSlot])) $grade = $skillGrades[$skillSlot];
+                
                 if (!$grade) {
-                    $nameKey = strtoupper(trim($ex->subject_name)); $grade = $skillGrades[$nameKey] ?? null;
-                    if (!$grade) { foreach ($skillGrades as $k => $v) { if (is_string($k) && (str_contains($k, $nameKey) || str_contains($nameKey, $k))) { $grade = $v; break; } } }
+                    $nameKey = strtoupper(trim($ex->subject_name)); 
+                    $grade = $skillGrades[$nameKey] ?? null;
+                    
+                    if (!$grade) {
+                        $searchTerms = [
+                            'SKILL 1' => ['ART', 'DRAWING', 'A/D/M/T', 'CRAFT', 'COLOURING'],
+                            'SKILL 2' => ['WORK EXP', 'ABACUS', 'COMPUTER', 'ROBOTICS', 'WORK EXPERIENCE'],
+                            'SKILL 3' => ['PT', 'HEALTH', 'PHYSICAL', 'UPASNA', 'CHINTANIKA', 'P ED'],
+                            'SKILL 4' => ['LIBRARY', 'SANSKRIT', 'OTHERS', 'SANSKRIT BHARTI']
+                        ];
+                        
+                        $matchedSkillKey = null;
+                        foreach ($searchTerms as $sKey => $terms) {
+                            if (str_contains($nameKey, $sKey)) { $matchedSkillKey = $sKey; break; }
+                        }
+                        
+                        if ($matchedSkillKey) {
+                            foreach ($searchTerms[$matchedSkillKey] as $term) {
+                                foreach ($skillGrades as $k => $v) {
+                                    if (is_string($k) && str_contains($k, $term)) {
+                                        $grade = $v;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (!$grade) { 
+                        foreach ($skillGrades as $k => $v) { 
+                            if (is_string($k) && (str_contains($k, $nameKey) || str_contains($nameKey, $k))) { $grade = $v; break; } 
+                        } 
+                    }
                     $grade = $grade ?? $manualGrades[$subjectId] ?? $manualGrades[(string) $subjectId] ?? $manualGrades[$this->subjectNameToKey($ex->subject_name)] ?? '-';
                 }
-                return (object) ['subject_id' => $subjectId, 'subject_name' => $ex->subject_name, 'subject_code' => $ex->subject_code ?? '', 'max_marks' => 0, 'obtained_marks' => 0, 'grade' => $grade, 'is_graded' => 1, 'has_marks' => $grade !== '-' && $grade !== ''];
+                return (object) ['subject_id' => $subjectId, 'subject_name' => $ex->subject_name, 'subject_code' => $ex->subject_code ?? '', 'max_marks' => 0, 'obtained_marks' => 0, 'grade' => $grade, 'subject_result' => $grade, 'is_graded' => 1, 'has_marks' => $grade !== '-' && $grade !== ''];
             }
 
             $obtained = $maxSum = 0.0; $firstMark = null; $idsToCheck = (isset($ex->merged_ids) && is_array($ex->merged_ids) && !empty($ex->merged_ids)) ? $ex->merged_ids : [$subjectId];
             foreach ($idsToCheck as $sid) {
-                $m = $marksBySubject->get($sid) ?? $marksBySubject->get('NAME_' . strtoupper(trim($ex->subject_name)));
+                $m = $marksBySubject->get('NAME_' . strtoupper(trim($ex->subject_name))) ?? $marksBySubject->get($sid);
                 if (!$m) continue; if ($firstMark === null) $firstMark = $m;
                 $obtained += (float) ($m->theory_obtained_marks ?? 0) + (float) ($m->oral_obtained_marks ?? 0) + (float) ($m->practical_obtained_marks ?? 0);
                 $maxSum += (float) ($m->theory_max_marks ?? 0) + (float) ($m->oral_max_marks ?? 0) + (float) ($m->practical_max_marks ?? 0);
@@ -749,13 +1377,23 @@ class ReportCardController extends Controller
                 if ($maxMarks <= 0 && $maxSum > 0) $maxMarks = $maxSum; if ($maxMarks <= 0 && $firstMark) $maxMarks = 40;
             }
 
-            $hasMarks = false; foreach ($idsToCheck as $sid) { if ($this->markHasAnyObtained($marksBySubject->get($sid) ?? $marksBySubject->get('NAME_' . strtoupper(trim($ex->subject_name))))) { $hasMarks = true; break; } }
+            $passMarks = (float) ($ex->passing_marks ?? 0);
+            if ($is10orHigher) {
+                $passMarks = (int) ceil(($maxMarks * 35) / 100);
+            } else {
+                if ($passMarks <= 0 && $maxMarks > 0) $passMarks = (int) ceil(($maxMarks * 35) / 100);
+            }
+
+            $hasMarks = false; foreach ($idsToCheck as $sid) { if ($this->markHasAnyObtained($marksBySubject->get('NAME_' . strtoupper(trim($ex->subject_name))) ?? $marksBySubject->get($sid))) { $hasMarks = true; break; } }
             $grade = '-';
             if ($hasMarks && $firstMark) {
                 $isOptional = (int) ($firstMark->is_optional ?? 0) === 1; $isAbsent = (int) ($firstMark->is_absent ?? 0) === 1;
                 if ($isOptional && $obtained <= 0) $grade = 'OPT'; elseif ($isAbsent) $grade = 'AB'; else $grade = $this->gradeFromPercentage($maxMarks > 0 ? ($obtained / $maxMarks) * 100 : 0);
             }
-            return (object) ['subject_id' => $subjectId, 'subject_name' => $ex->subject_name, 'subject_code' => $ex->subject_code, 'max_marks' => $maxMarks, 'obtained_marks' => $obtained, 'grade' => $grade, 'is_graded' => 0, 'has_marks' => $hasMarks];
+            if ($isPrePrimary && $grade === '-') {
+                $grade = $manualGrades[$subjectId] ?? $manualGrades[(string) $subjectId] ?? $manualGrades[$this->subjectNameToKey($ex->subject_name)] ?? '-';
+            }
+            return (object) ['subject_id' => $subjectId, 'subject_name' => $ex->subject_name, 'subject_code' => $ex->subject_code, 'max_marks' => $maxMarks, 'obtained_marks' => $obtained, 'grade' => $grade, 'subject_result' => $grade, 'is_graded' => 0, 'has_marks' => $hasMarks || ($isPrePrimary && $grade !== '-')];
         })->values();
     }
 
@@ -833,12 +1471,22 @@ class ReportCardController extends Controller
         return $count === 0 ? '-' : $this->pointToGrade($totalPoints / $count);
     }
 
-    private function calculateSpecialSkillAverageGrade($subjects): string {
+    private function calculateSpecialSkillAverageGrade($subjects, $standardName = ''): string {
         $totalPoints = $count = 0; $hasAcademic = false;
         $skillGradeMap = ['C' => 1, 'B' => 2, 'B+' => 3, 'A' => 4, 'A+' => 5];
         $academicGradeMap = ['A1'=>9, 'A2'=>8, 'B1'=>7, 'B2'=>6, 'C1'=>5, 'C2'=>4, 'D'=>3, 'E1'=>2, 'E2'=>1, 'F'=>0];
+        
+        $stdNameUpper = strtoupper(trim((string)$standardName));
+        $isTenth = preg_match('/\b(10|X|TENTH)\b/i', $stdNameUpper);
+
         foreach ($subjects as $s) {
             if (empty($s->is_graded)) continue;
+
+            if ($isTenth) {
+                if (preg_match('/^SKILL\s*1/i', $s->subject_name)) continue;
+                if (preg_match('/^SKILL\s*4/i', $s->subject_name)) continue;
+            }
+
             $grade = strtoupper(trim((string) ($s->grade ?? $s->subject_result ?? '-')));
             if (in_array($grade, ['-', 'OPT', 'AB', 'PASS', 'FAIL', ''], true)) continue;
             if (isset($skillGradeMap[$grade])) { $totalPoints += $skillGradeMap[$grade]; $count++; }

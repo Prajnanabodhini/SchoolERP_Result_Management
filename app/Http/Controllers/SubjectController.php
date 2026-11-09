@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\QueryException;
 
 use App\Models\Subject;
@@ -25,8 +26,6 @@ class SubjectController extends Controller
             Cache::forget('skill_obs:v3:' . $key);
             Cache::forget('skill_obs:v2:' . $key);
         }
-        
-        // Clear all cache to be absolutely sure
         Cache::flush();
     }
 
@@ -61,6 +60,148 @@ class SubjectController extends Controller
             ->where('section_id', $sectionId)
             ->where('subject_type_id', $typeId)
             ->first();
+    }
+
+    private function mergeSubjectData($masterId, $dupId)
+    {
+        $masterSubject = Subject::find($masterId);
+        $dupSubject = Subject::find($dupId);
+
+        if (!$masterSubject || !$dupSubject) return;
+
+        // 1. Standard Mappings
+        $mappedStandards = StandardWiseSubject::where('subject_id', $masterId)->pluck('standard_id')->toArray();
+        StandardWiseSubject::where('subject_id', $dupId)->whereIn('standard_id', $mappedStandards)->delete();
+        StandardWiseSubject::where('subject_id', $dupId)->update(['subject_id' => $masterId]);
+
+        // 2. Exam Structures (Now uses subject_id)
+        if (Schema::hasTable('exam_structures') && Schema::hasColumn('exam_structures', 'subject_id')) {
+            $dupStructures = DB::table('exam_structures')->where('subject_id', $dupId)->get();
+            foreach ($dupStructures as $dupStruct) {
+                $masterExists = DB::table('exam_structures')
+                    ->where('standard_key', $dupStruct->standard_key)
+                    ->where('exam_type', $dupStruct->exam_type)
+                    ->where('subject_id', $masterId)
+                    ->exists();
+
+                if ($masterExists) {
+                    DB::table('exam_structures')->where('id', $dupStruct->id)->delete();
+                } else {
+                    DB::table('exam_structures')->where('id', $dupStruct->id)->update([
+                        'subject_id' => $masterId,
+                        'subject_name' => $masterSubject->subject_name,
+                        'subject_code' => $masterSubject->subject_code,
+                    ]);
+                }
+            }
+        }
+
+        // 3. Exam Master Subjects
+        if (Schema::hasTable('exam_master_subjects') && Schema::hasColumn('exam_master_subjects', 'subject_id')) {
+            $dupConfigs = DB::table('exam_master_subjects')->where('subject_id', $dupId)->get();
+            foreach ($dupConfigs as $config) {
+                $masterConfig = DB::table('exam_master_subjects')
+                    ->where('exam_master_id', $config->exam_master_id)
+                    ->where('subject_id', $masterId)
+                    ->first();
+                
+                if ($masterConfig) {
+                    DB::table('exam_master_subjects')->where('id', $config->id)->delete();
+                } else {
+                    DB::table('exam_master_subjects')->where('id', $config->id)->update(['subject_id' => $masterId]);
+                }
+            }
+        }
+
+        // 4. Student Skill Marks (Now uses subject_id)
+        if (Schema::hasTable('student_skill_marks') && Schema::hasColumn('student_skill_marks', 'subject_id')) {
+            DB::table('student_skill_marks')->where('subject_id', $dupId)->update([
+                'subject_id' => $masterId,
+                'subject_name' => $masterSubject->subject_name
+            ]);
+        }
+
+        // 5. Teacher Allocations
+        if (Schema::hasTable('teacher_subject_allocations') && Schema::hasColumn('teacher_subject_allocations', 'subject_id')) {
+            $dupAllocations = DB::table('teacher_subject_allocations')->where('subject_id', $dupId)->get();
+            
+            foreach ($dupAllocations as $dupAlloc) {
+                $masterAlloc = DB::table('teacher_subject_allocations')
+                    ->where('subject_id', $masterId)
+                    ->where('teacher_class_allocation_id', $dupAlloc->teacher_class_allocation_id)
+                    ->where('exam_master_id', $dupAlloc->exam_master_id)
+                    ->first();
+
+                if ($masterAlloc) {
+                    $dupMarks = DB::table('student_marks')->where('teacher_subject_allocation_id', $dupAlloc->id)->get();
+                    foreach ($dupMarks as $mark) {
+                        $exists = DB::table('student_marks')
+                            ->where('teacher_subject_allocation_id', $masterAlloc->id)
+                            ->where('student_id', $mark->student_id)
+                            ->where('exam_master_id', $mark->exam_master_id)
+                            ->exists();
+                            
+                        if ($exists) {
+                            DB::table('student_marks')->where('id', $mark->id)->delete();
+                        } else {
+                            DB::table('student_marks')->where('id', $mark->id)->update([
+                                'teacher_subject_allocation_id' => $masterAlloc->id,
+                                'subject_id' => $masterId
+                            ]);
+                        }
+                    }
+
+                    $dupStatuses = DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $dupAlloc->id)->get();
+                    foreach ($dupStatuses as $status) {
+                        $exists = DB::table('teacher_marks_status')
+                            ->where('teacher_subject_allocation_id', $masterAlloc->id)
+                            ->where('exam_master_id', $status->exam_master_id)
+                            ->exists();
+                            
+                        if ($exists) {
+                            DB::table('teacher_marks_status')->where('id', $status->id)->delete();
+                        } else {
+                            DB::table('teacher_marks_status')->where('id', $status->id)->update([
+                                'teacher_subject_allocation_id' => $masterAlloc->id,
+                                'subject_id' => $masterId
+                            ]);
+                        }
+                    }
+
+                    DB::table('teacher_subject_allocations')->where('id', $dupAlloc->id)->delete();
+                } else {
+                    DB::table('teacher_subject_allocations')->where('id', $dupAlloc->id)->update(['subject_id' => $masterId]);
+                }
+            }
+        }
+
+        // 6. Orphaned Student Marks
+        if (Schema::hasTable('student_marks') && Schema::hasColumn('student_marks', 'subject_id')) {
+            DB::table('student_marks')->where('subject_id', $dupId)->update(['subject_id' => $masterId]);
+        }
+
+        // 7. Orphaned Teacher Marks Status
+        if (Schema::hasTable('teacher_marks_status') && Schema::hasColumn('teacher_marks_status', 'subject_id')) {
+            DB::table('teacher_marks_status')->where('subject_id', $dupId)->update(['subject_id' => $masterId]);
+        }
+
+        // 8. Mark Audit Logs
+        if (Schema::hasTable('mark_audit_logs') && Schema::hasColumn('mark_audit_logs', 'subject_id')) {
+            DB::table('mark_audit_logs')->where('subject_id', $dupId)->update(['subject_id' => $masterId]);
+        }
+
+        // 9. Skill Observations
+        if (Schema::hasTable('student_skill_observations') && Schema::hasColumn('student_skill_observations', 'subject_id')) {
+            DB::table('student_skill_observations')->where('subject_id', $dupId)->update(['subject_id' => $masterId]);
+        }
+
+        // 10. Skill Allocations
+        if (Schema::hasTable('skill_teacher_subject_allocations') && Schema::hasColumn('skill_teacher_subject_allocations', 'subject_id')) {
+            DB::table('skill_teacher_subject_allocations')->where('subject_id', $dupId)->update(['subject_id' => $masterId]);
+        }
+
+        // 11. Finally, delete the duplicate subject
+        DB::table('subjects')->where('id', $dupId)->delete();
     }
 
     public function index(Request $request)
@@ -211,7 +352,7 @@ class SubjectController extends Controller
         return view('subjects.edit', compact('masterSubject', 'standards', 'subjectTypes', 'mappedStandardIds'));
     }
 
-     public function updateMaster(Request $request, Subject $subject)
+    public function updateMaster(Request $request, Subject $subject)
     {
         $request->validate([
             'subject_name'    => ['required', 'string', 'max:255'],
@@ -224,19 +365,27 @@ class SubjectController extends Controller
         $newCode = strtoupper(trim((string) $request->subject_code));
         $newType = (int) $request->subject_type_id;
 
-        $byName = $this->findMasterByName($newName);
-        if ($byName && $byName->id !== $subject->id) {
-            return back()->withInput()->with('error', "A subject named \"{$byName->subject_name}\" already exists.");
-        }
-
-        $byCode = $this->findMasterByCode($newCode, (int) $subject->section_id, $newType);
-        if ($byCode && $byCode->id !== $subject->id) {
-            return back()->withInput()->with('error', "Code '{$newCode}' is already used by subject \"{$byCode->subject_name}\" for this type.");
-        }
-
+        // Check if this name already belongs to another subject ID
+        $existingMaster = $this->findMasterByName($newName);
+        
         DB::beginTransaction();
         try {
-            // 1. Force update the master subject
+            if ($existingMaster && $existingMaster->id !== $subject->id) {
+                // 🚀 AUTO-MERGE: The name already exists! Merge this subject into the existing master.
+                $this->mergeSubjectData($existingMaster->id, $subject->id);
+
+                DB::commit();
+                $this->clearSubjectCaches();
+
+                return redirect()->route('subjects.index')->with('success', 'Duplicate subject detected. All records were successfully merged into the existing Master Subject.');
+            }
+
+            // Normal Update (if no duplicate name conflict exists)
+            $byCode = $this->findMasterByCode($newCode, (int) $subject->section_id, $newType);
+            if ($byCode && $byCode->id !== $subject->id) {
+                return back()->withInput()->with('error', "Code '{$newCode}' is already used by subject \"{$byCode->subject_name}\" for this type.");
+            }
+
             $subject->subject_name    = $newName;
             $subject->subject_code    = $newCode;
             $subject->short_name      = $request->filled('short_name') ? trim($request->short_name) : null;
@@ -245,7 +394,13 @@ class SubjectController extends Controller
             $subject->is_active       = $request->has('is_active') ? 1 : 0;
             $subject->save(); 
 
-            // 2. Sync the Standard Mappings
+            // Update existing mappings
+            StandardWiseSubject::where('subject_id', $subject->id)->update([
+                'subject_name' => $subject->subject_name,
+                'is_active'    => $request->has('is_active') ? 1 : 0,
+            ]);
+
+            // Sync Standard Mappings (Add / Remove)
             $desiredIds  = array_map('intval', $request->input('standard_ids', []));
             $existingIds = StandardWiseSubject::where('subject_id', $subject->id)
                 ->pluck('standard_id')->map(fn ($v) => (int) $v)->toArray();
@@ -275,12 +430,6 @@ class SubjectController extends Controller
                     ->delete();
             }
 
-            // Update names in mappings to match any name changes
-            StandardWiseSubject::where('subject_id', $subject->id)->update([
-                'subject_name' => $subject->subject_name,
-                'is_active'    => $request->has('is_active') ? 1 : 0,
-            ]);
-
             DB::commit();
             $this->clearSubjectCaches();
 
@@ -288,10 +437,7 @@ class SubjectController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            // Log the error so you can see it in storage/logs/laravel.log
             report($e);
-            
-            // Return the actual error message to the screen so you know why it failed
             return back()->withInput()->with('error', 'Database Error: ' . $e->getMessage());
         }
     }
@@ -306,13 +452,11 @@ class SubjectController extends Controller
         $mappedSubjectIds = [];
 
         if ($selectedStandard) {
-            // Only subjects with subject_type_id = 1
             $academicSubjects = Subject::where('subject_type_id', 1)
                 ->where('is_active', 1)
                 ->orderBy('subject_name')
                 ->get();
 
-            // Only subjects with subject_type_id = 2 or 3
             $skillSubjects = Subject::whereIn('subject_type_id', self::SKILL_SUBJECT_TYPE_IDS)
                 ->where('is_active', 1)
                 ->orderBy('subject_name')
@@ -395,6 +539,47 @@ class SubjectController extends Controller
                 ->with('success', 'Deleted.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
+        }
+    }
+
+        public function mergeAllDuplicates()
+    {
+        // ✅ FIX: Group by both name AND type to prevent Academic/Skill conflicts
+        $duplicates = DB::table('subjects')
+            ->select('subject_name', 'subject_type_id', DB::raw('COUNT(*) as count'))
+            ->groupBy('subject_name', 'subject_type_id')
+            ->having('count', '>', 1)
+            ->get();
+
+        $mergedCount = 0;
+
+        DB::beginTransaction();
+        try {
+            foreach ($duplicates as $dup) {
+                $subjects = DB::table('subjects')
+                    ->where('subject_name', $dup->subject_name)
+                    ->where('subject_type_id', $dup->subject_type_id)
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                $masterSubject = $subjects->first();
+                $duplicateIds = $subjects->skip(1)->pluck('id')->toArray();
+
+                if (empty($duplicateIds)) continue;
+
+                foreach ($duplicateIds as $dupId) {
+                    $this->mergeSubjectData($masterSubject->id, $dupId);
+                    $mergedCount++;
+                }
+            }
+
+            DB::commit();
+            $this->clearSubjectCaches(); 
+            
+            return "Successfully merged {$mergedCount} duplicate subjects into their master IDs!";
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return "Merge failed: " . $e->getMessage();
         }
     }
 }

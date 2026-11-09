@@ -52,10 +52,9 @@ class TeacherBulkAllocationController extends Controller
          ------------------------------------------------------------------ */
         $query = TeacherClassAllocation::withoutGlobalScopes()->with([
             'teacher', 'academicYear', 'section', 'standard', 'division',
-            'subjectAllocations.exam' // DO NOT ADD subjectAllocations.subject here unless the model has it
+            'subjectAllocations.exam'
         ]);
 
-        // Apply filters independently
         if (!empty($academicYearId)) $query->where('academic_year_id', $academicYearId);
         if (!empty($standardId))     $query->where('standard_id', $standardId);
         if (!empty($divisionId))     $query->where('division_id', $divisionId);
@@ -77,7 +76,6 @@ class TeacherBulkAllocationController extends Controller
                 return $tsa->exam_master_id ?? 0;
             });
 
-            // If a specific exam is filtered, only keep that exam group
             if (!empty($examMasterId)) {
                 $groupedByExam = $groupedByExam->filter(function ($tsas, $examId) use ($examMasterId) {
                     return (int)$examId === (int)$examMasterId;
@@ -103,7 +101,6 @@ class TeacherBulkAllocationController extends Controller
             }
         }
 
-        // Sort by the old logic (MIN(tsa.id) DESC, tca.id DESC)
         $rows = $rows->sort(function ($a, $b) {
             $rowIdA = (int) $a->displayRowId;
             $rowIdB = (int) $b->displayRowId;
@@ -114,7 +111,7 @@ class TeacherBulkAllocationController extends Controller
         })->values();
 
         /* ------------------------------------------------------------------
-         | Manual Pagination (Same as SkillTeacherAllocationController)
+         | Manual Pagination
          ------------------------------------------------------------------ */
         $perPage = 25;
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
@@ -264,7 +261,7 @@ class TeacherBulkAllocationController extends Controller
 
             $divisions = collect($erpDivisions ?? [])->values();
 
-            $subjects = collect(TeacherBulkHelper::getExamMappedSubjects($exam->id, $standard->id));
+            $subjects = $this->getAcademicSubjects($standard->id);
 
             return response()->json([
                 'success'          => true,
@@ -289,9 +286,9 @@ class TeacherBulkAllocationController extends Controller
                     'subject_code'    => $subject->subject_code ?? '',
                     'short_name'      => $subject->short_name ?? '',
                     'is_optional'     => (int) ($subject->is_optional ?? 0),
-                    'exam_subject_id' => (int) ($subject->exam_subject_id ?? 0),
-                    'max_marks'       => $subject->max_marks ?? 100,
-                    'passing_marks'   => $subject->passing_marks ?? 35,
+                    'exam_subject_id' => 0,
+                    'max_marks'       => 100,
+                    'passing_marks'   => 35,
                     'display_order'   => $subject->display_order ?? 0,
                 ])->values(),
             ]);
@@ -355,7 +352,7 @@ class TeacherBulkAllocationController extends Controller
                 return response()->json(['success' => false, 'message' => 'Standard not found.', 'subjects' => []], 404);
             }
 
-            $subjects = collect(TeacherBulkHelper::getExamMappedSubjects($examMasterId, $standardId));
+            $subjects = $this->getAcademicSubjects($standardId);
 
             return response()->json([
                 'success'          => true,
@@ -377,8 +374,8 @@ class TeacherBulkAllocationController extends Controller
                     'subject_code'  => $subject->subject_code ?? '',
                     'short_name'    => $subject->short_name ?? '',
                     'is_optional'   => (int) ($subject->is_optional ?? 0),
-                    'max_marks'     => $subject->max_marks ?? 100,
-                    'passing_marks' => $subject->passing_marks ?? 35,
+                    'max_marks'     => 100,
+                    'passing_marks' => 35,
                     'display_order' => $subject->display_order ?? 0,
                 ])->values(),
             ]);
@@ -416,7 +413,6 @@ class TeacherBulkAllocationController extends Controller
             return back()->withInput()->with('error', implode(' ', $errors));
         }
 
-        // NEW: Check for duplicate allocations before saving. Triggers SweetAlert error if found.
         $duplicateErrors = $this->validateNoDuplicateAllocations($request);
         if (!empty($duplicateErrors)) {
             return back()->withInput()->with('error', implode(' ', $duplicateErrors));
@@ -428,7 +424,6 @@ class TeacherBulkAllocationController extends Controller
                     $standardId = (int) $row['standards'][0];
                     $sectionId  = $row['section_id'] ?? null;
                     
-                    // Prevent duplicate subjects in the array
                     $uniqueSubjects = array_unique($row['subjects']);
 
                     foreach ($row['divisions'] as $divisionId) {
@@ -441,7 +436,6 @@ class TeacherBulkAllocationController extends Controller
                         ]);
 
                         foreach ($uniqueSubjects as $subjectId) {
-                            // Note: Conflict deletion logic removed. Safe to insert because we pre-validated.
                             $tsaId = DB::table('teacher_subject_allocations')->insertGetId([
                                 'teacher_class_allocation_id' => $allocation->id,
                                 'exam_master_id'              => $request->exam_master_id,
@@ -486,6 +480,12 @@ class TeacherBulkAllocationController extends Controller
         $academicYearId =
             $data['allocation']->academic_year_id
             ?? ($data['allocations'][0]->academic_year_id ?? null);
+
+        $standardId = $data['allocation']->standard_id ?? null;
+
+        if ($standardId) {
+            $data['subjects'] = $this->getAcademicSubjects($standardId);
+        }
 
         $divisionsByStandard = $academicYearId
             ? StudentHelper::getERPDivisionsByStandard((int) $academicYearId)
@@ -536,7 +536,6 @@ class TeacherBulkAllocationController extends Controller
 
                 $examMasterId = $request->exam_master_id;
                 
-                // Ensure no duplicates in the incoming request
                 $newSubjectIds = array_values(array_unique(array_map('intval', $request->subjects)));
 
                 $existingAllocations = DB::table('teacher_subject_allocations')
@@ -546,7 +545,6 @@ class TeacherBulkAllocationController extends Controller
 
                 $existingSubjectIds = $existingAllocations->pluck('subject_id')->toArray();
 
-                // Fetch subject codes to map renamed subjects (if ID changed)
                 $allSubjectIds = array_merge($existingSubjectIds, $newSubjectIds);
                 $subjectCodes = DB::table('subjects')->whereIn('id', $allSubjectIds)->pluck('subject_code', 'id')->toArray();
 
@@ -562,18 +560,15 @@ class TeacherBulkAllocationController extends Controller
                     $oldId = (int) $existing->subject_id;
                     $oldCode = $subjectCodes[$oldId] ?? null;
 
-                    // 1. Keep if exact ID is selected
                     if (in_array($oldId, $newSubjectIds, true)) {
                         $processedNewIds[] = $oldId;
                     }
-                    // 2. Auto-Migrate: If ID changed (e.g., renamed subject with same code), update the old records to the new ID
                     elseif ($oldCode && isset($newIdsByCode[$oldCode])) {
                         $newId = $newIdsByCode[$oldCode];
                         
                         DB::table('teacher_subject_allocations')->where('id', $existing->id)->update(['subject_id' => $newId]);
                         DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $existing->id)->update(['subject_id' => $newId]);
                         
-                        // Migrate historical marks so they don't disappear
                         DB::table('student_marks')
                             ->where('academic_year_id', $request->academic_year_id)
                             ->where('standard_id', $request->standard_id)
@@ -584,18 +579,15 @@ class TeacherBulkAllocationController extends Controller
 
                         $processedNewIds[] = $newId;
                     }
-                    // 3. Remove unchecked subjects
                     else {
                         DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $existing->id)->delete();
                         DB::table('teacher_subject_allocations')->where('id', $existing->id)->delete();
                     }
                 }
 
-                // 4. Add completely new subjects
                 $subjectsToAdd = array_diff($newSubjectIds, $processedNewIds);
 
                 foreach ($subjectsToAdd as $subId) {
-                    // CHANGED: Instead of deleting other teachers' allocations, throw an error to abort and show popup
                     $conflict = DB::table('teacher_subject_allocations as tsa')
                         ->join('teacher_class_allocations as tca', 'tsa.teacher_class_allocation_id', '=', 'tca.id')
                         ->where('tca.academic_year_id', $request->academic_year_id)
@@ -675,8 +667,42 @@ class TeacherBulkAllocationController extends Controller
     }
 
     /* =====================================================================
-     | PRIVATE VALIDATION HELPERS
+     | PRIVATE HELPERS
      ===================================================================== */
+
+    /**
+     * ✅ Direct DB Query using ONLY standard_wise_subjects and subjects.
+     * This prevents any missing column errors from other tables.
+     */
+    private function getAcademicSubjects($standardId)
+    {
+        try {
+            return DB::table('standard_wise_subjects as sws')
+                ->join('subjects as s', 's.id', '=', 'sws.subject_id')
+                ->where('sws.standard_id', $standardId)
+                ->where('sws.is_active', 1)
+                ->where('s.is_active', 1)
+                ->where('s.subject_type_id', 1) // 1 = ACADEMIC
+                ->select([
+                    's.id as subject_id',
+                    's.subject_code',
+                    's.short_name',
+                    'sws.subject_name',
+                    'sws.sort_order as display_order',
+                    'sws.id as mapping_id',
+                    'sws.is_optional'
+                ])
+                ->orderBy('sws.sort_order', 'asc')
+                ->orderBy('s.id', 'asc')
+                ->get()
+                ->unique(function ($item) {
+                    return strtoupper(trim($item->subject_name ?? ''));
+                })->values();
+        } catch (Throwable $e) {
+            Log::error('getAcademicSubjects SQL Error: ' . $e->getMessage());
+            return collect();
+        }
+    }
 
     private function validateDivisionsHaveStudents(Request $request): array
     {
@@ -730,9 +756,6 @@ class TeacherBulkAllocationController extends Controller
         return $errors;
     }
 
-    /**
-     * NEW: Prevent duplicate allocations before entering the transaction.
-     */
     private function validateNoDuplicateAllocations(Request $request): array
     {
         $errors = [];
@@ -747,7 +770,6 @@ class TeacherBulkAllocationController extends Controller
 
             foreach ($row['divisions'] as $divisionId) {
                 foreach ($uniqueSubjects as $subjectId) {
-                    // Check if this exact combination already exists in the database
                     $conflict = DB::table('teacher_subject_allocations as tsa')
                         ->join('teacher_class_allocations as tca', 'tsa.teacher_class_allocation_id', '=', 'tca.id')
                         ->where('tca.academic_year_id', $academicYearId)

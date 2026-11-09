@@ -22,11 +22,6 @@ use App\Helpers\ExamSubjectConfigHelper;
 
 class MarkViewController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | ADMINISTRATOR DETECTION
-    |--------------------------------------------------------------------------
-    */
     private function isAdministrator(): bool
     {
         $user = Auth::user();
@@ -43,11 +38,6 @@ class MarkViewController extends Controller
         return in_array($role, ['administrator', 'admin'], true);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE ACTUAL SUBJECT ID
-    |--------------------------------------------------------------------------
-    */
     private function resolveActualSubjectId($storedSubjectId, $standardId): ?int
     {
         if ($storedSubjectId === null || $storedSubjectId === '' || !$standardId) {
@@ -59,7 +49,6 @@ class MarkViewController extends Controller
 
         if ($storedSubjectId <= 0 || $standardId <= 0) return null;
 
-        /* CURRENT FORMAT */
         $currentSubject = DB::table('subjects')
             ->where('id', $storedSubjectId)
             ->where('is_active', 1)
@@ -75,7 +64,6 @@ class MarkViewController extends Controller
             if ($mappingExists) return $storedSubjectId;
         }
 
-        /* LEGACY FORMAT */
         $legacyMapping = DB::table('standard_wise_subjects')
             ->where('id', $storedSubjectId)
             ->where('standard_id', $standardId)
@@ -94,17 +82,11 @@ class MarkViewController extends Controller
         return null;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE DISPLAY SUBJECT
-    |--------------------------------------------------------------------------
-    */
     private function resolveDisplaySubject($storedSubjectId, $standardId, $tmsSubjectId = null)
     {
         $standardId = (int) $standardId;
         if ($standardId <= 0) return null;
 
-        /* PRIMARY - TSA SUBJECT */
         if ($storedSubjectId !== null && $storedSubjectId !== '' && (int) $storedSubjectId > 0) {
             $actualSubjectId = $this->resolveActualSubjectId($storedSubjectId, $standardId);
             if ($actualSubjectId) {
@@ -116,7 +98,6 @@ class MarkViewController extends Controller
             }
         }
 
-        /* FALLBACK - TMS SUBJECT */
         if ($tmsSubjectId !== null && $tmsSubjectId !== '' && (int) $tmsSubjectId > 0) {
             $tmsSubjectId = (int) $tmsSubjectId;
 
@@ -150,11 +131,6 @@ class MarkViewController extends Controller
         return null;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VIEW MARKS
-    |--------------------------------------------------------------------------
-    */
     public function viewMarks(Request $request)
     {
         $records         = collect();
@@ -168,7 +144,6 @@ class MarkViewController extends Controller
         $error           = null;
         $passingPercentage = 40;
 
-        /* Component config defaults */
         $theoryMaxMarks        = 0;
         $theoryPassingMarks    = 0;
         $oralMaxMarks          = 0;
@@ -188,13 +163,11 @@ class MarkViewController extends Controller
         $examId         = $request->input('exam_master_id');
         $tsaId          = $request->input('teacher_subject_allocation_id');
 
-        /* ACADEMIC YEARS */
         $academicYears = AcademicYear::query()
             ->where('is_active', 1)
             ->orderByDesc('id')
             ->get();
 
-        /* EXAMS */
         $examQuery = ExamMaster::query()
             ->where('is_active', 1)
             ->orderBy('display_order')
@@ -206,11 +179,9 @@ class MarkViewController extends Controller
 
         $exams = $examQuery->get();
 
-        /* STANDARDS / DIVISIONS */
         $standards = Standard::query()->where('is_active', 1)->orderBy('display_order')->get();
         $divisions = Division::query()->where('is_active', 1)->orderBy('division_name')->get();
 
-        /* SELECTED EXAM */
         if ($examId) {
             $exam = $exams->firstWhere('id', (int) $examId);
 
@@ -219,7 +190,6 @@ class MarkViewController extends Controller
             }
         }
 
-        /* SELECTED TEACHER SUBJECT ALLOCATION */
         if ($tsaId) {
             $tsaQuery = TeacherSubjectAllocation::query()
                 ->with([
@@ -247,7 +217,6 @@ class MarkViewController extends Controller
             }
         }
 
-        /* CLASS ALLOCATION */
         $allocation = $selectedTsa ? $selectedTsa->allocation : null;
 
         if ($selectedTsa && !$allocation) {
@@ -255,23 +224,21 @@ class MarkViewController extends Controller
             $error = 'Teacher class allocation was not found.';
         }
 
-        /* STANDARD / DIVISION / ACADEMIC YEAR */
         $standardId       = $allocation ? (int) $allocation->standard_id       : 0;
         $divisionId       = $allocation ? (int) $allocation->division_id       : 0;
         $allocationYearId = $allocation ? (int) $allocation->academic_year_id  : 0;
 
-        /* SYNC ACADEMIC YEAR FROM TSA */
         if ($allocationYearId > 0 && ($academicYearId === null || $academicYearId === '')) {
             $academicYearId = $allocationYearId;
             $request->merge(['academic_year_id' => $academicYearId]);
         }
 
-        /* PASSING PERCENTAGE */
         if ($standardId > 0) {
             $passingPercentage = ResultHelper::getPassingPercentage($standardId);
         }
 
-        /* RESOLVE SUBJECT */
+        $tmsSubjectId = null;
+
         if ($selectedTsa && $allocation) {
             $statusQuery = TeacherMarksStatus::query()
                 ->where('teacher_subject_allocation_id', $selectedTsa->id)
@@ -299,11 +266,6 @@ class MarkViewController extends Controller
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUBJECT CONFIG — single source of truth
-        |--------------------------------------------------------------------------
-        */
         if ($exam && $selectedTsa && $allocation) {
 
             $candidateSubjectIds = array_filter([
@@ -337,7 +299,6 @@ class MarkViewController extends Controller
             }
         }
 
-        /* ONLY SELECTED SUBJECT (dropdown display) */
         if (isset($subjectConfig) && $subjectConfig) {
             $subjects = ExamMasterSubject::query()
                 ->join('subjects', 'subjects.id', '=', 'exam_master_subjects.subject_id')
@@ -360,7 +321,6 @@ class MarkViewController extends Controller
             });
         }
 
-        /* LOAD ASSIGNMENTS (for filter dropdown) */
         $assignmentQuery = TeacherSubjectAllocation::query()
             ->with([
                 'allocation.teacher',
@@ -388,7 +348,6 @@ class MarkViewController extends Controller
 
         $assignments = $assignmentQuery->orderByDesc('id')->get();
 
-        /* LOAD STUDENTS EXACTLY LIKE MARK ENTRY */
         $students = collect();
 
         if ($allocation && $exam && $selectedTsa) {
@@ -420,24 +379,22 @@ class MarkViewController extends Controller
             }
         }
 
-                /* LOAD SAVED MARKS */
+        /* LOAD SAVED MARKS */
         $existingMarks = collect();
 
         if ($selectedTsa && $exam && $allocation) {
-            $actualSubjectId = $selectedSubject->id ?? $selectedTsa->subject_id;
-            
+            // ✅ CRITICAL FIX: Query by teacher_subject_allocation_id to bypass subject_id mismatches
             $existingMarks = StudentMark::query()
                 ->where('academic_year_id', $allocation->academic_year_id)
                 ->where('section_id', $allocation->section_id)
                 ->where('standard_id', $allocation->standard_id)
                 ->where('division_id', $allocation->division_id)
                 ->where('exam_master_id', $exam->id)
-                ->where('subject_id', $actualSubjectId)
+                ->where('teacher_subject_allocation_id', $selectedTsa->id)
                 ->get()
-                ->keyBy('student_id');
+                ->keyBy(function ($mark) { return (string) $mark->student_id; });
         }
 
-        /* BUILD VIEW RECORDS */
         foreach ($students as $student) {
             $studentId = (int) (
                 $student->Studentid
@@ -449,7 +406,7 @@ class MarkViewController extends Controller
 
             if ($studentId <= 0) continue;
 
-            $savedMark = $existingMarks->get($studentId);
+            $savedMark = $existingMarks->get((string) $studentId);
             if (!$savedMark) continue;
 
             $studName   = trim((string) ($student->studname   ?? ''));
@@ -468,28 +425,16 @@ class MarkViewController extends Controller
                 'is_optional' => (int) ($savedMark->is_optional ?? 0),
                 'status'      => $savedMark->status ?? null,
 
-                'theory_max_marks' => $savedMark->theory_max_marks
-                    ?? ($subjectConfig->theory_max_marks ?? 0),
-
-                'theory_passing_marks' => $savedMark->theory_passing_marks
-                    ?? ($subjectConfig->theory_passing_marks ?? 0),
-
+                'theory_max_marks' => $savedMark->theory_max_marks ?? ($subjectConfig->theory_max_marks ?? 0),
+                'theory_passing_marks' => $savedMark->theory_passing_marks ?? ($subjectConfig->theory_passing_marks ?? 0),
                 'theory_obtained_marks' => $savedMark->theory_obtained_marks ?? null,
 
-                'oral_max_marks' => $savedMark->oral_max_marks
-                    ?? ($subjectConfig->oral_max_marks ?? 0),
-
-                'oral_passing_marks' => $savedMark->oral_passing_marks
-                    ?? ($subjectConfig->oral_passing_marks ?? 0),
-
+                'oral_max_marks' => $savedMark->oral_max_marks ?? ($subjectConfig->oral_max_marks ?? 0),
+                'oral_passing_marks' => $savedMark->oral_passing_marks ?? ($subjectConfig->oral_passing_marks ?? 0),
                 'oral_obtained_marks' => $savedMark->oral_obtained_marks ?? null,
 
-                'practical_max_marks' => $savedMark->practical_max_marks
-                    ?? ($subjectConfig->practical_max_marks ?? 0),
-
-                'practical_passing_marks' => $savedMark->practical_passing_marks
-                    ?? ($subjectConfig->practical_passing_marks ?? 0),
-
+                'practical_max_marks' => $savedMark->practical_max_marks ?? ($subjectConfig->practical_max_marks ?? 0),
+                'practical_passing_marks' => $savedMark->practical_passing_marks ?? ($subjectConfig->practical_passing_marks ?? 0),
                 'practical_obtained_marks' => $savedMark->practical_obtained_marks ?? null,
 
                 'subject_name' => $selectedSubject->subject_name ?? '',
@@ -498,7 +443,6 @@ class MarkViewController extends Controller
             ]);
         }
 
-        /* SORT RECORDS */
         $records = $records->sortBy(function ($student) {
             $rollNo = trim((string) ($student->rollno ?? ''));
 
@@ -509,26 +453,11 @@ class MarkViewController extends Controller
             return [1, strtoupper($rollNo)];
         })->values();
 
-        /* RETURN VIEW */
         return view('marks-entry.view', compact(
-            'records',
-            'standards',
-            'divisions',
-            'subjects',
-            'exams',
-            'exam',
-            'showTheory',
-            'showOral',
-            'showPractical',
-            'selectedTsa',
-            'selectedSubject',
-            'error',
-            'passingPercentage',
-            'academicYears',
-            'assignments',
-            'academicYearId',
-
-            /* ⭐ Component flags + max/pass */
+            'records', 'standards', 'divisions', 'subjects', 'exams', 'exam',
+            'showTheory', 'showOral', 'showPractical', 'selectedTsa',
+            'selectedSubject', 'error', 'passingPercentage', 'academicYears',
+            'assignments', 'academicYearId',
             'theoryMaxMarks', 'theoryPassingMarks',
             'oralMaxMarks',   'oralPassingMarks',
             'practicalMaxMarks', 'practicalPassingMarks',
@@ -536,11 +465,6 @@ class MarkViewController extends Controller
         ));
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SEARCH MARKS
-    |--------------------------------------------------------------------------
-    */
     public function searchMarks(Request $request)
     {
         return $this->viewMarks($request);

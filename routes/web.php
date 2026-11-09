@@ -474,6 +474,8 @@ Route::middleware(['auth'])->group(function () {
         'subjects',
         SubjectController::class
     );
+
+    Route::get('/fix-duplicates', [App\Http\Controllers\SubjectController::class, 'mergeAllDuplicates']);
     /*
     |--------------------------------------------------------------------------
     | STANDARD SUBJECT ALLOCATION

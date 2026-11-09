@@ -7,7 +7,7 @@ use App\Models\AcademicYear;
 use App\Models\Division;
 use App\Models\ExamMaster;
 use App\Models\Standard;
-use App\Models\StudentSkillMark;
+use App\Models\UserDesignation; // ✅ Added for principal resolution
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -22,10 +22,7 @@ class StudentSkillMarkController extends Controller
 
         $stdName = strtoupper((string) $standard->standard_name);
         
-        // Matches "1", "2", "FIRST", "SECOND", "1ST", "2ND"
         $isPrimary = (bool) preg_match('/\b(1|2|I|II|FIRST|SECOND|1ST|2ND)\b/i', $stdName);
-        
-        // ADDED: Detect Tenth Standard
         $isTenth = (bool) preg_match('/\b(10|X|TENTH)\b/i', $stdName);
 
         if ($slot === 'S3') {
@@ -84,7 +81,6 @@ class StudentSkillMarkController extends Controller
                 ];
             }
 
-            // ADDED: For Tenth standard, remove Abacus entirely. Total becomes 70.
             if ($isTenth) {
                 return [
                     'label' => 'WORK EXP (Computer + Robotics)',
@@ -196,22 +192,18 @@ class StudentSkillMarkController extends Controller
         $standard = null;
         $division = null;
 
-        $selectedSkill = (string) $request->input('skill', 'S1');
+        $selectedSkill = strtoupper((string) $request->input('skill', 'S1'));
+        if (is_numeric($selectedSkill)) $selectedSkill = 'S' . $selectedSkill;
         if (!in_array($selectedSkill, ['S1', 'S2', 'S3', 'S4'], true)) {
             $selectedSkill = 'S1';
         }
 
-        if ($request->filled(['academic_year_id', 'exam_master_id', 'division_id', 'standard_id'])) {
+        if ($request->filled(['academic_year_id', 'division_id', 'standard_id'])) {
             $academicYear = AcademicYear::find($request->academic_year_id);
-            $examMaster = ExamMaster::find($request->exam_master_id);
             $standard = Standard::find($request->standard_id);
             $division = Division::find($request->division_id);
 
-            if (
-                $academicYear && $examMaster && $standard && $division
-                && (int) $examMaster->academic_year_id === (int) $academicYear->id
-                && (int) $examMaster->standard_id === (int) $standard->id
-            ) {
+            if ($academicYear && $standard && $division) {
                 $struct = $this->getSkillStructure($standard->id, $selectedSkill);
                 $skillStructure = $struct['categories'] ?? [];
                 $skillLabel = $struct['label'] ?? '';
@@ -219,32 +211,43 @@ class StudentSkillMarkController extends Controller
                 $yearId = $academicYear->old_year_id ?? substr((string) $academicYear->year_name, 0, 4);
                 $students = $this->fetchClassStudents($yearId, $standard->id, $division->id);
 
-                $allowedNames = [];
-                foreach ($skillStructure as $criteria) {
-                    foreach ($criteria as $criterionName => $maxMarks) {
-                        $allowedNames[] = $criterionName;
+                $hasValidExam = false;
+                if ($request->filled('exam_master_id')) {
+                    $examMaster = ExamMaster::find($request->exam_master_id);
+                    
+                    if ($examMaster && (int) $examMaster->academic_year_id === (int) $academicYear->id && (int) $examMaster->standard_id === (int) $standard->id) {
+                        $hasValidExam = true;
+                    } else {
+                        $request->merge(['exam_master_id' => null]);
+                        $examMaster = null; 
                     }
                 }
 
-                $marksQuery = StudentSkillMark::select(
-                        'student_id', 'category', 'subject_name',
-                        'marks_obtained', 'is_absent', 'skill_teacher_name'
-                    )
-                    ->where('academic_year_id', $academicYear->id)
-                    ->where('exam_master_id', $examMaster->id)
-                    ->where('standard_id', $standard->id)
-                    ->where('division_id', $division->id)
-                    ->where('skill_slot', $selectedSkill)
-                    ->whereIn('subject_name', array_values(array_unique($allowedNames)))
-                    ->get();
+                if ($hasValidExam) {
+                    $allowedNames = [];
+                    foreach ($skillStructure as $criteria) {
+                        foreach ($criteria as $criterionName => $maxMarks) {
+                            $allowedNames[] = $criterionName;
+                        }
+                    }
 
-                foreach ($marksQuery as $mark) {
-                    $existingMarks[$mark->student_id][$mark->category][$mark->subject_name] = [
-                        'marks_obtained' => $mark->marks_obtained,
-                        'is_absent' => $mark->is_absent,
-                    ];
-                    if ($mark->skill_teacher_name) {
-                        $teacherName = $mark->skill_teacher_name;
+                    $marksQuery = DB::table('student_skill_marks')
+                        ->select('student_id', 'category', 'subject_name', 'marks_obtained', 'is_absent', 'skill_teacher_name')
+                        ->where('exam_master_id', $examMaster->id)
+                        ->where('standard_id', $standard->id)
+                        ->where('division_id', $division->id)
+                        ->whereIn('skill_slot', [$selectedSkill, str_replace('S', '', $selectedSkill)])
+                        ->whereIn('subject_name', array_values(array_unique($allowedNames)))
+                        ->get();
+
+                    foreach ($marksQuery as $mark) {
+                        $existingMarks[$mark->student_id][$mark->category][$mark->subject_name] = [
+                            'marks_obtained' => $mark->marks_obtained,
+                            'is_absent' => $mark->is_absent,
+                        ];
+                        if ($mark->skill_teacher_name) {
+                            $teacherName = $mark->skill_teacher_name;
+                        }
                     }
                 }
             }
@@ -260,6 +263,9 @@ class StudentSkillMarkController extends Controller
 
     public function save(Request $request)
     {
+        $rawSkill = strtoupper((string) $request->input('skill'));
+        if (is_numeric($rawSkill)) $request->merge(['skill' => 'S' . $rawSkill]);
+
         $validated = $request->validate([
             'academic_year_id' => ['required', 'integer'],
             'standard_id' => ['required', 'integer'],
@@ -279,7 +285,6 @@ class StudentSkillMarkController extends Controller
         $divisionId = (int) $validated['division_id'];
         $examMasterId = (int) $validated['exam_master_id'];
         $selectedSkill = (string) $validated['skill'];
-        $skillId = (int) str_replace('S', '', $selectedSkill);
         $teacherName = trim((string) $request->input('skill_teacher_name', ''));
         $now = now();
 
@@ -288,17 +293,11 @@ class StudentSkillMarkController extends Controller
         $division = Division::findOrFail($divisionId);
         $examMaster = ExamMaster::findOrFail($examMasterId);
 
-        if (
-            (int) $examMaster->academic_year_id !== $academicYearId
-            || (int) $examMaster->standard_id !== $standardId
-        ) {
-            throw ValidationException::withMessages([
-                'exam_master_id' => 'The selected exam does not belong to the selected academic year and standard.',
-            ]);
+        if ((int) $examMaster->academic_year_id !== $academicYearId || (int) $examMaster->standard_id !== $standardId) {
+            throw ValidationException::withMessages(['exam_master_id' => 'The selected exam does not belong to the selected academic year and standard.']);
         }
 
         $studentIds = array_values(array_unique(array_map('intval', array_keys($validated['marks']))));
-
         $struct = $this->getSkillStructure($standardId, $selectedSkill);
         $skillStructure = $struct['categories'] ?? [];
 
@@ -306,13 +305,20 @@ class StudentSkillMarkController extends Controller
             return redirect()->back()->withInput()->with('error', 'No criteria are configured for this skill.');
         }
 
+        $allCriterionNames = [];
+        foreach ($skillStructure as $category => $criteria) {
+            foreach ($criteria as $criterionName => $maxMarks) {
+                $allCriterionNames[] = $criterionName;
+            }
+        }
+        $subjectIdMap = DB::table('subjects')->whereIn('subject_name', $allCriterionNames)->pluck('id', 'subject_name')->toArray();
+
         $categoryFirstLayout = true;
         $allRows = [];
 
         try {
             foreach ($validated['marks'] as $studentIdKey => $submittedCategories) {
                 $studentId = (int) $studentIdKey;
-
                 if ($studentId <= 0 || !is_array($submittedCategories)) continue;
 
                 $studentName = trim((string) $request->input("student_names.{$studentId}", ''));
@@ -365,7 +371,8 @@ class StudentSkillMarkController extends Controller
                             'division_id' => $divisionId, 'exam_master_id' => $examMasterId,
                             'student_id' => $studentId, 'student_name' => $studentName,
                             'roll_no' => $rollNo !== '' ? $rollNo : null, 'gr_no' => $grNo !== '' ? $grNo : null,
-                            'skill_slot' => $selectedSkill, 'skill_id' => $skillId,
+                            'skill_slot' => $selectedSkill,
+                            'subject_id' => $subjectIdMap[$criterionName] ?? null,
                             'category' => $category, 'subject_name' => $criterionName,
                             'max_marks' => $maxMarks, 'marks_obtained' => $marksObtained,
                             'is_absent' => $isAbsent ? 1 : 0, 'total_marks' => 0, 'grade' => null,
@@ -393,18 +400,18 @@ class StudentSkillMarkController extends Controller
                 $allRows = array_merge($allRows, $studentRows);
             }
 
-            DB::transaction(function () use ($academicYearId, $standardId, $divisionId, $examMasterId, $selectedSkill, $studentIds, $allRows) {
+            DB::transaction(function () use ($standardId, $divisionId, $examMasterId, $selectedSkill, $studentIds, $allRows) {
                 if (!empty($studentIds)) {
-                    StudentSkillMark::where('academic_year_id', $academicYearId)
+                    DB::table('student_skill_marks')
                         ->where('standard_id', $standardId)
                         ->where('division_id', $divisionId)
                         ->where('exam_master_id', $examMasterId)
-                        ->where('skill_slot', $selectedSkill)
+                        ->whereIn('skill_slot', [$selectedSkill, str_replace('S', '', $selectedSkill)])
                         ->whereIn('student_id', $studentIds)
                         ->delete();
                 }
                 foreach (array_chunk($allRows, 500) as $chunk) {
-                    StudentSkillMark::insert($chunk);
+                    DB::table('student_skill_marks')->insert($chunk);
                 }
             });
 
@@ -416,13 +423,16 @@ class StudentSkillMarkController extends Controller
 
         } catch (\Throwable $e) {
             report($e);
-            return redirect()->back()->withInput()->with('error', 'Unable to save skill marks. Please check the application log.');
+            return redirect()->back()->withInput()->with('error', 'Database Error: ' . $e->getMessage());
         }
     }
 
     public function autoSave(Request $request)
     {
         try {
+            $rawSkill = strtoupper((string) $request->input('skill'));
+            if (is_numeric($rawSkill)) $request->merge(['skill' => 'S' . $rawSkill]);
+
             $validated = $request->validate([
                 'academic_year_id' => ['required', 'integer'],
                 'standard_id' => ['required', 'integer'],
@@ -443,7 +453,6 @@ class StudentSkillMarkController extends Controller
             $divisionId = (int) $validated['division_id'];
             $examMasterId = (int) $validated['exam_master_id'];
             $selectedSkill = (string) $validated['skill'];
-            $skillId = (int) str_replace('S', '', $selectedSkill);
             $studentId = (int) $validated['student_id'];
             $teacherName = trim((string) $request->input('skill_teacher_name', ''));
             $now = now();
@@ -454,6 +463,14 @@ class StudentSkillMarkController extends Controller
             if (empty($skillStructure)) {
                 return response()->json(['success' => false, 'message' => 'No criteria configured.']);
             }
+
+            $allCriterionNames = [];
+            foreach ($skillStructure as $category => $criteria) {
+                foreach ($criteria as $criterionName => $maxMarks) {
+                    $allCriterionNames[] = $criterionName;
+                }
+            }
+            $subjectIdMap = DB::table('subjects')->whereIn('subject_name', $allCriterionNames)->pluck('id', 'subject_name')->toArray();
 
             $categoryFirstLayout = true;
             $allRows = [];
@@ -505,7 +522,8 @@ class StudentSkillMarkController extends Controller
                         'division_id' => $divisionId, 'exam_master_id' => $examMasterId,
                         'student_id' => $studentId, 'student_name' => $studentName,
                         'roll_no' => $rollNo !== '' ? $rollNo : null, 'gr_no' => $grNo !== '' ? $grNo : null,
-                        'skill_slot' => $selectedSkill, 'skill_id' => $skillId,
+                        'skill_slot' => $selectedSkill,
+                        'subject_id' => $subjectIdMap[$criterionName] ?? null,
                         'category' => $category, 'subject_name' => $criterionName,
                         'max_marks' => $maxMarks, 'marks_obtained' => $marksObtained,
                         'is_absent' => $isAbsent ? 1 : 0, 'total_marks' => 0, 'grade' => null,
@@ -516,11 +534,11 @@ class StudentSkillMarkController extends Controller
             }
 
             if (!$hasAnyMark) {
-                StudentSkillMark::where('academic_year_id', $academicYearId)
+                DB::table('student_skill_marks')
                     ->where('standard_id', $standardId)
                     ->where('division_id', $divisionId)
                     ->where('exam_master_id', $examMasterId)
-                    ->where('skill_slot', $selectedSkill)
+                    ->whereIn('skill_slot', [$selectedSkill, str_replace('S', '', $selectedSkill)])
                     ->where('student_id', $studentId)
                     ->delete();
                 return response()->json(['success' => true, 'total' => 0, 'grade' => '-']);
@@ -539,15 +557,15 @@ class StudentSkillMarkController extends Controller
             }
             unset($row);
 
-            DB::transaction(function () use ($academicYearId, $standardId, $divisionId, $examMasterId, $selectedSkill, $studentId, $allRows) {
-                StudentSkillMark::where('academic_year_id', $academicYearId)
+            DB::transaction(function () use ($standardId, $divisionId, $examMasterId, $selectedSkill, $studentId, $allRows) {
+                DB::table('student_skill_marks')
                     ->where('standard_id', $standardId)
                     ->where('division_id', $divisionId)
                     ->where('exam_master_id', $examMasterId)
-                    ->where('skill_slot', $selectedSkill)
+                    ->whereIn('skill_slot', [$selectedSkill, str_replace('S', '', $selectedSkill)])
                     ->where('student_id', $studentId)
                     ->delete();
-                StudentSkillMark::insert($allRows);
+                DB::table('student_skill_marks')->insert($allRows);
             });
 
             return response()->json([
@@ -558,7 +576,7 @@ class StudentSkillMarkController extends Controller
 
         } catch (\Throwable $e) {
             report($e);
-            return response()->json(['success' => false, 'message' => 'Auto-save failed.'], 500);
+            return response()->json(['success' => false, 'message' => 'Auto-save failed: ' . $e->getMessage()], 500);
         }
     }
 
@@ -576,7 +594,8 @@ class StudentSkillMarkController extends Controller
             abort(422, 'The selected exam does not match the academic year and standard.');
         }
 
-        $selectedSkill = (string) $request->input('skill', 'S1');
+        $selectedSkill = strtoupper((string) $request->input('skill', 'S1'));
+        if (is_numeric($selectedSkill)) $selectedSkill = 'S' . $selectedSkill;
         if (!in_array($selectedSkill, ['S1', 'S2', 'S3', 'S4'], true)) {
             $selectedSkill = 'S1';
         }
@@ -592,15 +611,15 @@ class StudentSkillMarkController extends Controller
             }
         }
 
-        $marksQuery = StudentSkillMark::select(
+        $marksQuery = DB::table('student_skill_marks')
+            ->select(
                 'student_id', 'category', 'subject_name', 'marks_obtained',
                 'is_absent', 'total_marks', 'grade', 'skill_teacher_name'
             )
-            ->where('academic_year_id', $academicYear->id)
             ->where('exam_master_id', $examMaster->id)
             ->where('standard_id', $standard->id)
             ->where('division_id', $division->id)
-            ->where('skill_slot', $selectedSkill)
+            ->whereIn('skill_slot', [$selectedSkill, str_replace('S', '', $selectedSkill)])
             ->whereIn('subject_name', array_values(array_unique($allowedNames)))
             ->get();
 
@@ -724,6 +743,46 @@ class StudentSkillMarkController extends Controller
 
     private function resolvePrincipalName(): string
     {
+        // 1. Try UserDesignation (most robust for this ERP)
+        try {
+            $tryExact = function (string $value) {
+                try {
+                    $record = UserDesignation::query()
+                        ->with(['user', 'designation'])
+                        ->whereHas('designation', function ($q) use ($value) {
+                            $q->where(function ($qq) use ($value) {
+                                $qq->whereRaw('UPPER(TRIM(designation_name)) = ?', [$value])
+                                   ->orWhereRaw('UPPER(TRIM(designation_code)) = ?', [$value]);
+                            });
+                        })->orderByDesc('id')->first();
+
+                    return ($record && $record->user && !empty($record->user->name)) ? trim((string) $record->user->name) : null;
+                } catch (\Throwable $e) {
+                    return null;
+                }
+            };
+
+            $name = $tryExact('PRINCIPAL-PRI');
+            if ($name) return $name;
+
+            $name = $tryExact('PRINCIPAL-SEC');
+            if ($name) return $name;
+
+            $record = UserDesignation::query()
+                ->with(['user', 'designation'])
+                ->whereHas('designation', function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereRaw('UPPER(TRIM(designation_name)) LIKE ?', ['%PRINCIPAL%'])
+                           ->orWhereRaw('UPPER(TRIM(designation_code)) LIKE ?', ['%PRINCIPAL%']);
+                    });
+                })->orderByDesc('id')->first();
+
+            if ($record && $record->user && !empty($record->user->name)) return trim((string) $record->user->name);
+        } catch (\Throwable $e) {
+            // Ignore and fallback
+        }
+
+        // 2. Try existing Schema-based logic as fallback
         if (Schema::hasTable('principals')) {
             $query = DB::table('principals');
             if (Schema::hasColumn('principals', 'is_active')) {

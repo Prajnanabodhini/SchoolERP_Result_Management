@@ -80,16 +80,16 @@
 
         /* ===== DESCRIPTIVE ROW (FIXED) ===== */
         .descriptive-table .descriptive-comment-row td { 
-            height: auto !important; /* Allows the row to expand */
+            height: auto !important;
             min-height: 28px; 
             vertical-align: top; 
             padding: 6px 8px; 
             background: #fff; 
             font-size: 11px; 
-            white-space: normal !important; /* Forces text to wrap */
-            word-wrap: break-word !important; /* Breaks long words */
-            overflow: visible !important; /* Removes the hidden overflow */
-            text-overflow: clip !important; /* Removes the "..." */
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
             line-height: 1.3;
         }
 
@@ -255,18 +255,31 @@
     $isMiddleSchool = preg_match('/\b(6|7|8)\b/', $std) || str_contains($std, 'SIXTH') || str_contains($std, 'SEVENTH') || str_contains($std, 'EIGHTH') || in_array($std, ['VI', 'VII', 'VIII']);
     $isPrePrimary = preg_match('/\b(NURSERY|JR|SR|KINDERGARTEN|KG|LKG|UKG)\b/i', $std) === 1;
 
+    // ROBUST MERGE LOGIC FOR MIDDLE SCHOOL
     if ($isMiddleSchool && isset($subjects)) {
         $history = $subjects->first(fn($s) => str_contains(strtoupper($s->subject_name), 'HISTORY'));
         $geography = $subjects->first(fn($s) => str_contains(strtoupper($s->subject_name), 'GEOGRAPHY'));
-        if ($history && $geography) {
+        
+        // Check if we already have a merged SOCIAL SCIENCE from the controller
+        $existingSocialScience = $subjects->first(fn($s) => strtoupper(trim($s->subject_name)) === 'SOCIAL SCIENCE');
+
+        if ($history && $geography && !$existingSocialScience) {
             $socialScience = clone $history;
             $socialScience->subject_name = 'SOCIAL SCIENCE';
             $socialScience->obtained_marks = ($history->obtained_marks ?? 0) + ($geography->obtained_marks ?? 0);
             $socialScience->max_marks = ($history->max_marks ?? 0) + ($geography->max_marks ?? 0);
-            $pct = $socialScience->max_marks > 0 ? ($socialScience->obtained_marks / $socialScience->max_marks) * 100 : 0;
-            if ($pct >= 91) $socialScience->grade = 'A1'; elseif ($pct >= 81) $socialScience->grade = 'A2'; elseif ($pct >= 71) $socialScience->grade = 'B1';
-            elseif ($pct >= 61) $socialScience->grade = 'B2'; elseif ($pct >= 51) $socialScience->grade = 'C1'; elseif ($pct >= 41) $socialScience->grade = 'C2';
-            elseif ($pct >= 33) $socialScience->grade = 'D'; elseif ($pct >= 21) $socialScience->grade = 'E1'; else $socialScience->grade = 'E2';
+            
+            $hasMarks = ($history->has_marks ?? false) || ($geography->has_marks ?? false);
+            $socialScience->has_marks = $hasMarks;
+
+            if ($hasMarks) {
+                $pct = $socialScience->max_marks > 0 ? ($socialScience->obtained_marks / $socialScience->max_marks) * 100 : 0;
+                if ($pct >= 91) $socialScience->grade = 'A1'; elseif ($pct >= 81) $socialScience->grade = 'A2'; elseif ($pct >= 71) $socialScience->grade = 'B1';
+                elseif ($pct >= 61) $socialScience->grade = 'B2'; elseif ($pct >= 51) $socialScience->grade = 'C1'; elseif ($pct >= 41) $socialScience->grade = 'C2';
+                elseif ($pct >= 33) $socialScience->grade = 'D'; elseif ($pct >= 21) $socialScience->grade = 'E1'; else $socialScience->grade = 'E2';
+            } else {
+                $socialScience->grade = '-';
+            }
 
             $newSubjects = collect();
             foreach ($subjects as $subj) {
@@ -341,25 +354,23 @@
 
     $academicSubjects = collect();
     $skillSubjects = collect();
-    $criteriaGrades = [];
+    $subjectCriteriaGrades = []; // Group criteria by subject name
     $subjectGrades = [];
     $groupGrades = [];
 
     if ($isPrePrimary) {
-        $skillObservations = \Illuminate\Support\Facades\DB::table('student_skill_observations as sso')
-            ->leftJoin('subjects as s', 's.id', '=', 'sso.subject_id')
-            ->where('sso.student_id', $report->student_id)
-            ->where('sso.exam_master_id', $report->exam_master_id)
-            ->where('sso.academic_year_id', $report->academic_year_id)
-            ->select('sso.*', 's.subject_name')
-            ->get();
-
-        foreach ($skillObservations as $obs) {
+        foreach (($skillObservations ?? collect()) as $obs) {
             $subName = strtoupper(trim($obs->subject_name ?? ''));
-            if ($subName) $subjectGrades[$subName] = $obs->overall_grade;
-            if (!empty($obs->observations)) {
-                $json = is_array($obs->observations) ? $obs->observations : json_decode($obs->observations, true);
-                if (is_array($json)) { foreach ($json as $k => $v) $criteriaGrades[strtoupper(trim($k))] = $v; }
+            if ($subName) {
+                $subjectGrades[$subName] = $obs->overall_grade;
+                if (!empty($obs->observations)) {
+                    $json = is_array($obs->observations) ? $obs->observations : json_decode($obs->observations, true);
+                    if (is_array($json)) {
+                        foreach ($json as $k => $v) {
+                            $subjectCriteriaGrades[$subName][strtoupper(trim($k))] = $v;
+                        }
+                    }
+                }
             }
             if ($subName === 'GROUND ACTIVITIES' && $obs->ground_activities_grade) $groupGrades['A) GROUND ACTIVITIES'] = $obs->ground_activities_grade;
             if ($subName === 'TRG. SENSES' && $obs->trg_senses_grade) $groupGrades['C) TRG. SENSES'] = $obs->trg_senses_grade;
@@ -373,12 +384,32 @@
             else $academicSubjects->push($sub);
         }
 
-        $getGrade = function($name) use ($criteriaGrades, $subjectGrades) {
+        $getGrade = function($name, $groupName = '') use ($subjectCriteriaGrades, $subjectGrades) {
             $nameUpper = strtoupper(trim($name));
-            if (isset($criteriaGrades[$nameUpper])) return $criteriaGrades[$nameUpper];
-            if (isset($subjectGrades[$nameUpper])) return $subjectGrades[$nameUpper];
-            foreach ($subjectGrades as $k => $v) { if (str_contains($k, $nameUpper) || str_contains($nameUpper, $k)) return $v; }
-            foreach ($criteriaGrades as $k => $v) { if (str_contains($k, $nameUpper) || str_contains($nameUpper, $k)) return $v; }
+            $groupUpper = strtoupper(trim($groupName));
+
+            // 1. Check if it's a standalone subject (like INDOOR GAME)
+            if ($nameUpper === 'INDOOR GAME') {
+                if (isset($subjectGrades['INDOOR GAMES']) && !empty($subjectGrades['INDOOR GAMES'])) return $subjectGrades['INDOOR GAMES'];
+                if (isset($subjectGrades['INDOOR GAME']) && !empty($subjectGrades['INDOOR GAME'])) return $subjectGrades['INDOOR GAME'];
+            }
+            if (isset($subjectGrades[$nameUpper]) && !empty($subjectGrades[$nameUpper])) {
+                return $subjectGrades[$nameUpper];
+            }
+
+            // 2. Check if it's a criteria inside a specific group (like GENERAL SKILLS)
+            $baseSubject = '';
+            if (str_contains($groupUpper, 'GROUND ACTIVITIES')) $baseSubject = 'GROUND ACTIVITIES';
+            elseif (str_contains($groupUpper, 'ART SKILLS')) $baseSubject = 'ART SKILLS';
+            elseif (str_contains($groupUpper, 'TRG. SENSES')) $baseSubject = 'TRG. SENSES';
+            elseif (str_contains($groupUpper, 'ASSEMBLY')) $baseSubject = 'ASSEMBLY';
+            elseif (str_contains($groupUpper, 'ACTIVITY BOOK')) $baseSubject = 'ACTIVITY BOOK';
+            elseif (str_contains($groupUpper, 'GENERAL SKILLS')) $baseSubject = 'GENERAL SKILLS';
+
+            if ($baseSubject && isset($subjectCriteriaGrades[$baseSubject][$nameUpper]) && !empty($subjectCriteriaGrades[$baseSubject][$nameUpper])) {
+                return $subjectCriteriaGrades[$baseSubject][$nameUpper];
+            }
+
             return '-';
         };
 
@@ -537,7 +568,7 @@
                     <td class="label" style="white-space: nowrap;">Parent Contact No.</td>
                     <td class="value">
                         @if($isEdit)
-                            <input type="text" name="phone" class="edit-input" maxlength="40" value="{{ old('phone', $progress->phone ?? '') }}">
+                            <input type="text" name="phone" class="edit-input" maxlength="40" value="{{ old('phone', $report->phone ?? '') }}">
                         @else
                             {{ $hasPhone ? ($report->phone ?? $report->mobile) : '' }}
                         @endif
@@ -545,7 +576,7 @@
                     <td class="label">Email</td>
                     <td class="value">
                         @if($isEdit)
-                            <input type="email" name="email" class="edit-input" maxlength="80" value="{{ old('email', $progress->email ?? '') }}">
+                            <input type="email" name="email" class="edit-input" maxlength="80" value="{{ old('email', $report->email ?? '') }}">
                         @else
                             {{ $hasEmail ? $report->email : '' }}
                         @endif
@@ -593,9 +624,9 @@
 
                             <span style="margin-left:2px; font-weight:600; flex-shrink:0; white-space: nowrap;">Blood Group:</span>
                             @if($isEdit)
-                                <input type="text" name="blood_group" class="edit-input center" maxlength="5" style="width:40px; flex-shrink:0; padding:0; font-size:9px;" value="{{ old('blood_group', $progress->blood_group ?? '') }}">
+                                <input type="text" name="blood_group" class="edit-input center" maxlength="5" style="width:40px; flex-shrink:0; padding:0; font-size:9px;" value="{{ old('blood_group', $report->blood_group ?? '') }}">
                             @else
-                                {{ $progress->blood_group ?? '' }}
+                                {{ $report->blood_group ?? '' }}
                             @endif
                         </div>
                     </td>
@@ -694,7 +725,7 @@
                                 </tr>
                                 @foreach($groupData['criteria'] as $criterion)
                                     @php 
-                                        $c = $getGrade($criterion);
+                                        $c = $getGrade($criterion, $groupName);
                                         if($c !== '-') $leftGrades[] = $c; 
                                     @endphp
                                     <tr class="criteria-row">
@@ -704,11 +735,11 @@
                                                 <select name="graded_subjects[{{ $criterion }}]" class="sd-select">
                                                     <option value="">-</option>
                                                     @foreach($skillGradeOptions as $gOpt)
-                                                        <option value="{{ $gOpt }}" {{ $getGrade($criterion) == $gOpt ? 'selected' : '' }}>{{ $gOpt }}</option>
+                                                        <option value="{{ $gOpt }}" {{ $getGrade($criterion, $groupName) == $gOpt ? 'selected' : '' }}>{{ $gOpt }}</option>
                                                     @endforeach
                                                 </select>
                                             @else
-                                                {{ $getGrade($criterion) }}
+                                                {{ $getGrade($criterion, $groupName) }}
                                             @endif
                                         </td>
                                     </tr>
@@ -744,7 +775,7 @@
                                 </tr>
                                 @foreach($groupData['criteria'] as $criterion)
                                     @php 
-                                        $c = $getGrade($criterion);
+                                        $c = $getGrade($criterion, $groupName);
                                         if($c !== '-') $rightGrades[] = $c; 
                                     @endphp
                                     <tr class="criteria-row">
@@ -754,11 +785,11 @@
                                                 <select name="graded_subjects[{{ $criterion }}]" class="sd-select">
                                                     <option value="">-</option>
                                                     @foreach($skillGradeOptions as $gOpt)
-                                                        <option value="{{ $gOpt }}" {{ $getGrade($criterion) == $gOpt ? 'selected' : '' }}>{{ $gOpt }}</option>
+                                                        <option value="{{ $gOpt }}" {{ $getGrade($criterion, $groupName) == $gOpt ? 'selected' : '' }}>{{ $gOpt }}</option>
                                                     @endforeach
                                                 </select>
                                             @else
-                                                {{ $getGrade($criterion) }}
+                                                {{ $getGrade($criterion, $groupName) }}
                                             @endif
                                         </td>
                                     </tr>

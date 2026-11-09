@@ -586,15 +586,16 @@
                             $isOptional = isset($row->is_optional) && (int) $row->is_optional === 1;
                             $isAbsent   = !$isOptional && $H::isAbsent($row);
 
-                            $theoryVal    = $row->theory_obtained_marks    ?? null;
-                            $oralVal      = $row->oral_obtained_marks      ?? null;
-                            $practicalVal = $row->practical_obtained_marks ?? null;
+                            // ⭐ Cast values to integer to remove decimals from existing DB data
+                            $theoryVal    = isset($row->theory_obtained_marks)    ? (int) round($row->theory_obtained_marks)    : null;
+                            $oralVal      = isset($row->oral_obtained_marks)      ? (int) round($row->oral_obtained_marks)      : null;
+                            $practicalVal = isset($row->practical_obtained_marks) ? (int) round($row->practical_obtained_marks) : null;
 
                             $rowTotal = 0;
                             if (!$isOptional && !$isAbsent) {
-                                if ($showTheory)    $rowTotal += (float) ($theoryVal    ?? 0);
-                                if ($showOral)      $rowTotal += (float) ($oralVal      ?? 0);
-                                if ($showPractical) $rowTotal += (float) ($practicalVal ?? 0);
+                                if ($showTheory)    $rowTotal += (int) ($theoryVal    ?? 0);
+                                if ($showOral)      $rowTotal += (int) ($oralVal      ?? 0);
+                                if ($showPractical) $rowTotal += (int) ($practicalVal ?? 0);
                             }
 
                             $rowTotalDisplay = $isOptional
@@ -638,7 +639,7 @@
                                     @elseif($isAbsent)
                                         <span class="readonly-mark absent">AB</span>
                                     @else
-                                        <span class="readonly-mark">{{ $H::displayMark($theoryVal) }}</span>
+                                        <span class="readonly-mark">{{ $theoryVal !== null ? $theoryVal : '-' }}</span>
                                     @endif
                                 </td>
                             @endif
@@ -652,7 +653,7 @@
                                     @elseif($isAbsent)
                                         <span class="readonly-mark absent">AB</span>
                                     @else
-                                        <span class="readonly-mark">{{ $H::displayMark($oralVal) }}</span>
+                                        <span class="readonly-mark">{{ $oralVal !== null ? $oralVal : '-' }}</span>
                                     @endif
                                 </td>
                             @endif
@@ -666,7 +667,7 @@
                                     @elseif($isAbsent)
                                         <span class="readonly-mark absent">AB</span>
                                     @else
-                                        <span class="readonly-mark">{{ $H::displayMark($practicalVal) }}</span>
+                                        <span class="readonly-mark">{{ $practicalVal !== null ? $practicalVal : '-' }}</span>
                                     @endif
                                 </td>
                             @endif

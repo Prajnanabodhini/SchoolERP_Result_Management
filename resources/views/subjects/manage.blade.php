@@ -85,11 +85,11 @@
         border-top-right-radius: 5px;
     }
 
-    /* Changed from Grid to CSS Columns for Top-to-Bottom flow */
+    /* CHANGED: Forced exactly 2 columns instead of auto-flowing based on width */
     .subject-list {
         padding: 6px;
-        column-width: 180px; /* Auto-creates columns based on width */
-        column-gap: 6px;
+        column-count: 2; /* Forces 2 columns */
+        column-gap: 8px;
     }
 
     /* Individual Checkbox Item */
@@ -142,10 +142,18 @@
         color: #374151;
         cursor: pointer;
         margin: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
         flex-grow: 1;
+        line-height: 1.3;
+        /* Removed text overflow hidden/ellipsis so text wraps and shows completely */
+        word-wrap: break-word; 
+    }
+
+    /* NEW: Style for the Subject Code in brackets */
+    .subject-item .subject-code {
+        color: #6b7280;
+        font-weight: 500;
+        font-size: 10px;
+        margin-left: 2px;
     }
 
     .subject-item input:checked ~ .subject-name {
@@ -216,7 +224,12 @@
                             <label class="subject-item {{ $checked ? 'checked-bg' : '' }}">
                                 <input type="checkbox" name="subject_ids[]" value="{{ $sub->id }}" {{ $checked ? 'checked' : '' }}>
                                 <span class="subject-id">{{ $sub->id }}</span>
-                                <span class="subject-name" title="{{ $sub->subject_name }}">{{ $sub->subject_name }}</span>
+                                <span class="subject-name" title="{{ $sub->subject_name }} @if($sub->subject_code) ({{ $sub->subject_code }}) @endif">
+                                    {{ $sub->subject_name }}
+                                    @if(!empty($sub->subject_code))
+                                        <span class="subject-code">({{ $sub->subject_code }})</span>
+                                    @endif
+                                </span>
                             </label>
                         @endforeach
                     </div>
@@ -235,7 +248,12 @@
                             <label class="subject-item {{ $checked ? 'checked-bg' : '' }}">
                                 <input type="checkbox" name="subject_ids[]" value="{{ $sub->id }}" {{ $checked ? 'checked' : '' }}>
                                 <span class="subject-id">{{ $sub->id }}</span>
-                                <span class="subject-name" title="{{ $sub->subject_name }}">{{ $sub->subject_name }}</span>
+                                <span class="subject-name" title="{{ $sub->subject_name }} @if($sub->subject_code) ({{ $sub->subject_code }}) @endif">
+                                    {{ $sub->subject_name }}
+                                    @if(!empty($sub->subject_code))
+                                        <span class="subject-code">({{ $sub->subject_code }})</span>
+                                    @endif
+                                </span>
                             </label>
                         @endforeach
                     </div>

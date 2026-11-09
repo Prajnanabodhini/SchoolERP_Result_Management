@@ -483,7 +483,8 @@ document.addEventListener('DOMContentLoaded', function () {
         gradeCell.textContent = (total > 0 && GRAND_MAX > 0) ? gradeFromPct((total / GRAND_MAX) * 100) : '—';
     }
 
-    const csrfToken = document.querySelector('input[name="_token"]').value;
+    const csrfTokenElement = document.querySelector('input[name="_token"]');
+    const csrfToken = csrfTokenElement ? csrfTokenElement.value : '';
     let saveTimeouts = {};
 
     function triggerAutoSave(row) {
@@ -526,7 +527,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 marks
             })
         })
-        .then(res => res.json())
+        .then(async res => {
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error(`Server returned invalid JSON. Status: ${res.status} ${res.statusText}. Raw: ${text.substring(0, 100)}`);
+            }
+            if (!res.ok) {
+                throw new Error(data.message || 'Server Error');
+            }
+            return data;
+        })
         .then(data => {
             row.style.opacity = '1';
             if (data.success) {
@@ -538,11 +551,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 const originalBg = row.style.backgroundColor;
                 row.style.backgroundColor = '#dcfce7';
                 setTimeout(() => { row.style.backgroundColor = originalBg; }, 800);
+            } else {
+                // Show error using SweetAlert if it fails
+                Swal.fire({ icon: 'error', title: 'Auto-save failed', text: data.message || 'Unknown error' });
             }
         })
         .catch(err => {
             row.style.opacity = '1';
             console.error('Auto-save failed:', err);
+            // Show exact error message
+            Swal.fire({ icon: 'error', title: 'Auto-save Error', text: err.message });
         });
     }
 

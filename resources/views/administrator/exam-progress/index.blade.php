@@ -18,7 +18,7 @@
 .select-wrapper { position: relative; display: block; width: 100%; }
 .filter-select { height: 32px; width: 100%; padding: 4px 28px 4px 10px; font-size: 11.5px !important; font-weight: 600; border: 1px solid #9CA3AF; border-radius: 6px; background-color: #ffffff; color: #111827; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; outline: none; transition: border-color .15s, box-shadow .15s; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B5563' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 9px center; background-size: 12px; }
 .filter-select:focus { border-color: #2563EB; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); }
-.filter-group.w-academic-year { width: 130px; } .filter-group.w-standard { width: 140px; } .filter-group.w-division { width: 90px; } .filter-group.w-exam { width: 210px; }
+.filter-group.w-academic-year { width: 130px; } .filter-group.w-standard { width: 140px; } .filter-group.w-division { width: 90px; } .filter-group.w-exam-type { width: 140px; } .filter-group.w-exam { width: 200px; } .filter-group.w-status { width: 120px; }
 .filter-group.filter-group-btn { flex: 0 0 auto; margin-left: 0; }
 .erp-btn, .erp-btn-save { height: 32px !important; min-width: 75px; padding: 0 14px !important; font-size: 11.5px !important; font-weight: 700 !important; border-radius: 6px !important; background: #16A34A !important; color: #fff !important; border: 1px solid #15803D !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; text-decoration: none !important; white-space: nowrap; transition: background .15s, border-color .15s; line-height: 1; }
 .erp-btn:hover, .erp-btn-save:hover { background: #15803D !important; border-color: #166534 !important; }
@@ -31,7 +31,6 @@
 .result-table thead tr { background: #1e3a8a; }
 .result-table th { background: #1e3a8a; color: #FFFFFF !important; font-weight: 700 !important; font-size: 10.5px !important; text-transform: uppercase; letter-spacing: 0.4px; border: 1px solid #1e40af; padding: 6px 4px; white-space: nowrap; text-align: left; overflow: hidden; text-overflow: ellipsis; }
 .result-table td { border: 1px solid #d1d5db; padding: 5px 4px; white-space: nowrap; font-size: 11px; color: #111827; vertical-align: middle; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
-/* Smart Wrap: Only Exam, Subject, and Standard will wrap to new lines. Teacher, ID, Div, Status, Action will stay on one line. */
 .result-table td.subject-name, .result-table td.col-exam, .result-table td.col-standard { white-space: normal !important; word-break: break-word; line-height: 1.3; }
 .result-table tbody tr:nth-child(even) { background: #f9fafb; } .result-table tbody tr:hover { background: #fef9c3; }
 .result-table th.left, .result-table td.left { text-align: left; } .result-table th.center, .result-table td.center { text-align: center; }
@@ -42,9 +41,10 @@
 .action-button:hover { background: #15803D !important; border-color: #166534 !important; }
 .no-record { border: 1px solid #d1d5db; padding: 20px 16px; text-align: center; color: #92400E; background: #fffbeb; font-weight: 600; font-size: 12px; }
 .exam-progress-page .pagination, .exam-progress-page nav[role="navigation"] { margin-top: 12px; } .exam-progress-page nav svg { width: 15px; height: 15px; }
-@media (max-width: 1100px) { .filter-group.w-academic-year { width: 120px; } .filter-group.w-standard { width: 130px; } .filter-group.w-division { width: 80px; } .filter-group.w-exam { width: 180px; } }
-@media (max-width: 900px) { .filter-row { gap: 6px; } .filter-group.w-academic-year, .filter-group.w-standard, .filter-group.w-division, .filter-group.w-exam { flex: 1 1 130px; width: auto; } }
-@media (max-width: 700px) { .exam-progress-page { padding: 8px; } .tabs-bar { flex-direction: column; } .tab { justify-content: center; } .filter-row { flex-direction: column; align-items: stretch; } .filter-group, .filter-group.w-academic-year, .filter-group.w-standard, .filter-group.w-division, .filter-group.w-exam, .filter-group.filter-group-btn { width: 100%; flex: 1 1 100%; margin-left: 0; } .erp-btn, .erp-btn-save { width: 100%; } .result-table th.col-standard, .result-table td.col-standard, .result-table th.col-division, .result-table td.col-division, .result-table th.col-teacher, .result-table td.col-teacher { display: none; } }
+@media (max-width: 1300px) { .filter-group.w-academic-year { width: 120px; } .filter-group.w-standard { width: 130px; } .filter-group.w-division { width: 80px; } .filter-group.w-exam-type { width: 130px; } .filter-group.w-exam { width: 180px; } .filter-group.w-status { width: 110px; } }
+@media (max-width: 1100px) { .filter-group.w-academic-year { width: 115px; } .filter-group.w-standard { width: 120px; } .filter-group.w-division { width: 70px; } .filter-group.w-exam-type { width: 115px; } .filter-group.w-exam { width: 160px; } .filter-group.w-status { width: 105px; } }
+@media (max-width: 900px) { .filter-row { gap: 6px; } .filter-group.w-academic-year, .filter-group.w-standard, .filter-group.w-division, .filter-group.w-exam, .filter-group.w-exam-type, .filter-group.w-status { flex: 1 1 130px; width: auto; } }
+@media (max-width: 700px) { .exam-progress-page { padding: 8px; } .tabs-bar { flex-direction: column; } .tab { justify-content: center; } .filter-row { flex-direction: column; align-items: stretch; } .filter-group, .filter-group.w-academic-year, .filter-group.w-standard, .filter-group.w-division, .filter-group.w-exam, .filter-group.w-exam-type, .filter-group.w-status, .filter-group.filter-group-btn { width: 100%; flex: 1 1 100%; margin-left: 0; } .erp-btn, .erp-btn-save { width: 100%; } .result-table th.col-standard, .result-table td.col-standard, .result-table th.col-division, .result-table td.col-division, .result-table th.col-teacher, .result-table td.col-teacher { display: none; } }
 </style>
 
 <div class="exam-progress-page">
@@ -58,6 +58,8 @@
         if (!empty($standardId))      $cleanParams['standard_id']      = $standardId;
         if (!empty($divisionId))      $cleanParams['division_id']      = $divisionId;
         if (!empty($examId))          $cleanParams['exam_master_id']   = $examId;
+        if (!empty($statusFilter))    $cleanParams['status']           = $statusFilter;
+        if (!empty($examType))        $cleanParams['exam_type']        = $examType;
 
         $academicTabUrl = route('exam-progress.index', array_merge($cleanParams, ['subject_type' => 'academic']));
         $skillTabUrl    = route('exam-progress.index', array_merge($cleanParams, ['subject_type' => 'skill']));
@@ -111,6 +113,23 @@
                     </div>
                 </div>
 
+                {{-- Exam Type Filter (Now uses the fixed list) --}}
+                @if($examTypes->isNotEmpty())
+                    <div class="filter-group w-exam-type">
+                        <label for="exam_type" class="filter-label">Exam Type</label>
+                        <div class="select-wrapper">
+                            <select name="exam_type" id="exam_type" class="filter-select">
+                                <option value="">All Types</option>
+                                @foreach($examTypes as $type)
+                                    <option value="{{ $type }}" {{ (string)$examType === (string)$type ? 'selected' : '' }}>
+                                        {{ $type }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                @endif
+
                 <div class="filter-group w-exam">
                     <label for="exam_master_id" class="filter-label">Exam</label>
                     <div class="select-wrapper">
@@ -123,12 +142,24 @@
                     </div>
                 </div>
 
+                {{-- Status filter --}}
+                <div class="filter-group w-status">
+                    <label for="status" class="filter-label">Status</label>
+                    <div class="select-wrapper">
+                        <select name="status" id="status" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="COMPLETED" {{ $statusFilter === 'COMPLETED' ? 'selected' : '' }}>Completed</option>
+                            <option value="PENDING"   {{ $statusFilter === 'PENDING'   ? 'selected' : '' }}>Pending</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="filter-group filter-group-btn">
                     <label class="filter-label" style="visibility:hidden;">.</label>
                     <button type="submit" class="erp-btn erp-btn-save">Search</button>
                 </div>
 
-                @if(($examId !== null && $examId !== '') || ($standardId !== null && $standardId !== '') || ($divisionId !== null && $divisionId !== '') || ($academicYearId !== null && $academicYearId !== ''))
+                @if(!empty($examId) || !empty($standardId) || !empty($divisionId) || !empty($academicYearId) || !empty($statusFilter) || !empty($examType))
                     <div class="filter-group filter-group-btn">
                         <label class="filter-label" style="visibility:hidden;">.</label>
                         <a href="{{ route('exam-progress.index', ['subject_type' => $subjectType ?? 'academic']) }}" class="erp-btn erp-btn-reset">Reset</a>
@@ -149,22 +180,22 @@
             <table class="result-table">
                 <colgroup>
                     @if($activeTab === 'marks')
-                        <col style="width:4%;">   {{-- ID --}}
-                        <col style="width:22%;">  {{-- Exam --}}
-                        <col style="width:30%;">  {{-- Subject --}}
-                        <col class="col-standard" style="width:15%;"> {{-- Standard --}}
-                        <col class="col-division" style="width:5%;">  {{-- Div --}}
-                        <col style="width:12%;">  {{-- Status --}}
-                        <col style="width:12%;">  {{-- Action --}}
+                        <col style="width:4%;">
+                        <col style="width:22%;">
+                        <col style="width:30%;">
+                        <col class="col-standard" style="width:15%;">
+                        <col class="col-division" style="width:5%;">
+                        <col style="width:12%;">
+                        <col style="width:12%;">
                     @else
-                        <col style="width:4%;">   {{-- ID --}}
-                        <col style="width:18%;">  {{-- Exam --}}
-                        <col style="width:24%;">  {{-- Subject --}}
-                        <col class="col-standard" style="width:12%;"> {{-- Standard --}}
-                        <col class="col-division" style="width:4%;">  {{-- Div --}}
-                        <col class="col-teacher" style="width:16%;">  {{-- Teacher --}}
-                        <col style="width:11%;">  {{-- Status --}}
-                        <col style="width:11%;">  {{-- Action --}}
+                        <col style="width:4%;">
+                        <col style="width:18%;">
+                        <col style="width:24%;">
+                        <col class="col-standard" style="width:12%;">
+                        <col class="col-division" style="width:4%;">
+                        <col class="col-teacher" style="width:16%;">
+                        <col style="width:11%;">
+                        <col style="width:11%;">
                     @endif
                 </colgroup>
 
@@ -279,22 +310,45 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const form               = document.getElementById('examProgressFilterForm');
-    const academicYearSelect = document.getElementById('academic_year_id');
-    const standardSelect     = document.getElementById('standard_id');
-    const divisionSelect     = document.getElementById('division_id');
-    const examSelect         = document.getElementById('exam_master_id');
+    const form                 = document.getElementById('examProgressFilterForm');
+    const academicYearSelect   = document.getElementById('academic_year_id');
+    const standardSelect       = document.getElementById('standard_id');
+    const divisionSelect       = document.getElementById('division_id');
+    const examTypeSelect       = document.getElementById('exam_type');
+    const examSelect           = document.getElementById('exam_master_id');
+    const statusFilterSelect   = document.getElementById('status');
+    
     if (!form) return;
-    
-    function resetExamAndSubmit() { 
-        if (examSelect) examSelect.value = ''; 
-        form.submit(); 
-    }
-    
-    if (academicYearSelect) academicYearSelect.addEventListener('change', resetExamAndSubmit);
-    if (standardSelect)     standardSelect.addEventListener('change', resetExamAndSubmit);
-    if (divisionSelect)     divisionSelect.addEventListener('change', resetExamAndSubmit);
-    if (examSelect)         examSelect.addEventListener('change', function () { form.submit(); });
+
+    // Auto-submit on ANY filter change
+    if (academicYearSelect) academicYearSelect.addEventListener('change', function () {
+        if (examSelect) examSelect.value = '';
+        form.submit();
+    });
+
+    if (standardSelect) standardSelect.addEventListener('change', function () {
+        if (examSelect) examSelect.value = '';
+        form.submit();
+    });
+
+    if (divisionSelect) divisionSelect.addEventListener('change', function () {
+        form.submit();
+    });
+
+    // When Exam Type changes, we reset the specific Exam selected 
+    // because the new Exam Type might not contain that specific Exam.
+    if (examTypeSelect) examTypeSelect.addEventListener('change', function () {
+        if (examSelect) examSelect.value = '';
+        form.submit();
+    });
+
+    if (examSelect) examSelect.addEventListener('change', function () {
+        form.submit();
+    });
+
+    if (statusFilterSelect) statusFilterSelect.addEventListener('change', function () {
+        form.submit();
+    });
 });
 </script>
 </x-app-layout>
