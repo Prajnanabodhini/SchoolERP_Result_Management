@@ -5,6 +5,7 @@ namespace App\Helpers;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class ResultSheetBladeHelper
 {
@@ -26,18 +27,23 @@ class ResultSheetBladeHelper
         return '';
     }
 
-    public static function normalizeSubjectName($column): string
-    {
-        return strtoupper(trim(preg_replace('/\s+/', ' ', (string) (data_get($column, 'subject_name', data_get($column, 'subject_code', ''))))));
-    }
-
     public static function getSubjectKey($column): string
     {
-        if (data_get($column, 'key') && trim((string) data_get($column, 'key')) !== '') return (string) data_get($column, 'key');
-        if (data_get($column, 'subject_id') !== null && data_get($column, 'subject_id') !== '') return 'SUBJECT_' . (int) data_get($column, 'subject_id');
-        if (data_get($column, 'mapping_id') !== null && data_get($column, 'mapping_id') !== '') return 'MAPPING_' . (int) data_get($column, 'mapping_id');
-        if (!empty(data_get($column, 'subject_code'))) return (string) data_get($column, 'subject_code');
-        if (!empty(data_get($column, 'subject_name'))) return (string) data_get($column, 'subject_name');
+        $key = data_get($column, 'key');
+        if (!empty($key)) return (string) $key;
+        
+        $subjectId = data_get($column, 'subject_id');
+        if (!empty($subjectId)) return 'SUBJECT_' . (int) $subjectId;
+        
+        $mappingId = data_get($column, 'mapping_id');
+        if (!empty($mappingId)) return 'MAPPING_' . (int) $mappingId;
+        
+        $subjectCode = data_get($column, 'subject_code');
+        if (!empty($subjectCode)) return (string) $subjectCode;
+        
+        $subjectName = data_get($column, 'subject_name');
+        if (!empty($subjectName)) return (string) $subjectName;
+        
         return '';
     }
 
@@ -64,13 +70,6 @@ class ResultSheetBladeHelper
         $keys = array_values(array_unique($keys));
         foreach ($keys as $k) { if (array_key_exists($k, $collection)) return $collection[$k]; }
         foreach ($collection as $storedKey => $storedValue) { foreach ($keys as $k) { if (strcasecmp(trim((string) $storedKey), trim((string) $k)) === 0) return $storedValue; } }
-        foreach ($collection as $storedKey => $storedValue) {
-            $sn = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $storedKey));
-            foreach ($keys as $k) {
-                $kn = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $k));
-                if ($sn !== '' && $sn === $kn) return $storedValue;
-            }
-        }
         return null;
     }
 
@@ -78,7 +77,6 @@ class ResultSheetBladeHelper
 
     public static function getStudentGrade($student, $column): string
     {
-        if (self::getStudentOptionalFlag($student, $column)) return 'OPT';
         $grade = self::getCollectionValue(data_get($student, 'subject_grades', []), $column);
         $mark = self::getStudentMark($student, $column);
         if (strtoupper(trim((string) ($mark ?? ''))) === 'OPT') return 'OPT';
@@ -87,19 +85,6 @@ class ResultSheetBladeHelper
     }
 
     public static function getStudentResult($student, $column) { return self::getCollectionValue(data_get($student, 'subject_results', []), $column); }
-
-    public static function getStudentOptionalFlag($student, $column): bool
-    {
-        $mark = self::getStudentMark($student, $column);
-        if ($mark !== null && strtoupper(trim((string) $mark)) === 'OPT') return true;
-        $optionalMap = self::toArray(data_get($student, 'subject_is_optional', []));
-        $value = self::getCollectionValue($optionalMap, $column);
-        if ($value !== null) {
-            $v = strtoupper(trim((string) $value));
-            return in_array($v, ['1', 'TRUE', 'YES', 'Y', 'OPT'], true);
-        }
-        return false;
-    }
 
     public static function isSeniorOptionalStandard(int $standardId): bool { return in_array($standardId, [19, 20, 21, 22], true); }
     public static function isSeniorOptionalColumn($column, int $standardId): bool { return data_get($column, 'is_optional') !== null && (int) data_get($column, 'is_optional') === 1; }
@@ -206,7 +191,6 @@ class ResultSheetBladeHelper
             foreach ($columns as $column) {
                 $subjectDetails[] = [
                     'column' => $column, 'mark' => self::getStudentMark($student, $column), 'grade' => self::getStudentGrade($student, $column),
-                    'optional' => self::getStudentOptionalFlag($student, $column), 'selected_optional' => !self::getStudentOptionalFlag($student, $column),
                     'absent' => strtoupper(trim((string) self::getStudentMark($student, $column))) === 'AB', 'failed' => strtoupper(trim((string) self::getStudentResult($student, $column))) === 'FAIL',
                 ];
             }
@@ -222,30 +206,25 @@ class ResultSheetBladeHelper
                 'subject_details' => $subjectDetails
             ];
         }
-        $totalMarks = 0.0; $totalMaxMarks = 0.0; $hasFail = false; $hasAbsent = false; $hasAnyMark = false;
+        $totalMarks = 0.0; $totalMaxMarks = 0.0; $hasAbsent = false; $hasAnyMark = false;
         foreach ($columns as $column) {
-            $isColumnOptional  = (int) data_get($column, 'is_optional', 0) === 1;
-            $isStudentOptional = self::getStudentOptionalFlag($student, $column);
-            if ($isColumnOptional && $isStudentOptional) continue;
-            $maxMarks = (float) data_get($column, 'max_marks', 0);
-            if ($maxMarks > 0) $totalMaxMarks += $maxMarks;
             $mark = self::getStudentMark($student, $column);
             if ($mark === null || $mark === '' || strtoupper(trim((string) $mark)) === 'OPT') continue;
+            $maxMarks = (float) data_get($column, 'max_marks', 0);
+            if ($maxMarks > 0) $totalMaxMarks += $maxMarks;
             if (strtoupper(trim((string) $mark)) === 'AB') { $hasAbsent = true; $hasAnyMark = true; continue; }
             if (is_numeric($mark)) {
                 $hasAnyMark = true; $totalMarks += (float) $mark;
-                $passing = self::resolveSubjectPassing($column, $standardId);
-                if ($passing > 0 && (float) $mark < $passing) $hasFail = true;
             }
         }
         $percentage = $totalMaxMarks > 0 ? round(($totalMarks / $totalMaxMarks) * 100, 2) : null;
         $result = 'PENDING';
         if ($hasAnyMark) {
-            if ($hasAbsent || $hasFail) $result = 'FAIL';
+            if ($hasAbsent) $result = 'FAIL';
             elseif ($percentage !== null && $percentage >= $passingPercentage) $result = 'PASS';
             else $result = 'FAIL';
         }
-        return ['total_marks' => $totalMarks, 'total_max_marks' => $totalMaxMarks, 'percentage' => $percentage, 'grade' => self::getGradeFromPercentage($percentage), 'result' => $result, 'active_subjects' => 0, 'optional_subjects' => 0, 'selected_optional_count' => 0, 'absent_subjects' => $hasAbsent ? 1 : 0, 'failed_subjects' => $hasFail ? 1 : 0, 'subject_details' => []];
+        return ['total_marks' => $totalMarks, 'total_max_marks' => $totalMaxMarks, 'percentage' => $percentage, 'grade' => self::getGradeFromPercentage($percentage), 'result' => $result, 'active_subjects' => 0, 'optional_subjects' => 0, 'selected_optional_count' => 0, 'absent_subjects' => $hasAbsent ? 1 : 0, 'failed_subjects' => 0, 'subject_details' => []];
     }
 
     public static function buildStudentCalculations(Collection $students, Collection $columns, int $standardId, int $passingPercentage): array
@@ -278,9 +257,8 @@ class ResultSheetBladeHelper
     {
         $total = 0.0;
         foreach ($columns as $column) {
-            $isColOptional = (int) data_get($column, 'is_optional', 0) === 1;
-            $isStudentOpt  = self::getStudentOptionalFlag($student, $column);
-            if ($isColOptional && $isStudentOpt) continue;
+            $mark = self::getStudentMark($student, $column);
+            if ($mark === 'OPT') continue;
             $total += (float) data_get($column, 'max_marks', 0);
         }
         return $total;
@@ -303,7 +281,7 @@ class ResultSheetBladeHelper
                 if (!$column) continue;
                 $code = self::subjectCode($column);
                 if (!isset($subjectAnalysis[$code])) continue;
-                if (!empty($detail['optional']) && empty($detail['selected_optional'])) continue;
+                if (strtoupper(trim((string)($detail['mark'] ?? ''))) === 'OPT') continue;
                 if (!empty($detail['absent'])) { $subjectAnalysis[$code]['absent_' . $gender]++; continue; }
                 if (!empty($detail['failed'])) { if ($includeFail) $subjectAnalysis[$code]['F_' . $gender]++; continue; }
                 $grade = strtoupper(trim((string) ($detail['grade'] ?? '')));
@@ -348,7 +326,6 @@ class ResultSheetBladeHelper
 
     private static function getCasteCategory($student): string
     {
-        // 1. Check if we have a clean category name
         $rawCat = trim((string) data_get($student, 'category_name', ''));
         $cleanCat = strtoupper(preg_replace('/[^A-Z]/', '', $rawCat));
         
@@ -362,14 +339,12 @@ class ResultSheetBladeHelper
             if (in_array($cleanCat, ['OPEN', 'GENERAL', 'HINDU'])) return 'OPEN';
         }
 
-        // 2. Fallback to Category ID
         $catId = (int) data_get($student, 'category_id', 0);
         if ($catId > 0) {
             $idMap = [1 => 'OPEN', 2 => 'OBC', 3 => 'SC', 4 => 'NT', 5 => 'ST', 6 => 'VJNT', 7 => 'ST', 8 => 'VJNT'];
             if (isset($idMap[$catId])) return $idMap[$catId];
         }
 
-        // 3. Fallback to Caste Name
         $casteStr = trim((string) data_get($student, 'caste', ''));
         $c = preg_replace('/[^A-Z]/', '', strtoupper(trim($casteStr)));
         if ($c === '') return 'OPEN';
@@ -392,18 +367,40 @@ class ResultSheetBladeHelper
 
         $casteMap = collect();
         if (!empty($studentIds)) {
-            try {
-                // FIXED: Using correct table dbo.CommCategoryMst and column names
-                $casteMap = DB::connection('sqlsrv_olderp')
-                    ->table('FeeMstStudent as fs')
-                    ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'fs.casteid')
-                    ->leftJoin('dbo.CommCategoryMst as cat', 'cat.Categoryid', '=', 'mc.Categoryid')
-                    ->whereIn('fs.Studentid', $studentIds)
-                    ->select('fs.Studentid', 'mc.Caste as caste', 'mc.Categoryid as category_id', 'cat.Categoryname as category_name')
-                    ->get()
-                    ->keyBy('Studentid');
-            } catch (\Exception $e) {
-                Log::error('CasteWiseAnalysis query failed: ' . $e->getMessage());
+            $cacheKey = 'result_caste_map_' . md5(implode(',', $studentIds));
+            
+            $casteMap = Cache::remember($cacheKey, now()->addHours(12), function() use ($studentIds) {
+                try {
+                    return DB::connection('sqlsrv_olderp')
+                        ->table('FeeMstStudent as fs')
+                        ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'fs.casteid')
+                        ->leftJoin('dbo.CommCategoryMst as cat', 'cat.Categoryid', '=', 'mc.Categoryid')
+                        ->whereIn('fs.Studentid', $studentIds)
+                        ->select('fs.Studentid', 'mc.Caste as caste', 'mc.Categoryid as category_id', 'cat.Categoryname as category_name')
+                        ->get()
+                        ->keyBy('Studentid');
+                } catch (\Exception $e) {
+                    Log::error('CasteWiseAnalysis query failed: ' . $e->getMessage());
+                    return collect();
+                }
+            });
+            
+            // ✅ FIX: If cache returned a corrupted/incomplete object, bypass and re-fetch to self-heal.
+            if (!($casteMap instanceof \Illuminate\Support\Collection)) {
+                try {
+                    $casteMap = DB::connection('sqlsrv_olderp')
+                        ->table('FeeMstStudent as fs')
+                        ->leftJoin('MstCaste as mc', 'mc.castid', '=', 'fs.casteid')
+                        ->leftJoin('dbo.CommCategoryMst as cat', 'cat.Categoryid', '=', 'mc.Categoryid')
+                        ->whereIn('fs.Studentid', $studentIds)
+                        ->select('fs.Studentid', 'mc.Caste as caste', 'mc.Categoryid as category_id', 'cat.Categoryname as category_name')
+                        ->get()
+                        ->keyBy('Studentid');
+                    Cache::put($cacheKey, $casteMap, now()->addHours(12)); // Overwrite the bad cache
+                } catch (\Exception $e) {
+                    Log::error('CasteWiseAnalysis fallback query failed: ' . $e->getMessage());
+                    $casteMap = collect();
+                }
             }
         }
 
@@ -425,6 +422,8 @@ class ResultSheetBladeHelper
 
             $gender = self::isFemale($student) ? 'girls' : 'boys';
             $sid = data_get($student, 'student_id', data_get($student, 'Studentid', data_get($student, 'old_student_id', data_get($student, 'id'))));
+            
+            // Now safely retrieve from the validated Collection
             $dbCaste = $casteMap->get($sid); 
             
             if ($dbCaste) {
@@ -469,7 +468,9 @@ class ResultSheetBladeHelper
         );
 
         $columns = self::enrichColumnsWithExamMaster($columns, $examMasterId, $standardId);
-        $passingPercentage = isset($data['passPercentage']) && $data['passPercentage'] !== null ? (float) $data['passPercentage'] : (float) \App\Helpers\MarksHelper::getPassingPercentage($standardId);
+        
+        $passingPercentage = isset($data['passPercentage']) && $data['passPercentage'] !== null ? (float) $data['passPercentage'] : 35.0;
+        
         $students = self::getUniqueSortedStudents($results);
         $calculations = self::buildStudentCalculations($students, $columns, $standardId, (int) $passingPercentage);
 
@@ -509,7 +510,7 @@ class ResultSheetBladeHelper
     {
         $value = $value ?? '-'; $text = strtoupper(trim((string) $value));
         if ($text === 'AB' || $text === 'ABSENT') return 'AB';
-        if ($text === 'OPT') return 'OPT';
+        if ($text === '-' || $text === 'OPT') return '-';
         if ($value === '-') return '-';
         return is_numeric($value) ? $displayNumber($value) : (string) $value;
     }
@@ -518,7 +519,7 @@ class ResultSheetBladeHelper
     {
         if ($value === null || $value === '') return '-';
         $v = strtoupper(trim((string) $value));
-        if ($v === 'OPT') return 'OPT';
+        if ($v === '-' || $v === 'OPT') return '-';
         if ($v === 'AB' || $v === 'ABSENT') return 'AB';
         return $v;
     }

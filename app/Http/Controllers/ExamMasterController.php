@@ -45,6 +45,31 @@ class ExamMasterController extends Controller
         return ExamStructureHelper::canonicalSubjectKey($value);
     }
 
+    /**
+     * Remove duplicate subject names while preserving the first subject
+     * mapping in the existing sort order.
+     *
+     * The first mapped subject ID is retained. This does not merge or
+     * modify any records in the database.
+     */
+    private function uniqueSubjectsByCanonicalName($subjects)
+    {
+        return $subjects
+            ->unique(function ($subject) {
+                $name = trim((string) ($subject->subject_name ?? ''));
+                $canonical = $this->canonicalSubjectKey($name);
+
+                // Do not collapse blank names into one subject.
+                if ($canonical === '') {
+                    $subjectId = (int) ($subject->subject_id ?? $subject->id ?? 0);
+                    return 'ID:' . $subjectId;
+                }
+
+                return 'NAME:' . $canonical;
+            })
+            ->values();
+    }
+
     private function matchExcelSubject(string $dbName, string $examType, array $sheet): ?array
     {
         return ExamStructureHelper::matchExcelSubject($dbName, $examType, $sheet);
@@ -71,7 +96,7 @@ class ExamMasterController extends Controller
 
     private function getStandardSubjects(int $standardId)
     {
-        return DB::table('standard_wise_subjects as sws')
+        $subjects = DB::table('standard_wise_subjects as sws')
             ->join('subjects as s','s.id','=','sws.subject_id')
             ->where('sws.standard_id',$standardId)
             ->where('sws.is_active',1)
@@ -84,6 +109,8 @@ class ExamMasterController extends Controller
                 'sws.id as standard_wise_subject_id','sws.sort_order','sws.is_optional',
             ])
             ->get();
+
+        return $this->uniqueSubjectsByCanonicalName($subjects);
     }
 
     private function deriveComponentFlagsFromSheet(?array $sheet, string $examType): array
@@ -312,7 +339,6 @@ class ExamMasterController extends Controller
                         if (in_array($c, $cols, true)) $data[$c] = $val;
                     }
 
-                    // FIX: Use updateOrCreate instead of create
                     ExamMasterSubject::updateOrCreate(
                         ['exam_master_id' => $examMaster->id, 'subject_id' => $ss->subject_id],
                         $data
@@ -478,9 +504,6 @@ class ExamMasterController extends Controller
                     throw new \RuntimeException('No active subjects mapped.');
                 }
 
-                // FIX: Removed the delete() statement to preserve exam_master_subject IDs and prevent cascade deletions.
-                // ExamMasterSubject::where('exam_master_id',$examMaster->id)->delete();
-
                 $cols = Schema::getColumnListing('exam_master_subjects');
                 $processedSubjectIds = [];
 
@@ -519,14 +542,12 @@ class ExamMasterController extends Controller
                         if (in_array($c, $cols, true)) $data[$c] = $val;
                     }
 
-                    // FIX: Use updateOrCreate to prevent changing the ID of existing subject configurations
                     ExamMasterSubject::updateOrCreate(
                         ['exam_master_id' => $examMaster->id, 'subject_id' => $ss->subject_id],
                         $data
                     );
                 }
 
-                // Clean up only the subjects that were completely removed from the standard mapping
                 ExamMasterSubject::where('exam_master_id', $examMaster->id)
                     ->whereNotIn('subject_id', $processedSubjectIds)
                     ->delete();
@@ -570,6 +591,9 @@ class ExamMasterController extends Controller
             ])
             ->get();
 
+        // Apply the same duplicate-name filtering used by create and edit.
+        $subjects = $this->uniqueSubjectsByCanonicalName($subjects);
+
         $result = $subjects->map(function ($sub) use ($sheet, $examType, $passingPct) {
 
             $excel = ($sheet && $examType)
@@ -583,10 +607,17 @@ class ExamMasterController extends Controller
             $pM = (float) ($excel['practical_max_marks']     ?? 0);
             $pP = (float) ($excel['practical_passing_marks'] ?? 0);
 
-            $totalMax  = $tM + $oM + $pM;
-            $totalPass = $tP + $oP + $pP;
+            if ($excel) {
+                $totalMax  = (float) ($excel['total_max_marks']     ?? 0);
+                $totalPass = (float) ($excel['total_passing_marks'] ?? 0);
 
-            if (!$excel) {
+                if ($totalMax <= 0) {
+                    $totalMax = $tM + $oM + $pM;
+                }
+                if ($totalPass <= 0) {
+                    $totalPass = $tP + $oP + $pP;
+                }
+            } else {
                 $totalMax  = 40.0;
                 $totalPass = (int) ceil($totalMax * $passingPct / 100);
             }

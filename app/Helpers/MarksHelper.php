@@ -133,27 +133,14 @@ class MarksHelper
 
     /*
     |--------------------------------------------------------------------------
-    | PASSING PERCENTAGE
+    | PASSING PERCENTAGE (HARDCODED 35% FOR ALL)
     |--------------------------------------------------------------------------
     */
 
     public static function getPassingPercentage($standardId): int
     {
-        if ($standardId === null || $standardId === '') {
-            return 40;
-        }
-
-        $standardId = (int) $standardId;
-
-        if (in_array($standardId, self::PASSING_35_STANDARD_IDS, true)) {
-            return 35;
-        }
-
-        if (in_array($standardId, self::PASSING_40_STANDARD_IDS, true)) {
-            return 40;
-        }
-
-        return 40;
+        // ⭐ Hardcoded 35% for all standards (Nursery to 12th)
+        return 35;
     }
 
     /*
@@ -267,9 +254,6 @@ class MarksHelper
     |--------------------------------------------------------------------------
     | EXAM COMPONENTS
     |--------------------------------------------------------------------------
-    |
-    | Legacy snapshot-based flags. Prefer ExamStructureHelper when available.
-    |--------------------------------------------------------------------------
     */
 
     public static function getExamComponents($exam, $subjectConfig = null): array
@@ -316,24 +300,10 @@ class MarksHelper
     |--------------------------------------------------------------------------
     | COMPONENT MAX MARKS + PASSING MARKS
     |--------------------------------------------------------------------------
-    |
-    | PRIMARY SOURCE: ExamStructureHelper
-    |
-    | The Exam Master edit page displays exactly these values. Reading from
-    | the same helper guarantees the teacher/admin Mark Entry pages always
-    | agree with the Exam Master configuration.
-    |
-    | FALLBACK: subject snapshot (exam_master_subjects) — used only when
-    | the exam structure has no entry for the (standard, exam, subject).
-    |--------------------------------------------------------------------------
     */
 
     public static function getComponentMaxMarks($exam, $subjectConfig): array
     {
-        /* ==========================================================
-         | 1. Resolve identifiers for the ExamStructureHelper lookup
-         ========================================================== */
-
         $standardId = self::numberProperty($subjectConfig, 'standard_id', null)
             ?? self::numberProperty($exam, 'standard_id', null);
 
@@ -349,10 +319,6 @@ class MarksHelper
                 $subjectName
             );
         }
-
-        /* ==========================================================
-         | 2. If the structure has real data, use it
-         ========================================================== */
 
         if (
             $structure &&
@@ -387,10 +353,6 @@ class MarksHelper
                 'total_passing'     => (float) $structure['total_passing_marks'],
             ];
         }
-
-        /* ==========================================================
-         | 3. Fallback — snapshot-based logic (legacy)
-         ========================================================== */
 
         $components = self::getExamComponents($exam, $subjectConfig);
 
@@ -466,17 +428,8 @@ class MarksHelper
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | TERM ASSESSMENT STRUCTURE
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getTermAssessmentStructure(
-        $exam,
-        $subjectConfig,
-        $standardId = null
-    ): array {
+    public static function getTermAssessmentStructure($exam, $subjectConfig, $standardId = null): array
+    {
         $structure = self::getComponentMaxMarks($exam, $subjectConfig);
 
         return [
@@ -500,16 +453,8 @@ class MarksHelper
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SUBJECT TOTAL MAXIMUM
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getSubjectTotalMaxMarks(
-        $subjectConfig,
-        $componentSum = 0
-    ): float {
+    public static function getSubjectTotalMaxMarks($subjectConfig, $componentSum = 0): float
+    {
         $explicitTotal = self::numberProperty($subjectConfig, 'max_marks', null);
 
         if ($explicitTotal !== null && $explicitTotal > 0) {
@@ -525,17 +470,8 @@ class MarksHelper
         return (float) $componentSum;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SUBJECT TOTAL PASSING MARKS
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getSubjectTotalPassingMarks(
-        $standardId,
-        $subjectConfig,
-        $componentPassSum = 0
-    ): float {
+    public static function getSubjectTotalPassingMarks($standardId, $subjectConfig, $componentPassSum = 0): float
+    {
         $explicitTotal = self::numberProperty($subjectConfig, 'passing_marks', null);
 
         if ($explicitTotal !== null && $explicitTotal > 0) {
@@ -551,19 +487,8 @@ class MarksHelper
         return (float) $componentPassSum;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | COMPONENT PASSING MARKS
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getComponentPassingMarks(
-        $standardId,
-        $subjectConfig,
-        string $component,
-        $maxMarks,
-        $exam = null
-    ): float {
+    public static function getComponentPassingMarks($standardId, $subjectConfig, string $component, $maxMarks, $exam = null): float
+    {
         $maxMarks = (float) $maxMarks;
 
         if ($maxMarks <= 0) {
@@ -609,17 +534,8 @@ class MarksHelper
         return (float) self::getPassingMarks($standardId, $maxMarks);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | NORMALIZED SUBJECT STRUCTURE
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getNormalizedSubjectStructure(
-        $exam,
-        $subjectConfig,
-        $standardId = null
-    ): array {
+    public static function getNormalizedSubjectStructure($exam, $subjectConfig, $standardId = null): array
+    {
         $structure = self::getComponentMaxMarks($exam, $subjectConfig);
 
         return [
@@ -651,12 +567,6 @@ class MarksHelper
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | INTERNAL SAFE PROPERTY HELPERS
-    |--------------------------------------------------------------------------
-    */
-
     private static function hasProperty($object, string $property): bool
     {
         if ($object === null) {
@@ -674,11 +584,8 @@ class MarksHelper
         return false;
     }
 
-    private static function numberProperty(
-        $object,
-        string $property,
-        $default = 0
-    ): ?float {
+    private static function numberProperty($object, string $property, $default = 0): ?float
+    {
         if ($object === null) {
             return $default === null ? null : (float) $default;
         }
@@ -715,37 +622,23 @@ class MarksHelper
         }
 
         if (is_array($object)) {
-            return isset($object[$property])
-                ? trim((string) $object[$property])
-                : '';
+            return isset($object[$property]) ? trim((string) $object[$property]) : '';
         }
 
         if (is_object($object)) {
-            return isset($object->{$property})
-                ? trim((string) $object->{$property})
-                : '';
+            return isset($object->{$property}) ? trim((string) $object->{$property}) : '';
         }
 
         return '';
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | MARK VALIDATION
-    |--------------------------------------------------------------------------
-    */
 
     public static function hasMark($value): bool
     {
         return !($value === null || $value === '');
     }
 
-    public static function validateObtainedMarks(
-        $value,
-        $maxMarks,
-        string $component,
-        $studentId
-    ): ?string {
+    public static function validateObtainedMarks($value, $maxMarks, string $component, $studentId): ?string
+    {
         if (!self::hasMark($value)) {
             return $component . ' marks are missing for one or more students.';
         }
@@ -759,12 +652,6 @@ class MarksHelper
 
         return null;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | STUDENT ID
-    |--------------------------------------------------------------------------
-    */
 
     public static function getStudentId($student): ?string
     {
@@ -802,12 +689,6 @@ class MarksHelper
             ->values();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ROLL NUMBER
-    |--------------------------------------------------------------------------
-    */
-
     public static function getRollNumber($student): ?int
     {
         $roll = $student->roll_no
@@ -833,17 +714,8 @@ class MarksHelper
             ->values();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | EXAM ACADEMIC YEAR
-    |--------------------------------------------------------------------------
-    */
-
-    public static function validateExamAcademicYear(
-        $exam,
-        $allocation = null,
-        $requestedAcademicYearId = null
-    ): ?string {
+    public static function validateExamAcademicYear($exam, $allocation = null, $requestedAcademicYearId = null): ?string
+    {
         if (!$exam) {
             return 'Selected exam was not found.';
         }
@@ -874,12 +746,6 @@ class MarksHelper
 
         return null;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | SUBJECT RESOLUTION MAP
-    |--------------------------------------------------------------------------
-    */
 
     public static function buildSubjectResolutionMap($assignments): Collection
     {
@@ -926,17 +792,8 @@ class MarksHelper
         return $map;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ACTUAL SUBJECT ID
-    |--------------------------------------------------------------------------
-    */
-
-    public static function resolveActualSubjectId(
-        $storedSubjectId,
-        $standardId = null,
-        $subjectMap = null
-    ): ?int {
+    public static function resolveActualSubjectId($storedSubjectId, $standardId = null, $subjectMap = null): ?int
+    {
         if ($storedSubjectId === null || $storedSubjectId === '') {
             return null;
         }
@@ -1001,16 +858,8 @@ class MarksHelper
         return null;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | TEACHER AUTHORIZATION
-    |--------------------------------------------------------------------------
-    */
-
-    public static function verifyTeacherAssignment(
-        TeacherSubjectAllocation $teacherSubjectAllocation,
-        $examMasterId
-    ): bool {
+    public static function verifyTeacherAssignment(TeacherSubjectAllocation $teacherSubjectAllocation, $examMasterId): bool
+    {
         if (!Auth::check()) {
             return false;
         }
@@ -1024,12 +873,6 @@ class MarksHelper
             ->where('teacher_id', Auth::id())
             ->exists();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | BOOLEAN REQUEST VALUE
-    |--------------------------------------------------------------------------
-    */
 
     public static function toBoolean($value): bool
     {
@@ -1050,12 +893,6 @@ class MarksHelper
         return false;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ALLOWED MARK FIELDS
-    |--------------------------------------------------------------------------
-    */
-
     public static function getAllowedMarkFields(): array
     {
         return [
@@ -1071,17 +908,8 @@ class MarksHelper
         return in_array($field, self::getAllowedMarkFields(), true);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | FIELD MAXIMUM
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getFieldMaxMarks(
-        string $field,
-        $exam,
-        $subjectConfig
-    ): float {
+    public static function getFieldMaxMarks(string $field, $exam, $subjectConfig): float
+    {
         $components = self::getComponentMaxMarks($exam, $subjectConfig);
 
         return match ($field) {
@@ -1092,18 +920,8 @@ class MarksHelper
         };
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | FIELD PASSING MARKS
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getFieldPassingMarks(
-        string $field,
-        $standardId,
-        $exam,
-        $subjectConfig
-    ): float {
+    public static function getFieldPassingMarks(string $field, $standardId, $exam, $subjectConfig): float
+    {
         $components = self::getComponentMaxMarks($exam, $subjectConfig);
 
         return match ($field) {
@@ -1114,19 +932,8 @@ class MarksHelper
         };
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | FIND STUDENT MARK
-    |--------------------------------------------------------------------------
-    */
-
-    public static function findStudentMark(
-        $allocation,
-        $studentId,
-        $examId,
-        $tsaId,
-        $subjectId
-    ) {
+    public static function findStudentMark($allocation, $studentId, $examId, $tsaId, $subjectId)
+    {
         return StudentMark::where('academic_year_id', $allocation->academic_year_id)
             ->where('section_id', $allocation->section_id)
             ->where('standard_id', $allocation->standard_id)
@@ -1138,18 +945,8 @@ class MarksHelper
             ->first();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MARK STATUS
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getTeacherMarksStatus(
-        $examId,
-        $tsaId,
-        $isAdministrator = false,
-        $userId = null
-    ) {
+    public static function getTeacherMarksStatus($examId, $tsaId, $isAdministrator = false, $userId = null)
+    {
         $query = TeacherMarksStatus::where('exam_master_id', $examId)
             ->where('teacher_subject_allocation_id', $tsaId);
 
@@ -1160,17 +957,8 @@ class MarksHelper
         return $query->first();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SUBJECT CONFIGURATION
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getSubjectConfig(
-        $examId,
-        $standardId,
-        $subjectId
-    ) {
+    public static function getSubjectConfig($examId, $standardId, $subjectId)
+    {
         return DB::table('exam_master_subjects')
             ->where('exam_master_id', $examId)
             ->where('standard_id', $standardId)
@@ -1178,17 +966,8 @@ class MarksHelper
             ->first();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE SUBJECT CONFIGURATION
-    |--------------------------------------------------------------------------
-    */
-
-    public static function resolveExamSubjectConfig(
-        $exam,
-        $standardId,
-        $actualSubjectId
-    ) {
+    public static function resolveExamSubjectConfig($exam, $standardId, $actualSubjectId)
+    {
         if (!$exam || !$standardId || !$actualSubjectId) {
             return null;
         }
@@ -1220,19 +999,8 @@ class MarksHelper
             ->first();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE DISPLAY SUBJECT
-    |--------------------------------------------------------------------------
-    */
-
-    public static function resolveDisplaySubject(
-        $storedSubjectId,
-        $standardId,
-        $tmsSubjectId = null,
-        $subjectMap = null,
-        $subjectCollection = null
-    ) {
+    public static function resolveDisplaySubject($storedSubjectId, $standardId, $tmsSubjectId = null, $subjectMap = null, $subjectCollection = null)
+    {
         $standardId = (int) $standardId;
 
         if ($standardId <= 0) {
@@ -1310,17 +1078,8 @@ class MarksHelper
         return null;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | TSA REPRESENTS SUBJECT
-    |--------------------------------------------------------------------------
-    */
-
-    public static function tsaRepresentsSubject(
-        $tsa,
-        $actualSubjectId,
-        $standardId
-    ): bool {
+    public static function tsaRepresentsSubject($tsa, $actualSubjectId, $standardId): bool
+    {
         $storedSubjectId = (int) ($tsa->subject_id ?? 0);
         $actualSubjectId = (int) $actualSubjectId;
         $standardId = (int) $standardId;
@@ -1342,18 +1101,8 @@ class MarksHelper
         return $mapping && (int) $mapping->subject_id === $actualSubjectId;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RELATED TSA IDS
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getRelatedTeacherSubjectAllocationIds(
-        $currentTsa,
-        $allocation,
-        $actualSubjectId,
-        $examId
-    ): Collection {
+    public static function getRelatedTeacherSubjectAllocationIds($currentTsa, $allocation, $actualSubjectId, $examId): Collection
+    {
         $ids = collect();
 
         if (!$currentTsa || !$allocation) {
@@ -1392,18 +1141,8 @@ class MarksHelper
         return $ids->merge($related)->unique()->values();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | EXISTING MARKS
-    |--------------------------------------------------------------------------
-    */
-
-    public static function loadExistingMarks(
-        $teacherSubjectAllocation,
-        $allocation,
-        $actualSubjectId,
-        $examId
-    ): Collection {
+    public static function loadExistingMarks($teacherSubjectAllocation, $allocation, $actualSubjectId, $examId): Collection
+    {
         $empty = collect();
 
         if (!$teacherSubjectAllocation || !$allocation || !$examId) {
@@ -1445,17 +1184,8 @@ class MarksHelper
         return $result;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | OPTIONAL MARK VALUES
-    |--------------------------------------------------------------------------
-    */
-
-    public static function getOptionalMarkValues(
-        $request,
-        $studentId,
-        $optionalEnabled
-    ): array {
+    public static function getOptionalMarkValues($request, $studentId, $optionalEnabled): array
+    {
         $isOptional = $optionalEnabled && self::toBoolean(
             self::requestValue($request, 'is_optional', $studentId, false)
         );
@@ -1474,20 +1204,8 @@ class MarksHelper
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | OBTAINED MARK
-    |--------------------------------------------------------------------------
-    */
-
-    public static function resolveObtainedMark(
-        $request,
-        $field,
-        $studentId,
-        $isAbsent,
-        $isOptional,
-        $enabled
-    ) {
+    public static function resolveObtainedMark($request, $field, $studentId, $isAbsent, $isOptional, $enabled)
+    {
         if ($isAbsent || $isOptional) {
             return 0;
         }
@@ -1499,18 +1217,8 @@ class MarksHelper
         return self::requestValue($request, $field, $studentId, null);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SAFE REQUEST VALUE
-    |--------------------------------------------------------------------------
-    */
-
-    private static function requestValue(
-        $request,
-        string $field,
-        $studentId,
-        $default = null
-    ) {
+    private static function requestValue($request, string $field, $studentId, $default = null)
+    {
         if (!$request || !method_exists($request, 'input')) {
             return $default;
         }
@@ -1519,12 +1227,6 @@ class MarksHelper
 
         return $value === null ? $default : $value;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | COMPONENT VALIDATION RULES
-    |--------------------------------------------------------------------------
-    */
 
     public static function buildStudentMarkValidationRules(
         $request,
@@ -1561,12 +1263,6 @@ class MarksHelper
 
         return $rules;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CHECK REQUESTED MARK FIELDS
-    |--------------------------------------------------------------------------
-    */
 
     public static function validateStudentMarksPresence(
         $request,
@@ -1608,12 +1304,6 @@ class MarksHelper
         return null;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | STATUS IS COMPLETED
-    |--------------------------------------------------------------------------
-    */
-
     public static function isCompletedStatus($marksStatus): bool
     {
         if (!$marksStatus) {
@@ -1622,12 +1312,6 @@ class MarksHelper
 
         return strtoupper(trim((string) ($marksStatus->status ?? ''))) === 'COMPLETED';
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | FIELD MAXIMUM VALIDATION
-    |--------------------------------------------------------------------------
-    */
 
     public static function validateFieldMaximum($value, $maxMarks): bool
     {

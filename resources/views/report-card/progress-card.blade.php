@@ -85,7 +85,7 @@
             vertical-align: top; 
             padding: 6px 8px; 
             background: #fff; 
-            font-size: 11px; 
+            font-size: 12px; 
             white-space: normal !important;
             word-wrap: break-word !important;
             overflow: visible !important;
@@ -209,6 +209,135 @@
             .sd-select { text-indent: -9999px; }
             .remark-input { border-bottom: 1px solid #000 !important; }
         }
+          
+        :root {
+    --pc-frame-border: #8793A1;
+    --pc-section-border: #A5AFBA;
+    --pc-grid-border: #C2CAD3;
+    --pc-heading-fill: #F3F5F7;
+}
+
+/* Outer page frame: thin, neutral grey. */
+.page-frame {
+    border: 0.8pt solid var(--pc-frame-border);
+}
+
+/* Section headings: subtle outline and very light background. */
+.sub-title-bar {
+    background: #F8FAFC;
+    border: 0.6pt solid var(--pc-section-border);
+    border-bottom: 0;
+}
+
+/*
+   Tables already draw their own complete outer boundary using the
+   first/last cell borders. Remove the extra wrapper border around them
+   to prevent a doubled, darker outline in the PDF.
+*/
+.table-wrap {
+    border: 0;
+    background: #fff;
+}
+
+/* The Grade Scale wrapper is not a table, so retain its thin outline. */
+.table-wrap:not(:has(> table)) {
+    border: 0.6pt solid var(--pc-section-border);
+}
+
+/* Clean, single-weight grid lines for all report tables. */
+.data-table,
+.info-table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.data-table th,
+.data-table td,
+.info-table td {
+    border: 0.45pt solid var(--pc-grid-border);
+}
+
+/* Soft grey fill for table headings and label cells. */
+.data-table th,
+.info-table td.label,
+.info-table td.label-full {
+    background: var(--pc-heading-fill);
+}
+
+.subject-table tr.skills-divider td {
+    border: 0.45pt solid var(--pc-grid-border) !important;
+}
+
+/* Avoid strong black rules in notes and signature areas. */
+.important-note {
+    border: 0.6pt solid var(--pc-section-border);
+}
+
+.important-note .title {
+    border-bottom: 0.6pt solid var(--pc-section-border);
+}
+
+.signatures .sig-line {
+    border-top: 0.75pt solid var(--pc-frame-border);
+}
+
+/* Keep print/PDF output consistent with the screen preview.
+   These rules intentionally come after the existing @media print block
+   so they override its current 1px solid #000 !important declarations.
+*/
+@media print {
+    .page-frame {
+        border: 0.8pt solid var(--pc-frame-border) !important;
+    }
+
+    .sub-title-bar {
+        background: #F8FAFC !important;
+        border: 0.6pt solid var(--pc-section-border) !important;
+        border-bottom: 0 !important;
+    }
+
+    .table-wrap {
+        border: 0 !important;
+    }
+
+    .table-wrap:not(:has(> table)) {
+        border: 0.6pt solid var(--pc-section-border) !important;
+    }
+
+    .data-table th,
+    .data-table td,
+    .info-table td {
+        border: 0.45pt solid var(--pc-grid-border) !important;
+        color: #000 !important;
+    }
+
+    .data-table th,
+    .info-table td.label,
+    .info-table td.label-full {
+        background: var(--pc-heading-fill) !important;
+    }
+
+    .subject-table tr.skills-divider td {
+        border: 0.45pt solid var(--pc-grid-border) !important;
+    }
+
+    .important-note {
+        border: 0.6pt solid var(--pc-section-border) !important;
+    }
+
+    .important-note .title {
+        border-bottom: 0.6pt solid var(--pc-section-border) !important;
+    }
+
+    .signatures .sig-line {
+        border-top: 0.75pt solid var(--pc-frame-border) !important;
+    }
+
+    .remark-input {
+        border-bottom: 0.5pt solid var(--pc-section-border) !important;
+    }
+}
+
     </style>
 </head>
 
@@ -227,7 +356,44 @@
     ];
     $defaultTotalDays = ['Jyeshtha'=>30,'Ashadh'=>31,'Shravan'=>31,'Bhadrapad'=>30,'Ashwin'=>31,'Kartik'=>30,'Margshirsh'=>30,'Paush'=>30,'Magh'=>30,'Phalgun'=>30,'Chaitra'=>30];
 
-    $savedAttendance = $progress->attendance_data ?? [];
+    // FIXED ATTENDANCE VALUES FOR TERM 1
+$term1HardcodedAttendance = [
+    'Jyeshtha'  => ['total_days' => 31, 'working' => 6],
+    'Ashadh'    => ['total_days' => 31, 'working' => 23],
+    'Shravan'   => ['total_days' => 31, 'working' => 26],
+    'Bhadrapad' => ['total_days' => 31, 'working' => 22],
+    'Ashwin'    => ['total_days' => 30, 'working' => 22],
+    'Kartik'    => ['total_days' => 30, 'working' => 10],
+];
+
+    /*
+|--------------------------------------------------------------------------
+| LOAD SAVED ATTENDANCE DATA
+|--------------------------------------------------------------------------
+| The database may return attendance_data as:
+| 1. An already-decoded PHP array
+| 2. A JSON string
+|
+| Convert both formats into a PHP array.
+*/
+
+$savedAttendance = $progress->attendance_data ?? [];
+
+if (is_string($savedAttendance)) {
+    $decodedAttendance = json_decode($savedAttendance, true);
+
+    $savedAttendance = is_array($decodedAttendance)
+        ? $decodedAttendance
+        : [];
+} elseif ($savedAttendance instanceof \Illuminate\Contracts\Support\Arrayable) {
+    $savedAttendance = $savedAttendance->toArray();
+} elseif (is_object($savedAttendance)) {
+    $savedAttendance = (array) $savedAttendance;
+}
+
+if (!is_array($savedAttendance)) {
+    $savedAttendance = [];
+}
     $schoolCode      = session('school_code', 'shirgaon');
     $yearLabel       = $report->year_name ?? '';
 
@@ -515,12 +681,9 @@
                 <tr>
                     <td class="label-full">Student Name</td>
                     <td class="value-full name-row-value" colspan="3">
-                        @if($isEdit)
-                            <input type="text" name="student_name" class="edit-input" value="{{ $report->full_student_name ?? '' }}">
-                        @else
-                            {{ $report->full_student_name ?? '' }}
-                        @endif
-                    </td>
+    {{-- FROZEN — populated from MSSQL (FeeMstStudent), never editable --}}
+    {{ $report->full_student_name ?? '' }}
+</td>
                 </tr>
                 <tr>
                     <td class="label">Standard</td>
@@ -531,12 +694,9 @@
                 <tr>
                     <td class="label">GR No.</td>
                     <td class="value">
-                        @if($isEdit)
-                            <input type="text" name="gr_no" class="edit-input" value="{{ $hasGrNo ? $report->gr_no : '' }}">
-                        @else
-                            {{ $hasGrNo ? $report->gr_no : '' }}
-                        @endif
-                    </td>
+    {{-- FROZEN — populated from MSSQL (SubStudentMst.regno) --}}
+    {{ $hasGrNo ? $report->gr_no : '' }}
+</td>
                     <td class="label">Roll No.</td>
                     <td class="value">
                         @if($isEdit)
@@ -548,13 +708,24 @@
                 </tr>
                 <tr>
                     <td class="label">PEN</td>
-                    <td class="value">
-                        @if($isEdit)
-                            <input type="text" name="gov_student_id" class="edit-input" value="{{ $report->gov_student_id ?? '' }}">
-                        @else
-                            {{ $report->gov_student_id ?? '' }}
-                        @endif
-                    </td>
+<td class="value">
+    @if($isEdit)
+        <input
+            type="text"
+            name="pen"
+            id="pen"
+            class="edit-input"
+            value="{{ old('pen', $report->pen ?? $report->gov_student_id ?? '') }}"
+            maxlength="19"
+            inputmode="numeric"
+            autocomplete="off"
+            pattern="(?:[0-9]{11}|[0-9]{19})"
+            title="Enter an 11-digit PEN. A 19-digit SARAL ID is accepted when it is the existing ERP value."
+        >
+    @else
+        {{ $report->pen ?? $report->gov_student_id ?? '' }}
+    @endif
+</td>
                     <td class="label">Aadhar No.</td>
                     <td class="value">
                         @if($isEdit)
@@ -673,17 +844,9 @@
                                 <td class="center">{{ str_pad($academicCount++, 2, '0', STR_PAD_LEFT) }}</td>
                                 <td class="subject-name">{{ strtoupper($sub->subject_name) }}</td>
                                 <td class="center" style="font-weight:700;">
-                                    @if($isEdit)
-                                        <select name="graded_subjects[{{ $sub->subject_id }}]" class="sd-select">
-                                            <option value="">-</option>
-                                            @foreach($academicGradeOptions as $gOpt)
-                                                <option value="{{ $gOpt }}" {{ $g == $gOpt ? 'selected' : '' }}>{{ $gOpt }}</option>
-                                            @endforeach
-                                        </select>
-                                    @else
-                                        {{ $g }}
-                                    @endif
-                                </td>
+    {{-- FROZEN — Auto-populated from ERP/Marks --}}
+    {{ $g }}
+</td>
                             </tr>
                         @empty
                             <tr><td colspan="3" class="center">No subjects found.</td></tr>
@@ -731,17 +894,9 @@
                                     <tr class="criteria-row">
                                         <td class="subject-name" style="text-transform: uppercase; padding-left: 15px !important;">{{ $criterion }}</td>
                                         <td class="center" style="font-weight:700;">
-                                            @if($isEdit)
-                                                <select name="graded_subjects[{{ $criterion }}]" class="sd-select">
-                                                    <option value="">-</option>
-                                                    @foreach($skillGradeOptions as $gOpt)
-                                                        <option value="{{ $gOpt }}" {{ $getGrade($criterion, $groupName) == $gOpt ? 'selected' : '' }}>{{ $gOpt }}</option>
-                                                    @endforeach
-                                                </select>
-                                            @else
-                                                {{ $getGrade($criterion, $groupName) }}
-                                            @endif
-                                        </td>
+    {{-- FROZEN — Auto-populated from student_skill_observations --}}
+    {{ $getGrade($criterion, $groupName) }}
+</td>
                                     </tr>
                                 @endforeach
                             @endforeach
@@ -781,17 +936,9 @@
                                     <tr class="criteria-row">
                                         <td class="subject-name" style="text-transform: uppercase; padding-left: 15px !important;">{{ $criterion }}</td>
                                         <td class="center" style="font-weight:700;">
-                                            @if($isEdit)
-                                                <select name="graded_subjects[{{ $criterion }}]" class="sd-select">
-                                                    <option value="">-</option>
-                                                    @foreach($skillGradeOptions as $gOpt)
-                                                        <option value="{{ $gOpt }}" {{ $getGrade($criterion, $groupName) == $gOpt ? 'selected' : '' }}>{{ $gOpt }}</option>
-                                                    @endforeach
-                                                </select>
-                                            @else
-                                                {{ $getGrade($criterion, $groupName) }}
-                                            @endif
-                                        </td>
+    {{-- FROZEN — Auto-populated from student_skill_observations --}}
+    {{ $getGrade($criterion, $groupName) }}
+</td>
                                     </tr>
                                 @endforeach
                             @endforeach
@@ -969,73 +1116,294 @@
         @endif
     @endif
 
-    <div class="section">
-        <div class="sub-title-bar">Attendance — Term 1</div>
-        <div class="table-wrap">
-            <table class="data-table attendance-table" id="attendanceTableT1">
-                <colgroup>
-                    <col style="width: 40%;">
-                    <col style="width: 15%;">
-                    <col style="width: 15%;">
-                    <col style="width: 15%;">
-                    <col style="width: 15%;">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th class="text-left">Month</th>
-                        <th>Total Days</th>
-                        <th>Working Days</th>
-                        <th>Days Present</th>
-                        <th>Attendance %</th>
+    
+
+
+<div class="section">
+    <div class="sub-title-bar">Attendance — Term 1</div>
+
+    <div class="table-wrap">
+        <table class="data-table attendance-table" id="attendanceTableT1">
+            <colgroup>
+                <col style="width: 40%;">
+                <col style="width: 15%;">
+                <col style="width: 15%;">
+                <col style="width: 15%;">
+                <col style="width: 15%;">
+            </colgroup>
+
+            <thead>
+                <tr>
+                    <th class="text-left">Month</th>
+                    <th>Total Days</th>
+                    <th>Working Days</th>
+                    <th>Days Present</th>
+                    <th>Attendance %</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @php
+                    $t1TotalDays = 0;
+                    $t1Working = 0;
+                    $t1Present = 0;
+                    $t1HasPresentData = false;
+                @endphp
+
+                @foreach ($term1Months as $month)
+
+                    @php
+                        $meta = $monthMeta[$month] ?? [
+                            'en' => $month,
+                            'overlap' => ''
+                        ];
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | DEFAULT VALUES
+                        |--------------------------------------------------------------------------
+                        | Used only when no saved value is available.
+                        */
+
+                        $fixed = $term1HardcodedAttendance[$month] ?? [
+                            'total_days' => 0,
+                            'working' => ''
+                        ];
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | GET THE SAVED MONTH RECORD
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $row = $savedAttendance[$month] ?? [];
+
+                        if (!is_array($row)) {
+                            $row = [];
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | TOTAL DAYS
+                        |--------------------------------------------------------------------------
+                        | Saved value first; default value otherwise.
+                        | Total Days remains non-editable in Term 1.
+                        */
+
+                        $totalDaysRaw = old(
+                            "attendance.$month.total_days",
+                            $row['total_days'] ?? $fixed['total_days']
+                        );
+
+                        if ($totalDaysRaw === null || trim((string) $totalDaysRaw) === '') {
+                            $totalDaysRaw = $fixed['total_days'];
+                        }
+
+                        $totalDays = (int) $totalDaysRaw;
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | WORKING DAYS
+                        |--------------------------------------------------------------------------
+                        | IMPORTANT:
+                        | Saved database value takes priority.
+                        | Hardcoded value is used only if saved value is missing/empty.
+                        */
+
+                        $workingRaw = old(
+                            "attendance.$month.working",
+                            $row['working'] ?? ''
+                        );
+
+                        if ($workingRaw === null || trim((string) $workingRaw) === '') {
+                            $workingRaw = $fixed['working'] ?? '';
+                        }
+
+                        $working = ($workingRaw !== '' && $workingRaw !== null)
+                            ? (int) $workingRaw
+                            : 0;
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | DAYS PRESENT
+                        |--------------------------------------------------------------------------
+                        | Read saved value, or previous form input after validation error.
+                        */
+
+                        $present = old(
+                            "attendance.$month.present",
+                            $row['present'] ?? ''
+                        );
+
+                        $present = $present === null
+                            ? ''
+                            : trim((string) $present);
+
+                        $presentNum = $present !== ''
+                            ? (int) $present
+                            : 0;
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | ABSENT DAYS
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $absent = old(
+                            "attendance.$month.absent",
+                            $row['absent'] ?? ''
+                        );
+
+                        if ($working > 0 && $present !== '') {
+                            $absent = max(0, $working - $presentNum);
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | ATTENDANCE PERCENTAGE
+                        |--------------------------------------------------------------------------
+                        | Always calculate using the effective saved Working Days.
+                        */
+
+                        $rowPct = (
+                            $working > 0 &&
+                            $present !== ''
+                        )
+                            ? round(($presentNum / $working) * 100, 1)
+                            : null;
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | TOTALS
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $t1TotalDays += $totalDays;
+                        $t1Working += $working;
+                        $t1Present += $presentNum;
+
+                        if ($present !== '') {
+                            $t1HasPresentData = true;
+                        }
+                    @endphp
+
+                    <tr class="attendance-row" data-month="{{ $month }}">
+
+                        {{-- MONTH --}}
+                        <td class="month-cell">
+                            <span class="mr-name">{{ $meta['en'] }}</span>
+
+                            @if(!empty($meta['overlap']))
+                                <span class="overlap">
+                                    / {{ $meta['overlap'] }}
+                                </span>
+                            @endif
+                        </td>
+
+                        {{-- TOTAL DAYS: FIXED / NON-EDITABLE --}}
+                        <td class="center">
+                            {{ $totalDays }}
+
+                            @if($isEdit)
+                                <input
+                                    type="hidden"
+                                    name="attendance[{{ $month }}][total_days]"
+                                    class="attendance-total"
+                                    value="{{ $totalDays }}"
+                                >
+                            @endif
+                        </td>
+
+                        {{-- WORKING DAYS: SAVED VALUE FIRST, EDITABLE --}}
+                        <td class="center">
+                            @if($isEdit)
+                                <input
+                                    type="text"
+                                    name="attendance[{{ $month }}][working]"
+                                    class="edit-input center attendance-working"
+                                    maxlength="3"
+                                    inputmode="numeric"
+                                    value="{{ $working > 0 ? $working : '' }}"
+                                >
+                            @else
+                                {{ $working > 0 ? $working : '-' }}
+                            @endif
+                        </td>
+
+                        {{-- DAYS PRESENT: SAVED VALUE FIRST, EDITABLE --}}
+                        <td class="center">
+                            @if($isEdit)
+                                <input
+                                    type="text"
+                                    name="attendance[{{ $month }}][present]"
+                                    class="edit-input center attendance-present"
+                                    maxlength="3"
+                                    inputmode="numeric"
+                                    value="{{ $present }}"
+                                >
+                            @else
+                                {{ $present !== '' ? $present : '-' }}
+                            @endif
+                        </td>
+
+                        {{-- ATTENDANCE PERCENTAGE --}}
+                        <td class="center attendance-pct">
+
+                            @if($rowPct !== null)
+                                {{ number_format($rowPct, 1) }}%
+                            @else
+                                -
+                            @endif
+
+                            {{-- ABSENT IS STORED IN THE SAME JSON RECORD --}}
+                            @if($isEdit)
+                                <input
+                                    type="hidden"
+                                    name="attendance[{{ $month }}][absent]"
+                                    class="attendance-absent"
+                                    value="{{ $absent }}"
+                                >
+                            @endif
+
+                        </td>
+
                     </tr>
-                </thead>
-                <tbody>
-                    @php $t1TotalDays = 0; $t1Working = 0; $t1Present = 0; @endphp
-                    @foreach ($term1Months as $month)
-                        @php
-                            $meta = $monthMeta[$month] ?? ['en'=>$month,'overlap'=>''];
-                            $row = $savedAttendance[$month] ?? [];
-                            $totalDays = $row['total_days'] ?? ($defaultTotalDays[$month] ?? '');
-                            $working = old("attendance.$month.working", $row['working'] ?? '');
-                            $present = old("attendance.$month.present", $row['present'] ?? '');
-                            $absent = old("attendance.$month.absent", $row['absent'] ?? '');
 
-                            $totalDaysNum = (int) ($totalDays !== '' ? $totalDays : 0);
-                            $workingNum = (int) ($working !== '' ? $working : 0);
-                            $presentNum = (int) ($present !== '' ? $present : 0);
+                @endforeach
 
-                            $t1TotalDays += $totalDaysNum;
-                            $t1Working += $workingNum;
-                            $t1Present += $presentNum;
+                {{-- TOTAL ROW --}}
+                <tr class="total-row" style="background: #f4f4f4;">
 
-                            $rowPct = $workingNum > 0 ? round(($presentNum / $workingNum) * 100, 1) : '-';
-                        @endphp
-                        <tr class="attendance-row" data-month="{{ $month }}">
-                            <td class="month-cell"><span class="mr-name">{{ $meta['en'] }}</span> @if(!empty($meta['overlap'])) <span class="overlap">/ {{ $meta['overlap'] }}</span> @endif</td>
-                            <td class="center">
-                                @if($isEdit) <input type="text" name="attendance[{{ $month }}][total_days]" class="edit-input center attendance-total" maxlength="10" inputmode="numeric" value="{{ $totalDays }}"> @else {!! $totalDays !== '' ? e($totalDays) : '-' !!} @endif
-                            </td>
-                            <td class="center">
-                                @if($isEdit) <input type="text" name="attendance[{{ $month }}][working]" class="edit-input center attendance-working" maxlength="10" inputmode="numeric" value="{{ $working }}"> @else {!! $working !== '' ? e($working) : '-' !!} @endif
-                            </td>
-                            <td class="center">
-                                @if($isEdit) <input type="text" name="attendance[{{ $month }}][present]" class="edit-input center attendance-present" maxlength="10" inputmode="numeric" value="{{ $present }}"> @else {!! $present !== '' ? e($present) : '-' !!} @endif
-                            </td>
-                            <td class="center attendance-pct">{!! $rowPct !== '-' ? $rowPct . '%' : '-' !!}</td>
-                            @if($isEdit) <input type="hidden" name="attendance[{{ $month }}][absent]" class="attendance-absent" value="{{ $absent }}"> @endif
-                        </tr>
-                    @endforeach
-                    <tr class="total-row" style="background: #f4f4f4;">
-                        <td class="text-left">TOTAL</td>
-                        <td class="center t-days">{{ $t1TotalDays > 0 ? $t1TotalDays : '-' }}</td>
-                        <td class="center t-working">{{ $t1Working > 0 ? $t1Working : '-' }}</td>
-                        <td class="center t-present">{{ $t1Present > 0 ? $t1Present : '-' }}</td>
-                        <td class="center t-pct">{{ $t1Working > 0 ? round(($t1Present / $t1Working) * 100, 1) . '%' : '-' }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+                    <td class="text-left">TOTAL</td>
+
+                    <td class="center t-days">
+                        {{ $t1TotalDays }}
+                    </td>
+
+                    <td class="center t-working">
+                        {{ $t1Working }}
+                    </td>
+
+                    <td class="center t-present">
+                        {{ $t1HasPresentData ? $t1Present : '-' }}
+                    </td>
+
+                    <td class="center t-pct">
+                        @if($t1Working > 0 && $t1HasPresentData)
+                            {{ number_format(($t1Present / $t1Working) * 100, 1) }}%
+                        @else
+                            -
+                        @endif
+                    </td>
+
+                </tr>
+
+            </tbody>
+        </table>
     </div>
+</div>
+
+
 
     @if($isTerm2)
         <div class="section">
@@ -1209,7 +1577,7 @@
     <div class="important-note">
         <div class="title">Important</div>
         <div class="greeting">Dear Parents,</div>
-        <ul><li>Study the report card carefully.</li><li>Preserve it carefully.</li><li>This progress report stands as a testament to our collective hard work, celebrating how far your child has come while highlighting the vast potential still left to unlock.<br><br></li></ul>        
+        <ul><li>Study the report card carefully.</li><li>Preserve it carefully.</li><li>This progress report reflects our collective hard work, acknowledging your child's achievements thus far while pointing toward the great potential they still have to develop.<br><br></li></ul>        
     </div>
 
     <div class="signatures">
@@ -1226,77 +1594,203 @@
 @endif
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        @if($isEdit)
-        function updateRowAndTotals(tableId) {
-            const table = document.getElementById(tableId);
-            if (!table) return;
+    
+document.addEventListener('DOMContentLoaded', function () {
 
-            let totalDays = 0, totalWorking = 0, totalPresent = 0;
+    @if($isEdit)
 
-            table.querySelectorAll('tbody tr.attendance-row').forEach(function (row) {
-                const totalInput = row.querySelector('.attendance-total');
-                const workingInput = row.querySelector('.attendance-working');
-                const presentInput = row.querySelector('.attendance-present');
-                const absentInput  = row.querySelector('.attendance-absent');
-                const pctCell = row.querySelector('.attendance-pct');
+    function updateRowAndTotals(tableId) {
 
-                const totalVal = parseInt(totalInput.value) || 0;
-                const workingVal = parseInt(workingInput.value) || 0;
-                const presentVal = parseInt(presentInput.value) || 0;
+        const table = document.getElementById(tableId);
 
-                totalDays += totalVal;
-                totalWorking += workingVal;
-                totalPresent += presentVal;
+        if (!table) return;
 
-                if (workingInput.value.trim() === '' || presentInput.value.trim() === '') {
-                    absentInput.value = '';
-                    pctCell.textContent = '-';
-                } else {
-                    let absent = workingVal - presentVal;
-                    if (absent < 0) {
-                        absent = 0;
-                        presentInput.value = workingVal;
-                    }
-                    absentInput.value = absent;
-                    pctCell.textContent = workingVal > 0 ? (presentVal / workingVal * 100).toFixed(1) + '%' : '-';
-                }
-            });
+        let totalDays = 0;
+        let totalWorking = 0;
+        let totalPresent = 0;
+        let hasPresentData = false;
 
-            const totalRow = table.querySelector('.total-row');
-            if (totalRow) {
-                totalRow.querySelector('.t-days').textContent = totalDays > 0 ? totalDays : '-';
-                totalRow.querySelector('.t-working').textContent = totalWorking > 0 ? totalWorking : '-';
-                totalRow.querySelector('.t-present').textContent = totalPresent > 0 ? totalPresent : '-';
-                totalRow.querySelector('.t-pct').textContent = totalWorking > 0 ? (totalPresent / totalWorking * 100).toFixed(1) + '%' : '-';
-            }
-        }
+        table.querySelectorAll('tbody tr.attendance-row').forEach(function (row) {
 
-        function sanitize(input) {
-            input.value = input.value.replace(/[^0-9]/g, '');
-        }
-
-        document.querySelectorAll('.attendance-row').forEach(function (row) {
             const totalInput = row.querySelector('.attendance-total');
             const workingInput = row.querySelector('.attendance-working');
             const presentInput = row.querySelector('.attendance-present');
-            const table = row.closest('table');
+            const absentInput = row.querySelector('.attendance-absent');
+            const pctCell = row.querySelector('.attendance-pct');
 
-            if (totalInput) {
-                totalInput.addEventListener('input', function () { sanitize(this); updateRowAndTotals(table.id); });
-                totalInput.addEventListener('blur',  function () { sanitize(this); updateRowAndTotals(table.id); });
+            const totalText = totalInput ? totalInput.value.trim() : '';
+            const workingText = workingInput ? workingInput.value.trim() : '';
+            const presentText = presentInput ? presentInput.value.trim() : '';
+
+            const totalVal = parseInt(totalText, 10) || 0;
+            const workingVal = parseInt(workingText, 10) || 0;
+            const presentVal = parseInt(presentText, 10) || 0;
+
+            totalDays += totalVal;
+            totalWorking += workingVal;
+            totalPresent += presentVal;
+
+            if (presentText !== '') {
+                hasPresentData = true;
             }
-            if (workingInput) {
-                workingInput.addEventListener('input', function () { sanitize(this); updateRowAndTotals(table.id); });
-                workingInput.addEventListener('blur',  function () { sanitize(this); updateRowAndTotals(table.id); });
+
+            if (workingText === '' || presentText === '') {
+
+                if (absentInput) {
+                    absentInput.value = '';
+                }
+
+                if (pctCell) {
+                    pctCell.textContent = '-';
+                }
+
+            } else {
+
+                const absent = Math.max(0, workingVal - presentVal);
+
+                if (absentInput) {
+                    absentInput.value = absent;
+                }
+
+                if (pctCell) {
+
+                    if (workingVal > 0) {
+                        pctCell.textContent =
+                            (presentVal / workingVal * 100).toFixed(1) + '%';
+                    } else {
+                        pctCell.textContent = '-';
+                    }
+
+                }
             }
-            if (presentInput) {
-                presentInput.addEventListener('input', function () { sanitize(this); updateRowAndTotals(table.id); });
-                presentInput.addEventListener('blur',  function () { sanitize(this); updateRowAndTotals(table.id); });
-            }
+
         });
-        @endif
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE TOTAL ROW
+        |--------------------------------------------------------------------------
+        */
+
+        const totalRow = table.querySelector('.total-row');
+
+        if (totalRow) {
+
+            const daysCell = totalRow.querySelector('.t-days');
+            const workingCell = totalRow.querySelector('.t-working');
+            const presentCell = totalRow.querySelector('.t-present');
+            const percentageCell = totalRow.querySelector('.t-pct');
+
+            if (daysCell) {
+                daysCell.textContent = totalDays > 0 ? totalDays : '-';
+            }
+
+            if (workingCell) {
+                workingCell.textContent = totalWorking > 0 ? totalWorking : '-';
+            }
+
+            if (presentCell) {
+                presentCell.textContent =
+                    hasPresentData ? totalPresent : '-';
+            }
+
+            if (percentageCell) {
+
+                if (totalWorking > 0 && hasPresentData) {
+                    percentageCell.textContent =
+                        (totalPresent / totalWorking * 100).toFixed(1) + '%';
+                } else {
+                    percentageCell.textContent = '-';
+                }
+
+            }
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ALLOW ONLY NUMBERS
+    |--------------------------------------------------------------------------
+    */
+
+    function sanitize(input) {
+        input.value = input.value.replace(/[^0-9]/g, '');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | INPUT EVENT HANDLERS
+    |--------------------------------------------------------------------------
+    */
+
+    document.querySelectorAll('.attendance-row').forEach(function (row) {
+
+        const totalInput = row.querySelector('.attendance-total');
+        const workingInput = row.querySelector('.attendance-working');
+        const presentInput = row.querySelector('.attendance-present');
+
+        const table = row.closest('table');
+
+        if (!table) return;
+
+        if (totalInput) {
+
+            totalInput.addEventListener('input', function () {
+                sanitize(this);
+                updateRowAndTotals(table.id);
+            });
+
+            totalInput.addEventListener('blur', function () {
+                sanitize(this);
+                updateRowAndTotals(table.id);
+            });
+
+        }
+
+        if (workingInput) {
+
+            workingInput.addEventListener('input', function () {
+                sanitize(this);
+                updateRowAndTotals(table.id);
+            });
+
+            workingInput.addEventListener('blur', function () {
+                sanitize(this);
+                updateRowAndTotals(table.id);
+            });
+
+        }
+
+        if (presentInput) {
+
+            presentInput.addEventListener('input', function () {
+                sanitize(this);
+                updateRowAndTotals(table.id);
+            });
+
+            presentInput.addEventListener('blur', function () {
+                sanitize(this);
+                updateRowAndTotals(table.id);
+            });
+
+        }
+
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | INITIAL CALCULATION
+    |--------------------------------------------------------------------------
+    | Calculate the totals from the values initially loaded into the inputs.
+    */
+
+    updateRowAndTotals('attendanceTableT1');
+    updateRowAndTotals('attendanceTableT2');
+
+    @endif
+
+});
+
 
     (function () {
         let originalFrameStyles = null;
@@ -1366,6 +1860,181 @@
         };
     })();
 </script>
+<!-- Add this block immediately before </body> in resources/views/report-card/progress-card.blade.php -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+(function () {
+    'use strict';
+
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, function (character) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[character];
+        });
+    }
+
+    function showError(messages, afterClose) {
+        messages = (Array.isArray(messages) ? messages : [messages])
+            .filter(function (message) {
+                return message !== null && String(message).trim() !== '';
+            })
+            .map(String);
+
+        if (messages.length === 0) return;
+
+        var html = '<ul style="text-align:left;margin:0;padding-left:22px;">' +
+            messages.map(function (message) {
+                return '<li style="margin-bottom:6px;">' + escapeHtml(message) + '</li>';
+            }).join('') +
+            '</ul>';
+
+        if (typeof window.Swal !== 'undefined') {
+            window.Swal.fire({
+                icon: 'error',
+                title: 'Unable to save progress card',
+                html: html,
+                confirmButtonText: 'OK'
+            }).then(function () {
+                if (typeof afterClose === 'function') afterClose();
+            });
+        } else {
+            window.alert(messages.join('\n'));
+            if (typeof afterClose === 'function') afterClose();
+        }
+    }
+
+    function showSuccess(message) {
+        message = String(message || 'Progress card details saved successfully.');
+
+        if (typeof window.Swal !== 'undefined') {
+            window.Swal.fire({
+                icon: 'success',
+                title: 'Saved successfully',
+                text: message,
+                confirmButtonText: 'OK'
+            });
+        } else {
+            window.alert(message);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('progressForm');
+
+        // Server-side Laravel validation and save status after redirect.
+        var validationErrors = @json($errors->all());
+        var flashError = @json(session('error'));
+        var flashSuccess = @json(session('success'));
+
+        var serverMessages = Array.isArray(validationErrors)
+            ? validationErrors.map(String)
+            : [];
+
+        if (flashError) serverMessages.push(String(flashError));
+
+        if (serverMessages.length > 0) {
+            showError(serverMessages);
+        } else if (flashSuccess) {
+            showSuccess(flashSuccess);
+        }
+
+        if (!form) return;
+
+        // We display our own SweetAlert instead of the browser's native tooltip.
+        form.noValidate = true;
+
+        form.addEventListener('submit', function (event) {
+            var errors = [];
+            var firstInvalidField = null;
+
+            // Validate PEN: blank is allowed; otherwise 11 or 19 digits only.
+            var penInput = form.querySelector('[name="pen"]');
+            if (penInput) {
+                var penValue = penInput.value.trim();
+                if (penValue !== '' && !/^(?:\d{11}|\d{19})$/.test(penValue)) {
+                    errors.push('PEN must contain exactly 11 digits. An unchanged 19-digit SARAL ID is also accepted.');
+                    firstInvalidField = firstInvalidField || penInput;
+                }
+            }
+
+            // Preserve HTML5 field validation, for example invalid email addresses.
+            var invalidField = form.querySelector(':invalid');
+            if (invalidField) {
+                var fieldLabel = invalidField.getAttribute('name') || 'Entered value';
+                errors.push(fieldLabel + ': ' + (invalidField.validationMessage || 'Please enter a valid value.'));
+                firstInvalidField = firstInvalidField || invalidField;
+            }
+
+            // Validate the attendance figures before submitting.
+            form.querySelectorAll('tr.attendance-row').forEach(function (row) {
+                var month = row.getAttribute('data-month') || 'Attendance';
+                var totalInput = row.querySelector('[name$="[total_days]"]');
+                var workingInput = row.querySelector('[name$="[working]"]');
+                var presentInput = row.querySelector('[name$="[present]"]');
+
+                var total = totalInput ? totalInput.value.trim() : '';
+                var working = workingInput ? workingInput.value.trim() : '';
+                var present = presentInput ? presentInput.value.trim() : '';
+
+                function isWholeNumber(value) {
+                    return value === '' || /^\d+$/.test(value);
+                }
+
+                if (!isWholeNumber(total)) {
+                    errors.push(month + ': Total Days must be a whole number.');
+                    firstInvalidField = firstInvalidField || totalInput;
+                }
+                if (!isWholeNumber(working)) {
+                    errors.push(month + ': Working Days must be a whole number.');
+                    firstInvalidField = firstInvalidField || workingInput;
+                }
+                if (!isWholeNumber(present)) {
+                    errors.push(month + ': Days Present must be a whole number.');
+                    firstInvalidField = firstInvalidField || presentInput;
+                }
+
+                if (total !== '' && working !== '' && /^\d+$/.test(total) && /^\d+$/.test(working)) {
+                    if (Number(working) > Number(total)) {
+                        errors.push(month + ': Working Days cannot exceed Total Days.');
+                        firstInvalidField = firstInvalidField || workingInput;
+                    }
+                }
+
+                if (working !== '' && present !== '' && /^\d+$/.test(working) && /^\d+$/.test(present)) {
+                    if (Number(present) > Number(working)) {
+                        errors.push(month + ': Days Present cannot exceed Working Days.');
+                        firstInvalidField = firstInvalidField || presentInput;
+                    }
+                }
+            });
+
+            if (errors.length > 0) {
+                event.preventDefault();
+                showError(errors, function () {
+                    if (firstInvalidField && typeof firstInvalidField.focus === 'function') {
+                        firstInvalidField.focus();
+                    }
+                });
+                return;
+            }
+
+            // Prevent accidental double-click submissions.
+            var saveButton = document.querySelector('button[form="progressForm"][type="submit"]') ||
+                form.querySelector('button[type="submit"]');
+            if (saveButton) {
+                saveButton.disabled = true;
+                saveButton.textContent = 'Saving...';
+            }
+        });
+    });
+})();
+</script>
+
 
 </body>
 </html>

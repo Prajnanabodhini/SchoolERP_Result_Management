@@ -17,25 +17,37 @@ class ExamStructureController extends Controller
 {
     private const SKILL_SUBJECT_TYPE_IDS = [2, 3];
 
-    private function getStandardSubjects(int $standardId)
-    {
-        return StandardWiseSubject::query()
-            ->join('subjects as s', 's.id', '=', 'standard_wise_subjects.subject_id')
-            ->where('standard_wise_subjects.standard_id', $standardId)
-            ->where('standard_wise_subjects.is_active', 1)
-            ->where('s.is_active', 1)
-            ->whereNotIn('s.subject_type_id', self::SKILL_SUBJECT_TYPE_IDS)
-            ->orderBy('standard_wise_subjects.sort_order')
-            ->orderBy('standard_wise_subjects.id')
-            ->select([
-                's.id as subject_id',
-                's.subject_name',
-                's.subject_code',
-                's.short_name',
-                'standard_wise_subjects.sort_order',
-            ])
-            ->get();
-    }
+    
+private function getStandardSubjects(int $standardId)
+{
+    $subjects = StandardWiseSubject::query()
+        ->join('subjects as s', 's.id', '=', 'standard_wise_subjects.subject_id')
+        ->where('standard_wise_subjects.standard_id', $standardId)
+        ->where('standard_wise_subjects.is_active', 1)
+        ->where('s.is_active', 1)
+        ->whereNotIn('s.subject_type_id', self::SKILL_SUBJECT_TYPE_IDS)
+        ->orderBy('standard_wise_subjects.sort_order')
+        ->orderBy('standard_wise_subjects.id')
+        ->select([
+            's.id as subject_id',
+            's.subject_name',
+            's.subject_code',
+            's.short_name',
+            'standard_wise_subjects.sort_order',
+        ])
+        ->get();
+
+    // Remove duplicate subject names while retaining
+    // the first mapping and its original subject ID.
+    return $subjects
+        ->unique(function ($subject) {
+            return ExamStructureHelper::canonicalSubjectKey(
+                $subject->subject_name
+            );
+        })
+        ->values();
+}
+
 
     private function getTableLayouts(string $standardKey): array
     {
@@ -102,7 +114,7 @@ class ExamStructureController extends Controller
                 $existingIndex[$k] = $row;
             }
             $kName = $row->exam_type . '|' . ExamStructureHelper::canonicalSubjectKey($row->subject_name);
-            
+
             // FIX: Prioritize rows with a valid subject_id over legacy duplicate rows with null subject_id
             if (!isset($existingIndex[$kName]) || !empty($row->subject_id)) {
                 $existingIndex[$kName] = $row;
@@ -133,7 +145,7 @@ class ExamStructureController extends Controller
                     'practical_passing_marks' => (float) ($row->practical_passing_marks ?? 0),
                     'total_max_marks'         => (float) ($row->total_max_marks         ?? 0),
                     'total_passing_marks'     => (float) ($row->total_passing_marks     ?? 0),
-                    'passing_percentage'      => (float) ($row->passing_percentage      ?? 40),
+                    'passing_percentage'      => (float) ($row->passing_percentage      ?? 35),   // ⭐ 35%
                     'is_active'               => (bool)  ($row->is_active               ?? true),
                     'row_exists'              => $row !== null,
                 ];
@@ -272,7 +284,7 @@ class ExamStructureController extends Controller
                     ];
 
                     $existingRow = $existingRows->first();
-                    
+
                     $data = [];
                     foreach ($componentFields as $f) {
                         if (array_key_exists($f, $fields)) {
@@ -293,7 +305,7 @@ class ExamStructureController extends Controller
                     } elseif ($existingRow) {
                         $data['passing_percentage'] = (float) $existingRow->passing_percentage;
                     } else {
-                        $data['passing_percentage'] = 40.0;
+                        $data['passing_percentage'] = 35.0;   // ⭐ 35%
                     }
 
                     $data['is_active']  = !empty($fields['is_active']);
@@ -304,7 +316,7 @@ class ExamStructureController extends Controller
                         $existingRows->slice(1)->each(function($row) {
                             $row->delete();
                         });
-                        
+
                         $existingRow->update($data);
                     } else {
                         try {

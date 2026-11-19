@@ -44,7 +44,16 @@ class SubjectController extends Controller
 
     private function normalizeName(string $name): string
     {
-        return strtoupper(trim(preg_replace('/\s+/', ' ', $name)));
+        $cleanName = strtoupper(trim(preg_replace('/\s+/', ' ', $name)));
+        
+        // ⭐ Fix known typos automatically
+        $aliases = [
+            'GENRAL KNOWLEDGE' => 'GENERAL KNOWLEDGE',
+            'ORGANISATION OF COMMERCE & MANAGEMENT' => 'ORGANIZATION OF COMMERCE AND MANAGEMENT',
+            'ORGANISATION OF COMMERCE AND MANAGEMENT' => 'ORGANIZATION OF COMMERCE AND MANAGEMENT',
+        ];
+
+        return $aliases[$cleanName] ?? $cleanName;
     }
 
     private function findMasterByName(string $name): ?Subject
@@ -74,7 +83,7 @@ class SubjectController extends Controller
         StandardWiseSubject::where('subject_id', $dupId)->whereIn('standard_id', $mappedStandards)->delete();
         StandardWiseSubject::where('subject_id', $dupId)->update(['subject_id' => $masterId]);
 
-        // 2. Exam Structures (Now uses subject_id)
+        // 2. Exam Structures
         if (Schema::hasTable('exam_structures') && Schema::hasColumn('exam_structures', 'subject_id')) {
             $dupStructures = DB::table('exam_structures')->where('subject_id', $dupId)->get();
             foreach ($dupStructures as $dupStruct) {
@@ -113,7 +122,7 @@ class SubjectController extends Controller
             }
         }
 
-        // 4. Student Skill Marks (Now uses subject_id)
+        // 4. Student Skill Marks
         if (Schema::hasTable('student_skill_marks') && Schema::hasColumn('student_skill_marks', 'subject_id')) {
             DB::table('student_skill_marks')->where('subject_id', $dupId)->update([
                 'subject_id' => $masterId,
@@ -200,7 +209,7 @@ class SubjectController extends Controller
             DB::table('skill_teacher_subject_allocations')->where('subject_id', $dupId)->update(['subject_id' => $masterId]);
         }
 
-        // 11. Finally, delete the duplicate subject
+        // 11. Finally, delete the duplicate subject completely
         DB::table('subjects')->where('id', $dupId)->delete();
     }
 
@@ -209,7 +218,15 @@ class SubjectController extends Controller
         $standardFilter = $request->filled('standard_id') ? (int) $request->standard_id : null;
 
         $query = StandardWiseSubject::with(['standard', 'subject', 'subject.subjectType'])
-            ->when($standardFilter, fn ($q) => $q->where('standard_id', $standardFilter));
+            ->when($standardFilter, fn ($q) => $q->where('standard_id', $standardFilter))
+            ->whereHas('subject', function($q) {
+                // ⭐ Hide known typos from UI even if they haven't been merged yet
+                $q->whereRaw('UPPER(TRIM(subject_name)) NOT IN (?, ?, ?)', [
+                    'GENRAL KNOWLEDGE',
+                    'ORGANISATION OF COMMERCE & MANAGEMENT',
+                    'ORGANISATION OF COMMERCE AND MANAGEMENT'
+                ]);
+            });
             
         $subjects = $query->orderBy('standard_id')
             ->orderBy('sort_order')
@@ -362,11 +379,14 @@ class SubjectController extends Controller
         ]);
 
         $newName = trim((string) $request->subject_name);
+        
+        // ⭐ Fix typos dynamically if user tries to save a typo name
+        $normalizedName = $this->normalizeName($newName);
         $newCode = strtoupper(trim((string) $request->subject_code));
         $newType = (int) $request->subject_type_id;
 
         // Check if this name already belongs to another subject ID
-        $existingMaster = $this->findMasterByName($newName);
+        $existingMaster = $this->findMasterByName($normalizedName);
         
         DB::beginTransaction();
         try {
@@ -386,7 +406,7 @@ class SubjectController extends Controller
                 return back()->withInput()->with('error', "Code '{$newCode}' is already used by subject \"{$byCode->subject_name}\" for this type.");
             }
 
-            $subject->subject_name    = $newName;
+            $subject->subject_name    = $normalizedName;
             $subject->subject_code    = $newCode;
             $subject->short_name      = $request->filled('short_name') ? trim($request->short_name) : null;
             $subject->subject_type_id = $newType; 
@@ -542,19 +562,36 @@ class SubjectController extends Controller
         }
     }
 
-        public function mergeAllDuplicates()
+    public function mergeAllDuplicates()
     {
-        // ✅ FIX: Group by both name AND type to prevent Academic/Skill conflicts
-        $duplicates = DB::table('subjects')
-            ->select('subject_name', 'subject_type_id', DB::raw('COUNT(*) as count'))
-            ->groupBy('subject_name', 'subject_type_id')
-            ->having('count', '>', 1)
-            ->get();
-
         $mergedCount = 0;
 
         DB::beginTransaction();
         try {
+            // ⭐ 1. Merge Known Typos First
+            $typos = [
+                'GENRAL KNOWLEDGE' => 'GENERAL KNOWLEDGE',
+                'ORGANISATION OF COMMERCE & MANAGEMENT' => 'ORGANIZATION OF COMMERCE AND MANAGEMENT',
+                'ORGANISATION OF COMMERCE AND MANAGEMENT' => 'ORGANIZATION OF COMMERCE AND MANAGEMENT',
+            ];
+
+            foreach ($typos as $typoName => $correctName) {
+                $typoSubj = DB::table('subjects')->whereRaw('UPPER(TRIM(subject_name)) = ?', [$typoName])->first();
+                $correctSubj = DB::table('subjects')->whereRaw('UPPER(TRIM(subject_name)) = ?', [$correctName])->first();
+
+                if ($typoSubj && $correctSubj && $typoSubj->id !== $correctSubj->id) {
+                    $this->mergeSubjectData($correctSubj->id, $typoSubj->id);
+                    $mergedCount++;
+                }
+            }
+
+            // ⭐ 2. Merge Exact String Duplicates
+            $duplicates = DB::table('subjects')
+                ->select('subject_name', 'subject_type_id', DB::raw('COUNT(*) as count'))
+                ->groupBy('subject_name', 'subject_type_id')
+                ->having('count', '>', 1)
+                ->get();
+
             foreach ($duplicates as $dup) {
                 $subjects = DB::table('subjects')
                     ->where('subject_name', $dup->subject_name)

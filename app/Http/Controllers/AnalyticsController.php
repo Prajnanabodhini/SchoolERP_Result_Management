@@ -47,7 +47,6 @@ class AnalyticsController extends Controller
 
     /**
      * Cache wrapper for ERP student fetching to prevent page timeouts.
-     * ✅ FIX: Cache as JSON string and use a new key (v2) to bypass old corrupted cache.
      */
     private function getCachedErpStudents($yearId, $standardId, $divisionId)
     {
@@ -55,16 +54,13 @@ class AnalyticsController extends Controller
             return collect();
         }
 
-        // Added _v2 to bypass the previously corrupted cache entry
         $cacheKey = "erp_students_v2_{$yearId}_{$standardId}_{$divisionId}";
         
         $cachedJson = Cache::remember($cacheKey, 600, function () use ($yearId, $standardId, $divisionId) {
             $students = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
-            // Convert to JSON to prevent serialization issues with Laravel Collections
             return json_encode($students);
         });
 
-        // Safeguard: if cache somehow contains a corrupted object, clear it and fetch fresh
         if (!is_string($cachedJson)) {
             Cache::forget($cacheKey);
             $students = StudentHelper::getStudentsDirectERP($yearId, $standardId, $divisionId);
@@ -72,17 +68,15 @@ class AnalyticsController extends Controller
             Cache::put($cacheKey, $cachedJson, 600);
         }
         
-        // Decode as objects (false) so $s->Studentid still works in the controller
         return collect(json_decode($cachedJson, false));
     }
 
     /**
      * Overwrite theory/oral/practical max + passing marks using
-     * ExamStructureHelper — the same source the Exam Master edit page uses.
+     * ExamStructureHelper. Passing marks are strictly enforced at 35%.
      */
     private function attachStructureMaxes($rows, int $standardId, string $examName)
     {
-        // Local in-memory cache to prevent DB queries per row
         $structureCache = [];
 
         return $rows->map(function ($r) use ($standardId, $examName, &$structureCache) {
@@ -104,10 +98,8 @@ class AnalyticsController extends Controller
             if ($r->theory_max <= 0) {
                 $r->theory_max = (float) ($r->theory_max_marks ?? 0);
             }
-            $r->theory_passing = (float) ($components['theory_passing_marks'] ?? 0);
-            if ($r->theory_passing <= 0 && $r->theory_max > 0) {
-                $r->theory_passing = (int) ceil($r->theory_max * 0.35);
-            }
+            // Enforce 35% passing
+            $r->theory_passing = $r->theory_max > 0 ? (int) ceil($r->theory_max * 0.35) : 0;
             $r->theory_obtained = (float) ($r->theory_obtained_marks ?? 0);
 
             /* ---------- ORAL ---------- */
@@ -115,10 +107,8 @@ class AnalyticsController extends Controller
             if ($r->oral_max <= 0) {
                 $r->oral_max = (float) ($r->oral_max_marks ?? 0);
             }
-            $r->oral_passing = (float) ($components['oral_passing_marks'] ?? 0);
-            if ($r->oral_passing <= 0 && $r->oral_max > 0) {
-                $r->oral_passing = (int) ceil($r->oral_max * 0.35);
-            }
+            // Enforce 35% passing
+            $r->oral_passing = $r->oral_max > 0 ? (int) ceil($r->oral_max * 0.35) : 0;
             $r->oral_obtained = (float) ($r->oral_obtained_marks ?? 0);
 
             /* ---------- PRACTICAL ---------- */
@@ -126,10 +116,8 @@ class AnalyticsController extends Controller
             if ($r->practical_max <= 0) {
                 $r->practical_max = (float) ($r->practical_max_marks ?? 0);
             }
-            $r->practical_passing = (float) ($components['practical_passing_marks'] ?? 0);
-            if ($r->practical_passing <= 0 && $r->practical_max > 0) {
-                $r->practical_passing = (int) ceil($r->practical_max * 0.35);
-            }
+            // Enforce 35% passing
+            $r->practical_passing = $r->practical_max > 0 ? (int) ceil($r->practical_max * 0.35) : 0;
             $r->practical_obtained = (float) ($r->practical_obtained_marks ?? 0);
 
             /* ---------- TOTALS ---------- */
@@ -181,11 +169,6 @@ class AnalyticsController extends Controller
                    && $request->filled('standard_id')
                    && $request->filled('division_id');
 
-        /*
-        |--------------------------------------------------------------------------
-        | PICK THE VIEW — same data, different template
-        |--------------------------------------------------------------------------
-        */
         $viewName = $request->boolean('print')
             ? 'analytics.print'
             : 'analytics.index';
@@ -256,7 +239,7 @@ class AnalyticsController extends Controller
             ->orderBy('display_subject')
             ->get();
 
-        /* ---------- Subject-wise pass % ---------- */
+        /* ---------- Subject-wise pass % (Strictly 35%) ---------- */
         $subjectStats = $buildBase()
             ->join('subjects', 'subjects.id', '=', DB::raw('(' . $this->resolvedSubjectIdSql() . ')'))
             ->select(
@@ -300,7 +283,7 @@ class AnalyticsController extends Controller
             ->orderBy('standards.standard_name')
             ->get();
 
-        /* ---------- Pass / Fail ---------- */
+        /* ---------- Pass / Fail (Strictly 35%) ---------- */
         $passStudents = $buildBase()
             ->select('student_marks.student_id')
             ->groupBy('student_marks.student_id')
@@ -333,7 +316,7 @@ class AnalyticsController extends Controller
             ->limit(10)
             ->get();
 
-        /* ---------- Top 10 Weak Students ---------- */
+        /* ---------- Top 10 Weak Students (Strictly < 35%) ---------- */
         $riskStudents = $buildBase()
             ->select(
                 'student_marks.student_id',
@@ -342,7 +325,7 @@ class AnalyticsController extends Controller
                             + COALESCE(student_marks.practical_obtained_marks,0)) as avg_marks")
             )
             ->groupBy('student_marks.student_id')
-            ->havingRaw('avg_marks < 40')
+            ->havingRaw('avg_marks < 35')
             ->orderBy('avg_marks')
             ->limit(10)
             ->get();
@@ -363,7 +346,7 @@ class AnalyticsController extends Controller
         $topStudents  = $topStudents->map($attachName);
         $riskStudents = $riskStudents->map($attachName);
 
-        /* ---------- Grade distribution ---------- */
+        /* ---------- Grade distribution (Strictly 35% for D) ---------- */
         $gradeCounts = ['A1'=>0,'A2'=>0,'B1'=>0,'B2'=>0,'C1'=>0,'C2'=>0,'D'=>0,'E'=>0,'Absent'=>0,'Left'=>0];
 
         $studentGrades = $buildBase()
@@ -438,13 +421,7 @@ class AnalyticsController extends Controller
      | ===================================================================== */
     public function printReport(Request $request)
     {
-        /*
-         * Reuse the exact same query pipeline as index() by setting `print=1`.
-         * index() detects this flag and renders 'analytics.print' instead of
-         * 'analytics.index' — using the same computed data.
-         */
         $request->merge(['print' => 1]);
-
         return $this->index($request);
     }
 
@@ -589,7 +566,7 @@ class AnalyticsController extends Controller
             if ($row->student_id == $studentId) { $rank = $i + 1; break; }
         }
 
-        // Calculate Subject-wise class average (uses raw columns, exact same logic as before)
+        // Calculate Subject-wise class average
         $classSubjectAvg = $allClassDataRaw
             ->groupBy('subject_name')
             ->map(function ($rows) {
@@ -622,7 +599,6 @@ class AnalyticsController extends Controller
             )
             ->get();
 
-        // OPTIMIZATION: Bulk fetch valid mappings instead of N+1 query inside filter
         $examIds = $examTrendRaw->pluck('exam_id')->filter()->unique()->toArray();
         $validMappings = DB::table('exam_master_subjects')
             ->whereIn('exam_master_id', $examIds)
@@ -724,7 +700,9 @@ class AnalyticsController extends Controller
         );
 
         $subjectMaxTotal     = (float) ($structure['total_max_marks']     ?? 0);
-        $subjectPassingTotal = (float) ($structure['total_passing_marks'] ?? 0);
+        
+        // Enforce strict 35% passing
+        $subjectPassingTotal = $subjectMaxTotal > 0 ? (int) ceil($subjectMaxTotal * 0.35) : 0;
 
         if ($subjectMaxTotal <= 0 && $examId) {
             $cfg = DB::table('exam_master_subjects')
@@ -735,15 +713,13 @@ class AnalyticsController extends Controller
 
             if ($cfg) {
                 $subjectMaxTotal     = (float) ($cfg->max_marks     ?? 0);
-                $subjectPassingTotal = (float) ($cfg->passing_marks ?? 0);
+                // Enforce strict 35% passing
+                $subjectPassingTotal = $subjectMaxTotal > 0 ? (int) ceil($subjectMaxTotal * 0.35) : 0;
             }
         }
 
         if ($subjectMaxTotal <= 0) {
             $subjectMaxTotal = 40.0;
-        }
-
-        if ($subjectPassingTotal <= 0) {
             $subjectPassingTotal = (int) ceil($subjectMaxTotal * 0.35);
         }
 
@@ -843,7 +819,9 @@ class AnalyticsController extends Controller
         $classAvg   = $totalCount > 0 ? round($rows->avg('obtained'), 2) : 0;
 
         $toppers = $rows->sortByDesc('obtained')->take(10)->values();
-        $weak    = $rows->where('percent', '<', 40)->sortBy('obtained')->values();
+        
+        // Enforce weak list threshold at < 35%
+        $weak    = $rows->where('percent', '<', 35)->sortBy('obtained')->values();
 
         return view('analytics.subject', compact(
             'subjectId','subjectName',
@@ -1052,31 +1030,36 @@ class AnalyticsController extends Controller
             ->values();
 
         $allSubjectIds = collect($allowed1)->merge($allowed2)->unique()->values();
-        $allSubjects   = \App\Models\Subject::whereIn('id', $allSubjectIds)
-            ->orderBy('subject_name')->get();
+        
+        // Deduplicate by subject_name to remove duplicate subject rows
+        $allSubjects = \App\Models\Subject::whereIn('id', $allSubjectIds)
+            ->orderBy('subject_name')
+            ->get()
+            ->unique('subject_name') 
+            ->values();
 
         $subjectComparison = collect();
 
         foreach ($allSubjects as $sub) {
-            $sid = $sub->id;
+            $subjectName = $sub->subject_name;
+            
+            // Find all IDs (legacy & new) that share this subject name
+            $matchingIds = \App\Models\Subject::whereIn('id', $allSubjectIds)
+                ->where('subject_name', $subjectName)
+                ->pluck('id')
+                ->toArray();
 
-            $r1 = $marks1Raw->where('subject_id', $sid);
-            $r2 = $marks2Raw->where('subject_id', $sid);
+            $r1 = $marks1Raw->whereIn('subject_id', $matchingIds);
+            $r2 = $marks2Raw->whereIn('subject_id', $matchingIds);
 
-            $sum1 = $r1->sum(fn($r) =>
-                (float) ($r->theory_obtained_marks ?? 0)
-              + (float) ($r->oral_obtained_marks ?? 0)
-              + (float) ($r->practical_obtained_marks ?? 0));
-
-            $sum2 = $r2->sum(fn($r) =>
-                (float) ($r->theory_obtained_marks ?? 0)
-              + (float) ($r->oral_obtained_marks ?? 0)
-              + (float) ($r->practical_obtained_marks ?? 0));
-
+            // Deduplicate by student_id so a student's marks aren't counted twice
             $corrected1 = $this->attachStructureMaxes($r1, $standardId, $exam1Name)
-                ->unique(fn($r) => $r->student_id . '|' . $r->subject_id);
+                ->unique('student_id');
             $corrected2 = $this->attachStructureMaxes($r2, $standardId, $exam2Name)
-                ->unique(fn($r) => $r->student_id . '|' . $r->subject_id);
+                ->unique('student_id');
+
+            $sum1 = $corrected1->sum('obtained');
+            $sum2 = $corrected2->sum('obtained');
 
             $max1  = $corrected1->sum('max');
             $max2  = $corrected2->sum('max');
@@ -1088,8 +1071,8 @@ class AnalyticsController extends Controller
             $delta   = ($avg1Pct !== null && $avg2Pct !== null) ? round($avg2Pct - $avg1Pct, 2) : null;
 
             $subjectComparison->push((object) [
-                'subject_id'   => $sid,
-                'subject_name' => $sub->subject_name,
+                'subject_id'   => $sub->id,
+                'subject_name' => $subjectName,
                 'max1'  => $max1,
                 'max2'  => $max2,
                 'pass1' => $corrected1->first()->passing ?? null,
@@ -1106,6 +1089,8 @@ class AnalyticsController extends Controller
 
         $exam1Pcts = $studentComparison->pluck('e1_pct')->filter(fn($v) => $v !== null);
         $exam2Pcts = $studentComparison->pluck('e2_pct')->filter(fn($v) => $v !== null);
+        
+        // Enforce strict 35% pass threshold
         $passThreshold = 35;
 
         $kpi = [

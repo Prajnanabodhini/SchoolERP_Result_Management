@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ResultSheetHelper
 {
@@ -37,15 +38,12 @@ class ResultSheetHelper
     }
 
     /* ======================================================================
-     | PASSING PERCENTAGE PER STANDARD
-     |======================================================================|
-     | Delegates to ResultHelper which already has the exact 35% / 40%
-     | rule for every standard ID.
-     ====================================================================== */
+     | PASSING PERCENTAGE PER STANDARD (HARDCODED 35%)
+     |======================================================================| */
 
     public static function getPassingPercentage(?int $standardId = null): int
     {
-        return ResultHelper::getPassingPercentage($standardId);
+        return 35;
     }
 
     public static function calculatePassingMarks($maxMarks, int $percentage = 35): int
@@ -83,11 +81,21 @@ class ResultSheetHelper
 
     public static function getSubjectKey($column): string
     {
-        if (!empty($column->key))          return (string) $column->key;
-        if (!empty($column->subject_id))   return 'SUBJECT_' . (int) $column->subject_id;
-        if (!empty($column->mapping_id))   return 'MAPPING_' . (int) $column->mapping_id;
-        if (!empty($column->subject_code)) return (string) $column->subject_code;
-        if (!empty($column->subject_name)) return (string) $column->subject_name;
+        $key = data_get($column, 'key');
+        if (!empty($key)) return (string) $key;
+        
+        $subjectId = data_get($column, 'subject_id');
+        if (!empty($subjectId)) return 'SUBJECT_' . (int) $subjectId;
+        
+        $mappingId = data_get($column, 'mapping_id');
+        if (!empty($mappingId)) return 'MAPPING_' . (int) $mappingId;
+        
+        $subjectCode = data_get($column, 'subject_code');
+        if (!empty($subjectCode)) return (string) $subjectCode;
+        
+        $subjectName = data_get($column, 'subject_name');
+        if (!empty($subjectName)) return (string) $subjectName;
+        
         return '';
     }
 
@@ -107,22 +115,22 @@ class ResultSheetHelper
         $subjectKey = self::getSubjectKey($column);
         if ($subjectKey !== '') $keys[] = $subjectKey;
 
-        $subjectId = (int) ($column->subject_id ?? 0);
+        $subjectId = (int) data_get($column, 'subject_id', 0);
         if ($subjectId > 0) {
             $keys[] = 'SUBJECT_' . $subjectId;
             $keys[] = 'subject_' . $subjectId;
             $keys[] = (string) $subjectId;
         }
 
-        $mappingId = (int) ($column->mapping_id ?? 0);
+        $mappingId = (int) data_get($column, 'mapping_id', 0);
         if ($mappingId > 0) {
             $keys[] = 'MAPPING_' . $mappingId;
             $keys[] = 'mapping_' . $mappingId;
             $keys[] = (string) $mappingId;
         }
 
-        if (!empty($column->subject_code)) $keys[] = (string) $column->subject_code;
-        if (!empty($column->subject_name)) $keys[] = (string) $column->subject_name;
+        if (!empty(data_get($column, 'subject_code'))) $keys[] = (string) data_get($column, 'subject_code');
+        if (!empty(data_get($column, 'subject_name'))) $keys[] = (string) data_get($column, 'subject_name');
 
         foreach (array_unique($keys) as $key) {
             if (array_key_exists($key, $collection)) {
@@ -160,31 +168,68 @@ class ResultSheetHelper
         return self::findCollectionValue($student->subject_results ?? [], $column);
     }
 
-    public static function isColumnOptional($column): bool
-    {
-        if (!isset($column->is_optional)) return false;
-        return (int) $column->is_optional === 1;
-    }
+    /* ======================================================================
+     | STUDENT OPTIONAL SUBJECT DETECTION
+     ====================================================================== */
 
     public static function isStudentOptional($student, $column): bool
     {
-        $mark = self::getStudentMark($student, $column);
-
-        if ($mark !== null && $mark !== '') {
-            $text = strtoupper(trim((string) $mark));
-            if ($text === 'OPT') return true;
-            if (is_numeric($mark)) return false;
+        if (!$student) {
+            return false;
         }
 
-        $optionalMap = self::toArray($student->subject_is_optional ?? []);
-        $value = self::findCollectionValue($optionalMap, $column);
+        $map = self::toArray($student->subject_is_optional ?? []);
+        if (!$map) {
+            return false;
+        }
 
-        if ($value !== null) {
-            $text = strtoupper(trim((string) $value));
-            return in_array($text, ['1', 'TRUE', 'YES', 'Y', 'OPT'], true);
+        $key = self::getSubjectKey($column);
+
+        if ($key !== '' && array_key_exists($key, $map)) {
+            return (int) $map[$key] === 1;
+        }
+
+        $keys = [];
+        if ($key !== '') {
+            $keys[] = $key;
+        }
+
+        $subjectId = (int) data_get($column, 'subject_id', 0);
+        if ($subjectId > 0) {
+            $keys[] = 'SUBJECT_' . $subjectId;
+            $keys[] = 'subject_' . $subjectId;
+            $keys[] = (string) $subjectId;
+        }
+
+        $mappingId = (int) data_get($column, 'mapping_id', 0);
+        if ($mappingId > 0) {
+            $keys[] = 'MAPPING_' . $mappingId;
+            $keys[] = 'mapping_' . $mappingId;
+            $keys[] = (string) $mappingId;
+        }
+
+        if (!empty(data_get($column, 'subject_code'))) {
+            $keys[] = (string) data_get($column, 'subject_code');
+        }
+        if (!empty(data_get($column, 'subject_name'))) {
+            $keys[] = (string) data_get($column, 'subject_name');
+        }
+
+        foreach ($map as $storedKey => $value) {
+            foreach (array_unique($keys) as $candidate) {
+                if (strcasecmp(trim((string) $storedKey), trim((string) $candidate)) === 0) {
+                    return (int) $value === 1;
+                }
+            }
         }
 
         return false;
+    }
+
+    public static function isColumnOptional($column): bool
+    {
+        if (data_get($column, 'is_optional') === null) return false;
+        return (int) data_get($column, 'is_optional') === 1;
     }
 
     /* ======================================================================
@@ -271,24 +316,21 @@ class ResultSheetHelper
     }
 
     /* ======================================================================
-     | FORMATTING
+     | FORMATTING (ROUND DECIMALS)
      ====================================================================== */
 
     public static function formatMark($value)
     {
         if ($value === null || $value === '') return null;
-        $number = (float) $value;
-        return floor($number) === $number ? (int) $number : round($number, 2);
+        if (!is_numeric($value)) return $value;
+        return (int) round((float) $value);
     }
 
     public static function displayNumber($value): string
     {
         if ($value === null || $value === '' || $value === '-') return '-';
         if (!is_numeric($value)) return (string) $value;
-        $number = (float) $value;
-        return floor($number) === $number
-            ? (string) ((int) $number)
-            : number_format($number, 2, '.', '');
+        return (string) (int) round((float) $value);
     }
 
     public static function emptySubjectAnalysis(): array
@@ -308,7 +350,7 @@ class ResultSheetHelper
     }
 
     /* ======================================================================
-     | GROUP MARKS BY STUDENT AND SUBJECT
+     | GROUP MARKS BY STUDENT AND SUBJECT (ROBUST ID MAPPING)
      ====================================================================== */
 
     public static function groupMarksByStudentAndSubject(
@@ -323,11 +365,53 @@ class ResultSheetHelper
             ->flip();
 
         $mappingToSubject = $columns->mapWithKeys(function ($column) {
-            $mappingId = (int) ($column->mapping_id ?? 0);
-            $subjectId = (int) ($column->subject_id ?? 0);
+            $mappingId = (int) data_get($column, 'mapping_id', 0);
+            $subjectId = (int) data_get($column, 'subject_id', 0);
             if ($mappingId <= 0 || $subjectId <= 0) return [];
             return [$mappingId => $subjectId];
         });
+
+        // 1. Fetch mappings from TeacherMarksStatus and TeacherSubjectAllocation
+        $tsaIds = $markRows->pluck('teacher_subject_allocation_id')->filter()->unique();
+        $tsaToSubject = [];
+        
+        if ($tsaIds->isNotEmpty()) {
+            $tmsToSubject = DB::table('teacher_marks_status')
+                ->whereIn('teacher_subject_allocation_id', $tsaIds)
+                ->pluck('subject_id', 'teacher_subject_allocation_id')
+                ->toArray();
+                
+            $tsaAllocToSubject = DB::table('teacher_subject_allocations')
+                ->whereIn('id', $tsaIds)
+                ->pluck('subject_id', 'id')
+                ->toArray();
+                
+            $tsaToSubject = array_merge($tsaAllocToSubject, $tmsToSubject);
+        }
+
+        // 2. Fetch subject names to handle legacy ID mismatch (e.g., 98 -> 10)
+        $allStoredIds = $markRows->pluck('subject_id')
+            ->merge($markRows->pluck('allocation_subject_id'))
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        $subjectNames = [];
+        if (!empty($allStoredIds)) {
+            $subjectNames = DB::table('subjects')
+                ->whereIn('id', $allStoredIds)
+                ->pluck('subject_name', 'id')
+                ->toArray();
+        }
+
+        // Create a reverse map of Subject Name -> Column Subject ID
+        $nameToColumnSubjectId = [];
+        foreach ($columns as $column) {
+            $name = strtoupper(trim((string) data_get($column, 'subject_name', '')));
+            if ($name !== '') {
+                $nameToColumnSubjectId[$name] = (int) data_get($column, 'subject_id', 0);
+            }
+        }
 
         $map = [];
 
@@ -337,16 +421,60 @@ class ResultSheetHelper
 
             $storedSubjectId     = (int) ($row->subject_id ?? 0);
             $allocationSubjectId = (int) ($row->allocation_subject_id ?? 0);
+            $tsaId               = (int) ($row->teacher_subject_allocation_id ?? 0);
             $subjectId           = null;
 
+            // Attempt 1: Direct subject_id match
             if ($storedSubjectId > 0 && $actualSubjectIds->has($storedSubjectId)) {
                 $subjectId = $storedSubjectId;
             }
+            
+            // Attempt 2: Allocation subject_id match
             if ($subjectId === null && $allocationSubjectId > 0 && $actualSubjectIds->has($allocationSubjectId)) {
                 $subjectId = $allocationSubjectId;
             }
+
+            // Attempt 3: Mapping ID match
             if ($subjectId === null && $storedSubjectId > 0 && $mappingToSubject->has($storedSubjectId)) {
                 $subjectId = (int) $mappingToSubject->get($storedSubjectId);
+            }
+            if ($subjectId === null && $allocationSubjectId > 0 && $mappingToSubject->has($allocationSubjectId)) {
+                $subjectId = (int) $mappingToSubject->get($allocationSubjectId);
+            }
+            
+            // Attempt 4: Name Match (Bypasses legacy ID mismatches)
+            if ($subjectId === null && !empty($subjectNames[$storedSubjectId])) {
+                $sName = strtoupper(trim($subjectNames[$storedSubjectId]));
+                if (isset($nameToColumnSubjectId[$sName])) {
+                    $subjectId = $nameToColumnSubjectId[$sName];
+                }
+            }
+            if ($subjectId === null && !empty($subjectNames[$allocationSubjectId])) {
+                $sName = strtoupper(trim($subjectNames[$allocationSubjectId]));
+                if (isset($nameToColumnSubjectId[$sName])) {
+                    $subjectId = $nameToColumnSubjectId[$sName];
+                }
+            }
+
+            // Attempt 5: Teacher Subject Allocation fallback
+            if ($subjectId === null && $tsaId > 0 && isset($tsaToSubject[$tsaId])) {
+                $tsaSubjectId = (int) $tsaToSubject[$tsaId];
+                
+                if ($actualSubjectIds->has($tsaSubjectId)) {
+                    $subjectId = $tsaSubjectId;
+                } elseif ($mappingToSubject->has($tsaSubjectId)) {
+                    $subjectId = (int) $mappingToSubject->get($tsaSubjectId);
+                } elseif (!empty($subjectNames[$tsaSubjectId])) {
+                    $sName = strtoupper(trim($subjectNames[$tsaSubjectId]));
+                    if (isset($nameToColumnSubjectId[$sName])) {
+                        $subjectId = $nameToColumnSubjectId[$sName];
+                    }
+                } else {
+                    $matchedCol = $columns->firstWhere('subject_id', $tsaSubjectId);
+                    if ($matchedCol) {
+                        $subjectId = $tsaSubjectId;
+                    }
+                }
             }
 
             if ($subjectId === null) continue;
@@ -410,13 +538,12 @@ class ResultSheetHelper
 
             $studentTotal    = 0.0;
             $studentMax      = 0.0;
-            $hasFail         = false;
             $missingRequired = false;
 
             foreach ($columns as $column) {
 
                 $key       = self::getSubjectKey($column);
-                $subjectId = (int) ($column->subject_id ?? 0);
+                $subjectId = (int) data_get($column, 'subject_id', 0);
 
                 /* Defaults */
                 $student->subject_marks[$key]        = '-';
@@ -426,89 +553,58 @@ class ResultSheetHelper
                 $student->subject_max_used[$key]     = 0.0;
                 $student->subject_passing_used[$key] = 0.0;
 
-                $maxMarks         = (float) ($column->max_marks ?? 0);
-                $isColumnOptional = (int) ($column->is_optional ?? 0) === 1;
+                $maxMarks         = (float) data_get($column, 'max_marks', 0);
+                $isColumnOptional = (int) data_get($column, 'is_optional', 0) === 1;
 
                 $row = $studentMarks[$subjectId] ?? null;
 
-                // ⭐ FIX: If max_marks is 0 from the exam master, try to extract from the student's mark row
                 if ($maxMarks <= 0 && $row) {
                     $maxMarks = self::extractMaxMarks($row);
                 }
                 
-                // ⭐ FIX: If still 0, default to 40 (assuming standard marking)
                 if ($maxMarks <= 0) {
                     $maxMarks = 40;
                 }
 
-                /* ----------------------------------------------------------
-                 | Effective passing marks for THIS subject
-                 * ---------------------------------------------------------- */
-
-                $passingMarks = (float) ($column->passing_marks ?? 0);
-
-                if ($passingMarks <= 0 && $maxMarks > 0) {
-                    $passingMarks = self::calculatePassingMarks($maxMarks, $passPercentage);
-                }
-
-                /* ----------------------------------------------------------
-                 | OPTIONAL SUBJECT HANDLING
-                 * ---------------------------------------------------------- */
-
-                if ($isColumnOptional) {
-
-                    if (!$row) {
-                        $student->subject_marks[$key]       = 'OPT';
-                        $student->subject_grades[$key]      = 'OPT';
-                        $student->subject_results[$key]     = 'OPT';
-                        $student->subject_is_optional[$key] = 1;
-                        continue;
-                    }
-
-                    $rowIsOptional = false;
-                    if (isset($row->is_optional)) {
-                        $v = strtoupper(trim((string) $row->is_optional));
-                        $rowIsOptional = in_array($v, ['1', 'TRUE', 'YES', 'Y'], true);
-                    }
-
-                    if ($rowIsOptional) {
-                        $student->subject_marks[$key]       = 'OPT';
-                        $student->subject_grades[$key]      = 'OPT';
-                        $student->subject_results[$key]     = 'OPT';
-                        $student->subject_is_optional[$key] = 1;
-                        continue;
-                    }
-                }
-
-                /* ----------------------------------------------------------
-                 | NORMAL SUBJECT
-                 * ---------------------------------------------------------- */
-
-                if ($maxMarks > 0) {
-                    $studentMax += $maxMarks;
-                    $student->subject_max_used[$key] = $maxMarks;
-                }
-
-                $student->subject_passing_used[$key] = $passingMarks;
-
-                /* Missing mark row for a compulsory subject */
-                if (!$row) {
-                    $missingRequired = true;
-                    $student->has_incomplete_marks = true;
+                /* 1. If the student is explicitly marked as OPTIONAL in student_marks */
+                if ($row && isset($row->is_optional) && (int)$row->is_optional === 1) {
+                    $student->subject_marks[$key]       = 'OPT';
+                    $student->subject_grades[$key]      = 'OPT';
+                    $student->subject_results[$key]     = 'OPT';
+                    $student->subject_is_optional[$key] = 1;
                     continue;
                 }
 
-                /* Absent */
+                /* 2. If no mark row exists */
+                if (!$row) {
+                    if ($isColumnOptional) {
+                        $student->subject_marks[$key]       = 'OPT';
+                        $student->subject_grades[$key]      = 'OPT';
+                        $student->subject_results[$key]     = 'OPT';
+                        $student->subject_is_optional[$key] = 1;
+                    } else {
+                        $missingRequired = true;
+                        $student->has_incomplete_marks = true;
+                    }
+                    continue;
+                }
+
+                /* 3. If the student is ABSENT */
                 if (self::isAbsent($row)) {
                     $student->subject_marks[$key]   = 'AB';
                     $student->subject_grades[$key]  = 'AB';
                     $student->subject_results[$key] = 'ABSENT';
                     $student->has_absent            = true;
                     $student->has_any_mark          = true;
+                    
+                    if ($maxMarks > 0) {
+                        $studentMax += $maxMarks;
+                        $student->subject_max_used[$key] = $maxMarks;
+                    }
                     continue;
                 }
 
-                /* Extract numeric mark */
+                /* 4. Extract numeric mark */
                 $obtained = self::extractObtainedMarks($row);
 
                 if ($obtained === null) {
@@ -520,9 +616,13 @@ class ResultSheetHelper
                 $obtained = max(0.0, $obtained);
                 if ($maxMarks > 0) {
                     $obtained = min($obtained, $maxMarks);
+                    $studentMax += $maxMarks;
+                    $student->subject_max_used[$key] = $maxMarks;
                 }
 
                 $student->has_any_mark = true;
+                
+                // formatMark now rounds the obtained marks to nearest integer
                 $student->subject_marks[$key] = self::formatMark($obtained);
                 $studentTotal += $obtained;
 
@@ -530,9 +630,15 @@ class ResultSheetHelper
                 $subjectPercentage = $maxMarks > 0 ? ($obtained / $maxMarks) * 100 : 0;
                 $student->subject_grades[$key] = self::getGradeFromPercentage($subjectPercentage);
 
-                /* Subject PASS / FAIL — uses the correct passing marks for this subject */
+                /* Effective passing marks */
+                $passingMarks = (float) data_get($column, 'passing_marks', 0);
+                if ($passingMarks <= 0 && $maxMarks > 0) {
+                    $passingMarks = self::calculatePassingMarks($maxMarks, $passPercentage);
+                }
+                $student->subject_passing_used[$key] = $passingMarks;
+
+                /* Subject PASS / FAIL */
                 if ($passingMarks > 0 && $obtained < $passingMarks) {
-                    $hasFail = true;
                     $student->subject_results[$key] = 'FAIL';
                 } else {
                     $student->subject_results[$key] = 'PASS';
@@ -548,17 +654,14 @@ class ResultSheetHelper
             $student->academic_max_display = $studentMax;
 
             /* ==========================================================
-             | OVERALL RESULT
+             | OVERALL RESULT (AGGREGATE PASS LOGIC)
              * ========================================================== */
 
             if ($missingRequired || !$student->has_any_mark) {
-
                 $student->calculated_percentage = null;
                 $student->calculated_grade      = '-';
                 $student->result                = 'PENDING';
-
             } else {
-
                 $student->calculated_percentage = $studentMax > 0
                     ? round(($studentTotal / $studentMax) * 100, 2)
                     : null;
@@ -567,7 +670,7 @@ class ResultSheetHelper
                     ? self::getGradeFromPercentage($student->calculated_percentage)
                     : '-';
 
-                if ($student->has_absent || $hasFail) {
+                if ($student->has_absent) {
                     $student->result = 'FAIL';
                 } elseif (
                     $student->calculated_percentage !== null &&

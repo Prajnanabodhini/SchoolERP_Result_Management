@@ -68,6 +68,45 @@ class TeacherBulkAllocationController extends Controller
         $allAllocations = $query->orderByDesc('id')->get();
 
         /* ------------------------------------------------------------------
+         | Display only academic-subject allocations on this page.
+         | Existing records are not deleted or modified in the database.
+         ------------------------------------------------------------------ */
+        $academicSubjectLookupByStandard = [];
+
+        foreach ($allAllocations as $allocationRow) {
+            $rowStandardId = (int) ($allocationRow->standard_id ?? 0);
+
+            if ($rowStandardId <= 0) {
+                continue;
+            }
+
+            if (!array_key_exists($rowStandardId, $academicSubjectLookupByStandard)) {
+                $academicSubjectLookupByStandard[$rowStandardId] =
+                    $this->getAcademicSubjectLookup($rowStandardId);
+            }
+
+            $academicSubjectIds =
+                $academicSubjectLookupByStandard[$rowStandardId]['subject_ids'] ?? [];
+
+            // If the lookup cannot be built, preserve the existing row unchanged.
+            if (empty($academicSubjectIds)) {
+                continue;
+            }
+
+            $academicAllocations = $allocationRow->subjectAllocations
+                ->filter(function ($subjectAllocation) use ($academicSubjectIds) {
+                    return in_array(
+                        (int) ($subjectAllocation->subject_id ?? 0),
+                        $academicSubjectIds,
+                        true
+                    );
+                })
+                ->values();
+
+            $allocationRow->setRelation('subjectAllocations', $academicAllocations);
+        }
+
+        /* ------------------------------------------------------------------
          | Group by exam_master_id in PHP memory to form the display rows
          ------------------------------------------------------------------ */
         $rows = collect();
@@ -135,14 +174,53 @@ class TeacherBulkAllocationController extends Controller
             $pendingExam = ExamMaster::find((int) $examMasterId);
 
             if ($pendingExam) {
-                $pendingCount  = max(0, (int) AllocationStatusHelper::pendingCountForExam((int) $examMasterId));
-                $subjectStatus = collect(
+                $pendingCount = max(
+                    0,
+                    (int) AllocationStatusHelper::pendingCountForExam((int) $examMasterId)
+                );
+
+                $allSubjectStatus = collect(
                     AllocationStatusHelper::subjectStatusForExam((int) $examMasterId)
                 )
-                    ->map(fn ($r) => is_object($r) ? (array) $r : $r)
+                    ->map(fn ($r) => is_object($r) ? (array) $r : (array) $r)
                     ->map(fn ($r) => (object) $r)
-                    ->values()
-                    ->all();
+                    ->values();
+
+                // Pending summary must follow the same academic-only rule as
+                // the subject selector. Skill-subject rows are hidden here only;
+                // their existing database records and marks are not changed.
+                $academicSubjectLookup = $this->getAcademicSubjectLookup(
+                    (int) $pendingExam->standard_id
+                );
+
+                if (
+                    !empty($academicSubjectLookup['subject_ids']) ||
+                    !empty($academicSubjectLookup['subject_names'])
+                ) {
+                    $subjectStatusCollection = $allSubjectStatus
+                        ->filter(function ($statusRow) use ($academicSubjectLookup) {
+                            return $this->isAcademicSubjectStatusRow(
+                                $statusRow,
+                                $academicSubjectLookup
+                            );
+                        })
+                        ->values();
+
+                    // Keep the helper's count semantics, subtracting only the
+                    // pending rows excluded by the academic-subject filter.
+                    $hiddenSkillRows = max(
+                        0,
+                        $allSubjectStatus->count() - $subjectStatusCollection->count()
+                    );
+
+                    $pendingCount = max(0, $pendingCount - $hiddenSkillRows);
+                } else {
+                    // No usable subject mapping was found: retain the original
+                    // helper output rather than unexpectedly hiding all rows.
+                    $subjectStatusCollection = $allSubjectStatus;
+                }
+
+                $subjectStatus = $subjectStatusCollection->all();
             }
         }
 
@@ -674,6 +752,114 @@ class TeacherBulkAllocationController extends Controller
      * ✅ Direct DB Query using ONLY standard_wise_subjects and subjects.
      * This prevents any missing column errors from other tables.
      */
+    /**
+     * Return active academic subject IDs and normalized names for one standard.
+     * subject_type_id = 1 is the Academic category used by this module.
+     */
+    private function getAcademicSubjectLookup(int $standardId): array
+    {
+        try {
+            $rows = DB::table('standard_wise_subjects as sws')
+                ->join('subjects as s', 's.id', '=', 'sws.subject_id')
+                ->where('sws.standard_id', $standardId)
+                ->where('sws.is_active', 1)
+                ->where('s.is_active', 1)
+                ->where('s.subject_type_id', 1)
+                ->select([
+                    's.id as subject_id',
+                    's.subject_name as master_subject_name',
+                    'sws.subject_name as mapped_subject_name',
+                ])
+                ->get();
+
+            $subjectIds = $rows
+                ->pluck('subject_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            $subjectNames = $rows
+                ->flatMap(function ($row) {
+                    return [
+                        $row->master_subject_name ?? '',
+                        $row->mapped_subject_name ?? '',
+                    ];
+                })
+                ->map(fn ($name) => $this->normalizeSubjectName($name))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            return [
+                'subject_ids'   => $subjectIds,
+                'subject_names' => $subjectNames,
+            ];
+        } catch (Throwable $e) {
+            Log::error('getAcademicSubjectLookup SQL Error: ' . $e->getMessage(), [
+                'standard_id' => $standardId,
+            ]);
+
+            return [
+                'subject_ids'   => [],
+                'subject_names' => [],
+            ];
+        }
+    }
+
+    /** Normalize a subject name for comparison without changing its display text. */
+    private function normalizeSubjectName($value): string
+    {
+        return preg_replace(
+            '/[^A-Z0-9]/',
+            '',
+            strtoupper(trim((string) $value))
+        ) ?? '';
+    }
+
+    /**
+     * Confirm that a pending-status row belongs to an active academic subject.
+     * Supports the subject_id and common subject-name aliases returned by the
+     * AllocationStatusHelper without relying on a generic row `id` field.
+     */
+    private function isAcademicSubjectStatusRow($row, array $lookup): bool
+    {
+        $data = is_array($row) ? $row : (array) $row;
+
+        $subjectId = $data['subject_id']
+            ?? $data['resolved_subject_id']
+            ?? $data['academic_subject_id']
+            ?? null;
+
+        if ($subjectId !== null && $subjectId !== '') {
+            if (in_array((int) $subjectId, $lookup['subject_ids'] ?? [], true)) {
+                return true;
+            }
+        }
+
+        $subjectName = $data['subject_name']
+            ?? $data['subject']
+            ?? $data['name']
+            ?? $data['subjectName']
+            ?? '';
+
+        if (is_object($subjectName)) {
+            $subjectName = $subjectName->subject_name ?? $subjectName->name ?? '';
+        } elseif (is_array($subjectName)) {
+            $subjectName = $subjectName['subject_name'] ?? $subjectName['name'] ?? '';
+        }
+
+        $normalizedName = $this->normalizeSubjectName($subjectName);
+
+        return $normalizedName !== '' && in_array(
+            $normalizedName,
+            $lookup['subject_names'] ?? [],
+            true
+        );
+    }
+
     private function getAcademicSubjects($standardId)
     {
         try {

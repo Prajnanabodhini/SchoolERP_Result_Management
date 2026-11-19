@@ -7,19 +7,6 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Exam-structure lookup.
- *
- * NO caching. Every call reads exam_structures directly, so changes made
- * via Exam Structure are reflected immediately in Exam Master / Marks Entry.
- *
- * Public API:
- *   getHardcodedExamStructure()
- *   getStandardSheetKey(string)
- *   findSheetForStandard(string)
- *   canonicalSubjectKey(string)
- *   matchExcelSubject(string, string, array)
- *   normalizeExamType($value)
- *   getPassingPercentage(int)
- *   getComponentValues(int, string, string)
  */
 class ExamStructureHelper
 {
@@ -145,6 +132,9 @@ class ExamStructureHelper
     {
         $v = strtoupper(trim($value));
 
+        // ⭐ FIX: Convert '&' to 'AND' so "COMMERCE & MANAGEMENT" matches "COMMERCE AND MANAGEMENT"
+        $v = str_replace('&', ' AND ', $v);
+
         /* Roman numerals → digits: I, II, III, IV, V */
         $v = preg_replace_callback(
             '/(?<![A-Z])(III|IV|II|V|I)(?![A-Z])/',
@@ -163,6 +153,7 @@ class ExamStructureHelper
             'GENKNOWLEDGE'          => 'GENERALKNOWLEDGE',
             'GENKNOW'               => 'GENERALKNOWLEDGE',
             'GENERALKNOWLEDGE'      => 'GENERALKNOWLEDGE',
+            'GENRALKNOWLEDGE'       => 'GENERALKNOWLEDGE', // ⭐ Added typo fix
             'GENERAL'               => 'GENERALKNOWLEDGE',
             'GEN'                   => 'GENERALKNOWLEDGE',
 
@@ -226,20 +217,12 @@ class ExamStructureHelper
     }
 
     /* ================================================================
-     | PASSING PERCENTAGE
+     | PASSING PERCENTAGE — ⭐ HARDCODED 35% FOR ALL STANDARDS
      * ================================================================ */
     public static function getPassingPercentage(int $standardId): float
     {
-        if (in_array($standardId, [9,10,11,12], true)) return 35.0;
-
-        $name = DB::table('standards')->where('id', $standardId)->value('standard_name');
-        $n    = preg_replace('/[^A-Z0-9]+/','', strtoupper(trim((string) $name)));
-
-        if (in_array($n, ['NURSERY','NUR','JRKG','JUNIORKG','SRKG','SENIORKG'], true)) return 35.0;
-        if (in_array($n, ['NINTH','9TH','IX','TENTH','10TH','X'], true)) return 35.0;
-        if (str_contains($n,'ELEVENTH') || str_contains($n,'TWELFTH'))  return 35.0;
-
-        return 40.0;
+        // 35% of max marks for Nursery → 12th (all streams).
+        return 35.0;
     }
 
     /* ================================================================

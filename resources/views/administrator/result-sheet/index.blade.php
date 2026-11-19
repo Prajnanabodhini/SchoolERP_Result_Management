@@ -371,14 +371,14 @@ $sheet = ResultSheetBladeHelper::buildSheetData([
     'classTeacherName' => $classTeacherName ?? null,
     'principal'        => $principal ?? null,
     'principalName'    => $principalName ?? null,
-    'passPercentage'   => $passPercentage ?? null,
+    'passPercentage'   => 35, 
     'examMasterId'     => request('exam_master_id'),
 ]);
 
 $columnCollection         = $sheet['columns'];
 $sortedResults            = $sheet['students'];
 $currentStandardId        = $sheet['standardId'];
-$resultPassingPercentage  = (int) $sheet['passingPercentage'];
+$resultPassingPercentage  = 35; 
 $studentCalculations      = $sheet['calculations'];
 $displayTotalMaxMarks     = $sheet['displayTotalMaxMarks'];
 $isSeniorOptionalStandard = $sheet['isSeniorOptionalStandard'];
@@ -481,11 +481,9 @@ $allGradesNoFail          = ['A1','A2','B1','B2','C1','C2','D','E1','E2'];
                             $subjectName      = (string) (data_get($column, 'subject_name', data_get($column, 'subject_code', '-')) ?: '-');
                             $subjectMax       = (float) data_get($column, 'max_marks', 0);
                             $subjectPassing   = ResultSheetBladeHelper::resolveSubjectPassing($column, $currentStandardId);
-                            $subjectIsOptional = $isSeniorOptionalStandard ? $isSeniorOptionalColumn($column) : ((int) data_get($column, 'is_optional', 0) === 1);
                         @endphp
                         <th colspan="2">
                             <span class="subject-name">{{ $subjectName }}</span>
-                            @if($subjectIsOptional)<span class="optional-label">Optional Subject</span>@endif
                             <span class="subject-max">Max = {{ $displayNumber($subjectMax) }}</span>
                             <span class="subject-max">Pass = {{ $displayNumber($subjectPassing) }}</span>
                         </th>
@@ -510,20 +508,23 @@ $allGradesNoFail          = ['A1','A2','B1','B2','C1','C2','D','E1','E2'];
                     <td>{{ data_get($student, 'roll_no') ?: '-' }}</td>
                     <td class="student-name" title="{{ data_get($student, 'full_student_name', '') }}">{{ data_get($student, 'full_student_name') ?: '-' }}</td>
                     @foreach($studentCalc['subject_details'] as $detail)
-                        @php $mark = $detail['mark'] ?? '-'; $grade = $detail['grade'] ?? '-'; $isOptional = !empty($detail['optional']); @endphp
+                        @php 
+                            $mark = $detail['mark'] ?? '-'; 
+                            $grade = $detail['grade'] ?? '-'; 
+                        @endphp
                         <td>
-                            @if($isOptional)<span class="optional-mark">OPT</span>
-                            @elseif(strtoupper(trim((string)$mark)) === 'AB')<span class="absent-mark">AB</span>
+                            @if(strtoupper(trim((string)$mark)) === 'OPT') <span class="optional-mark">OPT</span>
+                            @elseif(strtoupper(trim((string)$mark)) === 'AB') <span class="absent-mark">AB</span>
                             @elseif($mark === '-') - 
-                            @elseif(is_numeric($mark)){{ $displayNumber($mark) }}
-                            @else{{ $mark }}@endif
+                            @elseif(is_numeric($mark)) {{ $displayNumber($mark) }}
+                            @else {{ $mark }} @endif
                         </td>
                         <td>
-                            @if($isOptional)<span class="optional-mark">OPT</span>
-                            @elseif(strtoupper(trim((string)$grade)) === 'AB')<span class="absent-mark">AB</span>
-                            @elseif(strtoupper(trim((string)$grade)) === 'F')<span class="fail-result">F</span>
+                            @if(strtoupper(trim((string)$grade)) === 'OPT') <span class="optional-mark">OPT</span>
+                            @elseif(strtoupper(trim((string)$grade)) === 'AB') <span class="absent-mark">AB</span>
+                            @elseif(strtoupper(trim((string)$grade)) === 'F') <span class="fail-result">F</span>
                             @elseif($grade === '-') - 
-                            @else{{ $grade }}@endif
+                            @else {{ $grade }} @endif
                         </td>
                     @endforeach
                     <td>{{ $displayNumber($studentCalc['total_marks']) }}</td>

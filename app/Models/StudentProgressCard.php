@@ -9,6 +9,7 @@ class StudentProgressCard extends Model
     protected $table = 'student_progress_cards';
 
     protected $fillable = [
+        'studentid',              // ← ADD THIS — canonical ERP key
         'pen', // Renamed from student_id
         'skill_id',
         'exam_master_id',

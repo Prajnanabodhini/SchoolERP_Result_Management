@@ -6,12 +6,22 @@ use App\Models\ExamStructure;
 use App\Models\Subject;
 use App\Models\Standard;
 use App\Models\StandardWiseSubject;
-use App\Helpers\ExamStructureHelper;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ExamStructureSeeder extends Seeder
 {
+    /* ============================================================
+     | 35% PASSING HELPER
+     * ============================================================ */
+    private function pct35($max): float
+    {
+        $max = (float) $max;
+        if ($max <= 0) return 0.0;
+        return (float) (int) ceil(round($max * 0.35, 6));
+    }
+
     public function run(): void
     {
         // 🚨 Truncate ONLY exam_structures
@@ -20,8 +30,52 @@ class ExamStructureSeeder extends Seeder
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         // =========================================================================
-        // 🧹 TARGETED CLEANUP BLOCK
+        // 🧹 TARGETED CLEANUP BLOCK & SAFE MERGE (PRESERVES MARKS)
         // =========================================================================
+        
+        // 1. Safely merge the Commerce typo into the correct subject
+        $typoNamesCom = [
+            'ORGANISATION OF COMMERCE & MANAGEMENT',
+            'ORGANISATION OF COMMERCE AND MANAGEMENT'
+        ];
+        $correctNameCom = 'ORGANIZATION OF COMMERCE AND MANAGEMENT';
+        $correctSubjCom = Subject::whereRaw('UPPER(TRIM(subject_name)) = ?', [$correctNameCom])->first();
+
+        if ($correctSubjCom) {
+            foreach ($typoNamesCom as $typoName) {
+                $typoSubj = Subject::whereRaw('UPPER(TRIM(subject_name)) = ?', [$typoName])->first();
+                if ($typoSubj && $typoSubj->id !== $correctSubjCom->id) {
+                    $this->mergeSubject($typoSubj->id, $correctSubjCom->id);
+                }
+            }
+        }
+
+        // 2. Safely merge the "GENRAL KNOWLEDGE" typo into the correct subject
+        $typoNameGK = 'GENRAL KNOWLEDGE';
+        $correctNameGK = 'GENERAL KNOWLEDGE';
+        $typoSubjGK = Subject::whereRaw('UPPER(TRIM(subject_name)) = ?', [$typoNameGK])->first();
+        $correctSubjGK = Subject::whereRaw('UPPER(TRIM(subject_name)) = ?', [$correctNameGK])->first();
+
+        if ($typoSubjGK && $correctSubjGK && $typoSubjGK->id !== $correctSubjGK->id) {
+            $this->mergeSubject($typoSubjGK->id, $correctSubjGK->id);
+        }
+
+        // 3. Delete completely invalid orphan subjects (WARNING: This will delete their marks)
+        $invalidSubjects = ['SOCIOLOGY1'];
+        foreach ($invalidSubjects as $invalidName) {
+            $subj = Subject::whereRaw('UPPER(TRIM(subject_name)) = ?', [strtoupper(trim($invalidName))])->first();
+            if ($subj) {
+                DB::table('standard_wise_subjects')->where('subject_id', $subj->id)->delete();
+                DB::table('exam_master_subjects')->where('subject_id', $subj->id)->delete();
+                DB::table('student_marks')->where('subject_id', $subj->id)->delete();
+                if (Schema::hasTable('student_result_details')) {
+                    DB::table('student_result_details')->where('subject_id', $subj->id)->delete();
+                }
+                DB::table('subjects')->where('id', $subj->id)->delete();
+            }
+        }
+
+        // 4. Clean up Computer Science for 11th/12th Science
         $sciStandardIds = Standard::whereIn(DB::raw('UPPER(TRIM(standard_name))'), [
             'ELEVENTH SCIENCE', 'TWELFTH SCIENCE', '11TH SCIENCE', '12TH SCIENCE', '11SCI', '12SCI'
         ])->pluck('id')->toArray();
@@ -34,16 +88,38 @@ class ExamStructureSeeder extends Seeder
             DB::table('student_marks')->where('subject_id', $csSubject->id)->whereIn('standard_id', $sciStandardIds)->delete();
         }
 
-        $invalidSubjects = ['SOCIOLOGY1'];
-        foreach ($invalidSubjects as $invalidName) {
-            $subj = Subject::whereRaw('UPPER(TRIM(subject_name)) = ?', [strtoupper(trim($invalidName))])->first();
-            if ($subj) {
-                DB::table('standard_wise_subjects')->where('subject_id', $subj->id)->delete();
-                DB::table('exam_master_subjects')->where('subject_id', $subj->id)->delete();
-                DB::table('student_marks')->where('subject_id', $subj->id)->delete();
-                if (\Schema::hasTable('student_result_details')) {
-                    DB::table('student_result_details')->where('subject_id', $subj->id)->delete();
-                }
+        // 5. Deduplicate standard_wise_subjects (Fixes duplicate display in UI)
+        $dupMappings = DB::table('standard_wise_subjects')
+            ->select('standard_id', DB::raw('UPPER(TRIM(subject_name)) as normalized_name'), DB::raw('MIN(id) as keep_id'))
+            ->groupBy('standard_id', DB::raw('UPPER(TRIM(subject_name))'))
+            ->havingRaw('COUNT(*) > 1')
+            ->get();
+
+        foreach ($dupMappings as $dup) {
+            DB::table('standard_wise_subjects')
+                ->where('standard_id', $dup->standard_id)
+                ->whereRaw('UPPER(TRIM(subject_name)) = ?', [$dup->normalized_name])
+                ->where('id', '!=', $dup->keep_id)
+                ->delete();
+        }
+
+        // 6. Deduplicate subjects with the exact same name (safely merge them)
+        // FIXED: Using UPPER(TRIM()) to catch case and spacing duplicates in the master subjects table
+        $dupSubjects = DB::table('subjects')
+            ->select(DB::raw('UPPER(TRIM(subject_name)) as normalized_name'), DB::raw('MIN(id) as keep_id'))
+            ->groupBy(DB::raw('UPPER(TRIM(subject_name))'))
+            ->havingRaw('COUNT(*) > 1')
+            ->get();
+
+        foreach ($dupSubjects as $dupSub) {
+            $typoIds = DB::table('subjects')
+                ->whereRaw('UPPER(TRIM(subject_name)) = ?', [$dupSub->normalized_name])
+                ->where('id', '!=', $dupSub->keep_id)
+                ->pluck('id')
+                ->toArray();
+            
+            foreach ($typoIds as $typoId) {
+                $this->mergeSubject($typoId, $dupSub->keep_id);
             }
         }
         // =========================================================================
@@ -97,7 +173,7 @@ class ExamStructureSeeder extends Seeder
             return null;
         };
 
-        // 🎯 MASTER SUBJECT MAPPING (IDs Removed to prevent conflicts)
+        // 🎯 MASTER SUBJECT MAPPING
         $masterSubjects = [
             'ENGLISH' => ['type' => 1], 'MARATHI' => ['type' => 1], 'HINDI' => ['type' => 1],
             'NUMERACY' => ['type' => 1], 'GENERAL KNOWLEDGE' => ['type' => 1], 'SANSKRIT' => ['type' => 1],
@@ -106,7 +182,7 @@ class ExamStructureSeeder extends Seeder
             'HISTORY' => ['type' => 1], 'GEOGRAPHY' => ['type' => 1], 'PHYSICS' => ['type' => 1],
             'CHEMISTRY' => ['type' => 1], 'BIOLOGY' => ['type' => 1], 'INFORMATION TECHNOLOGY' => ['type' => 1],
             'ACCOUNTS' => ['type' => 1], 'ECONOMICS' => ['type' => 1], 'ORGANIZATION OF COMMERCE AND MANAGEMENT' => ['type' => 1],
-            'ORGANISATION OF COMMERCE & MANAGEMENT' => ['type' => 1], 'SECRETARIAL PRACTICE' => ['type' => 1],
+            'SECRETARIAL PRACTICE' => ['type' => 1],
             'POLITICAL SCIENCE' => ['type' => 1], 'PSYCHOLOGY' => ['type' => 1], 'EVS1' => ['type' => 1],
             'EVS2' => ['type' => 1], 'SCIENCE' => ['type' => 1], 'CONVERSATION' => ['type' => 1],
             'ENVIRONMENTAL STUDIES' => ['type' => 1], 'POEM' => ['type' => 1], 'STORY' => ['type' => 1],
@@ -123,7 +199,7 @@ class ExamStructureSeeder extends Seeder
         ];
 
         // 🚀 SAFE SUBJECT CREATION & MAPPING HELPER
-        $ensureSubjectMapped = function ($standard, $subjectName, $isSkill = false) use ($masterSubjects) {
+        $ensureSubjectMapped = function ($standard, $subjectName, $isSkill = false, $sortOrder = 0) use ($masterSubjects) {
             $cleanName = strtoupper(trim($subjectName));
             $typeId    = $isSkill ? 2 : 1;
 
@@ -172,13 +248,22 @@ class ExamStructureSeeder extends Seeder
                 ]);
             }
 
+            // FIXED: Use case-insensitive and trimmed matching for existing mappings
             $mapping = StandardWiseSubject::where('standard_id', $standard->id)
-                ->where('subject_name', $subject->subject_name)
+                ->whereRaw('UPPER(TRIM(subject_name)) = ?', [strtoupper(trim($subject->subject_name))])
                 ->first();
 
             if ($mapping) {
+                $changed = false;
                 if ((int)$mapping->subject_id !== (int)$subject->id) {
                     $mapping->subject_id = $subject->id;
+                    $changed = true;
+                }
+                if ($sortOrder > 0 && $mapping->sort_order == 0) {
+                    $mapping->sort_order = $sortOrder;
+                    $changed = true;
+                }
+                if ($changed) {
                     $mapping->save();
                 }
             } else {
@@ -187,7 +272,7 @@ class ExamStructureSeeder extends Seeder
                     'subject_id'    => $subject->id,
                     'standard_name' => $standard->standard_name,
                     'subject_name'  => $subject->subject_name,
-                    'sort_order'    => 0,
+                    'sort_order'    => $sortOrder,
                     'is_optional'   => 0,
                     'is_active'     => 1,
                 ]);
@@ -203,21 +288,32 @@ class ExamStructureSeeder extends Seeder
             $isSkill = false,
             $skipRow = false
         ) use (&$rows, &$missingSubjects, $resolveStandard, $ensureSubjectMapped) {
-            
+
             $standard = $resolveStandard($stdKey);
             if (!$standard) return;
 
-            // ✅ CRITICAL FIX: Use the exact same Helper as the Controller
-            $sheetKey = class_exists('\App\Helpers\ExamStructureHelper') 
-                ? \App\Helpers\ExamStructureHelper::getStandardSheetKey($standard->standard_name) 
+            $sheetKey = class_exists('\App\Helpers\ExamStructureHelper')
+                ? \App\Helpers\ExamStructureHelper::getStandardSheetKey($standard->standard_name)
                 : $stdKey;
 
             if (empty($sheetKey)) {
                 $sheetKey = $stdKey;
             }
 
-            foreach ((array) $names as $n) {
-                $subject = $ensureSubjectMapped($standard, $n, $isSkill);
+            $tM = (float) $tM;
+            $oM = (float) $oM;
+            $pM = (float) $pM;
+
+            $tP = $this->pct35($tM);   
+            $oP = $this->pct35($oM);   
+            $pP = $this->pct35($pM);   
+
+            $totalMax  = $tM + $oM + $pM;
+            $totalPass = $this->pct35($totalMax); 
+
+            foreach ((array) $names as $index => $n) {
+                $sortOrder = ($index + 1) * 10;
+                $subject = $ensureSubjectMapped($standard, $n, $isSkill, $sortOrder);
 
                 if ($skipRow) continue;
 
@@ -226,24 +322,16 @@ class ExamStructureSeeder extends Seeder
                     continue;
                 }
 
-                $totalMax  = $tM + $oM + $pM;
-                $totalPass = $tP + $oP + $pP;
-                
-                $stdName = strtoupper($standard->standard_name);
-                $isHighSchool = preg_match('/\b(10|11|12|X|XI|XII|TENTH|ELEVENTH|TWELFTH|ARTS|SCIENCE|COMMERCE)\b/', $stdName);
-                
-                $passPct = $isHighSchool ? 35 : ($totalMax > 0 ? round(($totalPass / $totalMax) * 100) : 40);
-
                 $rows[] = [
-                    'standard_key'            => $sheetKey, // ✅ Matches Controller
+                    'standard_key'            => $sheetKey,
                     'standard_name'           => $standard->standard_name,
                     'exam_type'               => $et,
                     'exam_type_order'         => ExamStructure::EXAM_TYPE_ORDER[$et] ?? 0,
                     'subject_type'            => $isSkill ? 'Skill' : 'Academics',
-                    'subject_name'            => $n,
+                    'subject_name'            => strtoupper(trim($n)),
                     'subject_id'              => $subject->id,
                     'subject_code'            => $subject->subject_code ?? '',
-                    'display_order'           => 0,
+                    'display_order'           => $sortOrder,
                     'theory_max_marks'        => $tM,
                     'theory_passing_marks'    => $tP,
                     'oral_max_marks'          => $oM,
@@ -252,7 +340,7 @@ class ExamStructureSeeder extends Seeder
                     'practical_passing_marks' => $pP,
                     'total_max_marks'         => $totalMax,
                     'total_passing_marks'     => $totalPass,
-                    'passing_percentage'      => $passPct,
+                    'passing_percentage'      => 35,       
                     'is_compulsory'           => true,
                     'is_active'               => true,
                 ];
@@ -260,7 +348,7 @@ class ExamStructureSeeder extends Seeder
         };
 
         // =========================================================================
-        // EXACT REPLICA OF EXCEL SHEET
+        // EXACT REPLICA OF EXCEL SHEET — MAX MARKS ONLY.
         // =========================================================================
 
         // ── NURSERY ──
@@ -413,12 +501,24 @@ class ExamStructureSeeder extends Seeder
             $push($std, 'TERM 2', $arts, 80, 28, 20, 7, 0, 0);
         }
 
+        // =========================================================================
+        // 🧹 FINAL ROW DEDUPLICATION (Prevents exact duplicate rows in DB)
+        // =========================================================================
+        $uniqueRows = [];
+        foreach ($rows as $row) {
+            $key = $row['standard_key'] . '|' . $row['exam_type'] . '|' . $row['subject_id'];
+            if (!isset($uniqueRows[$key])) {
+                $uniqueRows[$key] = $row;
+            }
+        }
+        $rows = array_values($uniqueRows);
+
         // Insert rows in chunks
         foreach (array_chunk($rows, 500) as $chunk) {
             ExamStructure::insert($chunk);
         }
 
-        $this->command->info('Successfully inserted ' . count($rows) . ' exact replica exam-structure rows from Excel.');
+        $this->command->info('Successfully inserted ' . count($rows) . ' exam-structure rows (all passing marks = 35% of max).');
 
         if (!empty($missingSubjects)) {
             $this->command->warn('Unresolved (standard::subject) pairs — check `standards` table spellings:');
@@ -426,5 +526,148 @@ class ExamStructureSeeder extends Seeder
                 $this->command->warn('  • ' . $miss);
             }
         }
+    }
+
+    /**
+     * Helper to merge all data from a typo subject into the correct subject.
+     * Modified to prevent UniqueConstraintViolationException and Column Not Found errors.
+     */
+    private function mergeSubject($typoId, $correctId)
+    {
+        $typoSubject = DB::table('subjects')->where('id', $typoId)->first();
+        $correctSubject = DB::table('subjects')->where('id', $correctId)->first();
+
+        if (!$typoSubject || !$correctSubject) return;
+
+        // 1. Standard Mappings
+        $mappedStandards = DB::table('standard_wise_subjects')->where('subject_id', $correctId)->pluck('standard_id')->toArray();
+        DB::table('standard_wise_subjects')->where('subject_id', $typoId)->whereIn('standard_id', $mappedStandards)->delete();
+        DB::table('standard_wise_subjects')->where('subject_id', $typoId)->update(['subject_id' => $correctId]);
+
+        // 2. Exam Structures
+        if (Schema::hasTable('exam_structures') && Schema::hasColumn('exam_structures', 'subject_id')) {
+            $dupStructures = DB::table('exam_structures')->where('subject_id', $typoId)->get();
+            foreach ($dupStructures as $dupStruct) {
+                $masterExists = DB::table('exam_structures')
+                    ->where('standard_key', $dupStruct->standard_key)
+                    ->where('exam_type', $dupStruct->exam_type)
+                    ->where('subject_id', $correctId)
+                    ->exists();
+
+                if ($masterExists) {
+                    DB::table('exam_structures')->where('id', $dupStruct->id)->delete();
+                } else {
+                    DB::table('exam_structures')->where('id', $dupStruct->id)->update([
+                        'subject_id' => $correctId,
+                        'subject_name' => $correctSubject->subject_name,
+                        'subject_code' => $correctSubject->subject_code,
+                    ]);
+                }
+            }
+        }
+
+        // 3. Exam Master Subjects
+        if (Schema::hasTable('exam_master_subjects') && Schema::hasColumn('exam_master_subjects', 'subject_id')) {
+            $dupConfigs = DB::table('exam_master_subjects')->where('subject_id', $typoId)->get();
+            foreach ($dupConfigs as $config) {
+                $masterConfig = DB::table('exam_master_subjects')
+                    ->where('exam_master_id', $config->exam_master_id)
+                    ->where('subject_id', $correctId)
+                    ->first();
+                
+                if ($masterConfig) {
+                    DB::table('exam_master_subjects')->where('id', $config->id)->delete();
+                } else {
+                    DB::table('exam_master_subjects')->where('id', $config->id)->update(['subject_id' => $correctId]);
+                }
+            }
+        }
+
+        // 4. Student Marks (Safe merge to avoid unique constraint violation)
+        if (Schema::hasTable('student_marks') && Schema::hasColumn('student_marks', 'subject_id')) {
+            $typoMarks = DB::table('student_marks')->where('subject_id', $typoId)->get();
+            foreach ($typoMarks as $mark) {
+                // Build a query to find the corresponding record with the correct subject
+                $query = DB::table('student_marks')
+                    ->where('subject_id', $correctId)
+                    ->where('student_id', $mark->student_id);
+                
+                // Include other possible composite key columns to ensure we catch the exact duplicate
+                foreach (['exam_id', 'exam_master_id', 'academic_year_id', 'standard_id', 'section_id', 'division_id'] as $col) {
+                    if (property_exists($mark, $col) && $mark->$col !== null) {
+                        $query->where($col, $mark->$col);
+                    }
+                }
+
+                if ($query->exists()) {
+                    // If the correct record already exists, delete the duplicate typo record
+                    DB::table('student_marks')->where('id', $mark->id)->delete();
+                } else {
+                    // If no conflict, safely update the subject_id
+                    DB::table('student_marks')->where('id', $mark->id)->update(['subject_id' => $correctId]);
+                }
+            }
+        }
+
+        // 5. Teacher Allocations & Statuses
+        if (Schema::hasTable('teacher_subject_allocations') && Schema::hasColumn('teacher_subject_allocations', 'subject_id')) {
+            $dupAllocations = DB::table('teacher_subject_allocations')->where('subject_id', $typoId)->get();
+            
+            foreach ($dupAllocations as $dupAlloc) {
+                $masterAlloc = DB::table('teacher_subject_allocations')
+                    ->where('subject_id', $correctId)
+                    ->where('teacher_class_allocation_id', $dupAlloc->teacher_class_allocation_id)
+                    ->where('exam_master_id', $dupAlloc->exam_master_id)
+                    ->first();
+
+                if ($masterAlloc) {
+                    // Safely update student_marks referencing this allocation
+                    $typoAllocMarks = DB::table('student_marks')->where('teacher_subject_allocation_id', $dupAlloc->id)->get();
+                    foreach ($typoAllocMarks as $tm) {
+                        $markExists = DB::table('student_marks')
+                            ->where('teacher_subject_allocation_id', $masterAlloc->id)
+                            ->where('student_id', $tm->student_id)
+                            ->exists();
+                        if ($markExists) {
+                            DB::table('student_marks')->where('id', $tm->id)->delete();
+                        } else {
+                            DB::table('student_marks')->where('id', $tm->id)->update(['teacher_subject_allocation_id' => $masterAlloc->id]);
+                        }
+                    }
+
+                    // Safely update teacher_marks_status
+                    if (Schema::hasTable('teacher_marks_status')) {
+                        $typoStatuses = DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $dupAlloc->id)->get();
+                        foreach ($typoStatuses as $ts) {
+                            // Check if a status record already exists for the master allocation
+                            $statusExists = DB::table('teacher_marks_status')
+                                ->where('teacher_subject_allocation_id', $masterAlloc->id)
+                                ->exists();
+                                
+                            if ($statusExists) {
+                                DB::table('teacher_marks_status')->where('id', $ts->id)->delete();
+                            } else {
+                                DB::table('teacher_marks_status')->where('id', $ts->id)->update([
+                                    'teacher_subject_allocation_id' => $masterAlloc->id,
+                                    'subject_id' => $correctId
+                                ]);
+                            }
+                        }
+                    }
+
+                    // Finally delete the typo allocation
+                    DB::table('teacher_subject_allocations')->where('id', $dupAlloc->id)->delete();
+                } else {
+                    // No conflict, just update the subject ID on the allocation
+                    DB::table('teacher_subject_allocations')->where('id', $dupAlloc->id)->update(['subject_id' => $correctId]);
+                    if (Schema::hasTable('teacher_marks_status')) {
+                        DB::table('teacher_marks_status')->where('teacher_subject_allocation_id', $dupAlloc->id)->update(['subject_id' => $correctId]);
+                    }
+                }
+            }
+        }
+
+        // Finally, delete the duplicate subject completely
+        DB::table('subjects')->where('id', $typoId)->delete();
     }
 }
